@@ -58,6 +58,14 @@
           <span>Basic gross salary (EGP / month)</span>
           <input id="basicGross" inputmode="decimal" placeholder="min 5,500 (e.g. 6,000)" />
         </label>
+        <label class="field">
+          <span>Target net salary (EGP / month)</span>
+          <input id="targetNet" inputmode="decimal" placeholder="e.g. 15,000" />
+          <small class="hint">
+            Use this field only with <strong>Solve Basic Gross</strong>. The system will compute the basic gross salary that produces this net salary using the same tax and martyrs deduction rules.
+          </small>
+        </label>
+
 
         <label class="field">
           <span>Allowances (EGP / month)</span>
@@ -108,6 +116,7 @@
 
       <div class="actions">
         <button id="btnCalc" class="primary" type="button">Calculate</button>
+        <button id="btnSolve" class="secondary" type="button">Solve Basic Gross</button>
         <button id="btnReset" class="secondary" type="button">Reset</button>
       </div>
 

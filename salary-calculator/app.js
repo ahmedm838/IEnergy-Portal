@@ -185,6 +185,7 @@ function wireThousandsSeparators() {
   // Amount-like fields
   const amountFields = [
     "basicGross",
+    "targetNet",
     "allowances",
     "incentive",
     "bonus",
@@ -459,8 +460,155 @@ setText("overtimeValue", fmtEGP(overtimeValueMonthly));
 setText("hourDeductionValue", fmtEGP(hourDeductionValueMonthly));
 }
 
+
+function computeNetMonthlyForBasicGross(basicGross, p) {
+  const hourlyRate = basicGross / 240.0;
+  const overtimeValueMonthly = p.overtimeHours * hourlyRate * OVERTIME_MULTIPLIER;
+  const hourDeductionValueMonthly = p.deductionHours * hourlyRate;
+
+  const grossMonthly = basicGross + p.allowances + p.incentive + p.bonus + overtimeValueMonthly - hourDeductionValueMonthly;
+  const grossAfterMedicalMonthly = grossMonthly - p.medicalInsurance;
+
+  if (grossAfterMedicalMonthly < 0) {
+    return { ok: false, reason: "Gross after medical became negative. Please review hour deductions and medical insurance." };
+  }
+
+  const insurableUsed = p.insurableBase;
+  const siMonthly = insurableUsed * (DEFAULT_EMPLOYEE_SI_RATE_PCT / 100.0);
+
+  const martyrsMonthly = grossAfterMedicalMonthly * 0.0005;
+
+  const grossAnnual = grossMonthly * 12;
+  const medicalAnnual = p.medicalInsurance * 12;
+  const siAnnual = siMonthly * 12;
+
+  const taxableAnnual = Math.max(0, (grossAnnual - medicalAnnual - siAnnual - DEFAULT_PERSONAL_EXEMPTION_ANNUAL));
+  const taxAnnualRaw = calcAnnualTaxEG(taxableAnnual);
+  const taxAnnual = Number.isFinite(taxAnnualRaw) ? taxAnnualRaw : 0;
+  const taxMonthly = taxAnnual / 12;
+
+  const netBeforeLoan = grossMonthly - p.medicalInsurance - siMonthly - taxMonthly - martyrsMonthly;
+  const netMonthly = netBeforeLoan - p.advanceLoan;
+
+  return { ok: true, netMonthly };
+}
+
+function solveBasicGrossFromNet() {
+  const errs = [];
+
+  const targetNet = parseNumber($("targetNet").value);
+
+  const allowances = parseNumber($("allowances").value);
+  const incentive = parseNumber($("incentive").value);
+  const bonus = parseNumber($("bonus").value);
+
+  const overtimeHours = parseNumber($("overtimeHours").value);
+  const deductionHours = parseNumber($("deductionHours").value);
+
+  const medicalInsurance = parseNumber($("medicalInsurance").value);
+  const advanceLoan = parseNumber($("advanceLoan").value);
+
+  const insurableBase = parseNumber($("insurableBase").value);
+
+  validateNonNegative("Target net salary", targetNet, errs);
+
+  validateNonNegative("Allowances", allowances, errs);
+  validateNonNegative("Incentive", incentive, errs);
+  validateNonNegative("Bonus", bonus, errs);
+
+  validateNonNegative("Overtime hours", overtimeHours, errs);
+  validateNonNegative("Deduction hours", deductionHours, errs);
+
+  validateNonNegative("Medical insurance", medicalInsurance, errs);
+  validateNonNegative("Advance salary loan", advanceLoan, errs);
+
+  validateNonNegative("Insurable salary base", insurableBase, errs);
+  validateRangeInclusive("Insurable salary base", insurableBase, INSURABLE_BASE_MIN, INSURABLE_BASE_MAX, errs);
+
+  if (errs.length) {
+    clearResults();
+    showErrors(errs);
+    if (!Number.isFinite(targetNet)) {
+      try { $("targetNet").focus(); } catch (_) {}
+    } else if (!Number.isFinite(insurableBase) || insurableBase < INSURABLE_BASE_MIN || insurableBase > INSURABLE_BASE_MAX) {
+      try { $("insurableBase").focus(); } catch (_) {}
+    }
+    return;
+  }
+
+  const p = {
+    allowances,
+    incentive,
+    bonus,
+    overtimeHours,
+    deductionHours,
+    medicalInsurance,
+    advanceLoan,
+    insurableBase
+  };
+
+  // Enforce the minimum basic gross salary rule used by the forward calculator.
+  const MIN_BASIC_GROSS = 5500;
+
+  let low = MIN_BASIC_GROSS;
+  let high = Math.max(20000, targetNet * 2 + 50000);
+
+  const lowRes = computeNetMonthlyForBasicGross(low, p);
+  if (!lowRes.ok) {
+    clearResults();
+    showErrors([lowRes.reason]);
+    return;
+  }
+  if (lowRes.netMonthly > targetNet) {
+    clearResults();
+    showErrors([`Target net salary is too low. Even the minimum basic gross salary (${MIN_BASIC_GROSS.toLocaleString("en-US")} EGP) produces a higher net.`]);
+    return;
+  }
+
+  // Increase upper bound until we bracket the target.
+  let highRes = computeNetMonthlyForBasicGross(high, p);
+  let guard = 0;
+  while ((highRes.ok && highRes.netMonthly < targetNet) && high < 5000000 && guard < 40) {
+    high *= 1.5;
+    highRes = computeNetMonthlyForBasicGross(high, p);
+    guard += 1;
+  }
+  if (!highRes.ok) {
+    clearResults();
+    showErrors([highRes.reason]);
+    return;
+  }
+  if (highRes.netMonthly < targetNet) {
+    clearResults();
+    showErrors(["Unable to solve: target net salary is too high for the current inputs. Please review allowances/deductions or try a lower net."]);
+    return;
+  }
+
+  // Binary search for basicGross that yields targetNet.
+  let mid = low;
+  for (let i = 0; i < 50; i++) {
+    mid = (low + high) / 2;
+    const res = computeNetMonthlyForBasicGross(mid, p);
+    if (!res.ok) {
+      clearResults();
+      showErrors([res.reason]);
+      return;
+    }
+    const diff = res.netMonthly - targetNet;
+    if (Math.abs(diff) <= 0.5) break;
+    if (diff < 0) low = mid; else high = mid;
+  }
+
+  // Set the solved basic gross into the main input and run the regular calculation to show the full breakdown.
+  const solved = Math.round(mid);
+  $("basicGross").value = String(solved);
+  formatInputThousands($("basicGross"));
+  calculate();
+}
+
 function resetForm() {
   $("basicGross").value = "";
+  $("targetNet").value = "";
   $("allowances").value = "";
   $("incentive").value = "";
   $("bonus").value = "";
@@ -490,8 +638,10 @@ function initCalculatorBindings() {
   if (calculatorBindingsInitialized) return;
   calculatorBindingsInitialized = true;
   const btnCalc = $("btnCalc");
+  const btnSolve = $("btnSolve");
   const btnReset = $("btnReset");
   if (btnCalc) btnCalc.addEventListener("click", calculate);
+  if (btnSolve) btnSolve.addEventListener("click", solveBasicGrossFromNet);
   if (btnReset) btnReset.addEventListener("click", resetForm);
 
   // Apply thousands separators to all numeric inputs.
@@ -499,7 +649,7 @@ function initCalculatorBindings() {
 
   // Enter-to-calc handlers (includes all inputs)
   [
-    "basicGross","allowances","incentive","bonus",
+    "basicGross","targetNet","allowances","incentive","bonus",
     "overtimeHours","deductionHours",
     "medicalInsurance","advanceLoan",
     "insurableBase"
