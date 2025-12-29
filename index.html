@@ -3,55 +3,177 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="iEnergy internal tools portal" />
-  <title>iEnergy | Tools</title>
-  <link rel="stylesheet" href="home.css?v=1" />
+  <title>Salary Calculator</title>
+  <link rel="stylesheet" href="styles.css?v=15" />
 </head>
 <body>
-  <main class="container">
-    <header class="hero">
-      <div class="hero-text">
-        <div class="pill">Tools Portal</div>
-        <h1>iEnergy</h1>
-        <p class="tagline">Quick access to iEnergy internal applications and calculators.</p>
+  <div id="auth" class="auth">
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">← iEnergy Home</a>
+          <h1>Salary Calculator</h1>
+          <p>Please enter the password to continue.</p>
+        </div>
+        <img class="logo" src="../logo.jpg" alt="Company logo" />
       </div>
-      <img class="hero-logo" src="logo.jpg" alt="iEnergy logo" />
+
+      <label class="field">
+        <span>Password</span>
+        <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Enter password" />
+      </label>
+
+      <div class="auth-actions">
+        <button id="btnLogin" class="primary" type="button">Unlock</button>
+      </div>
+
+      <div id="authError" class="auth-error" hidden>Incorrect password.</div>
+
+      <p class="auth-note">
+        Note: This is a client-side password gate for convenience. It is not a substitute for real access control.
+      </p>
+    </div>
+  </div>
+<main id="app" class="container" hidden>
+    <header class="header">
+      <div class="header-bar">
+        <div id="headerText" class="header-text">
+          <a class="back-link" href="../index.html">← iEnergy Home</a>
+          <h1>Salary Calculator</h1>
+          <p class="sub">
+            Monthly inputs to Calculates Gross Salary, Additions, Deductions, and Net salary.
+          </p>
+        </div>
+        <img id="headerLogo" class="logo header-logo" src="../logo.jpg" alt="Company logo" />
+      </div>
     </header>
 
-    <section class="section">
-      <h2>Applications</h2>
-      <p class="section-sub">Select a tool to continue.</p>
+    <section class="card">
+      <h2>Inputs</h2>
 
-      <div class="tiles">
-        <a class="tile primary" href="salary-calculator/">
-          <div class="tile-title">Salary Calculator</div>
-          <div class="tile-desc">Calculate gross, tax, SI, and net salary.</div>
-        </a>
+      <div id="errorsTop" class="errors" hidden></div>
 
-        <a class="tile" href="coming-soon.html">
-          <div class="tile-title">HR Documents</div>
-          <div class="tile-desc">Templates, forms, and HR utilities.</div>
-        </a>
+      <div class="grid">
+        <label class="field">
+          <span>Basic gross salary (EGP / month)</span>
+          <input id="basicGross" inputmode="decimal" placeholder="min 5,500 (e.g. 6,000)" />
+        </label>
 
-        <a class="tile" href="coming-soon.html">
-          <div class="tile-title">Operations</div>
-          <div class="tile-desc">Dashboards and operational tools.</div>
-        </a>
+        <label class="field">
+          <span>Allowances (EGP / month)</span>
+          <input id="allowances" inputmode="decimal" placeholder="e.g. 700" />
+        </label>
 
-        <a class="tile" href="coming-soon.html">
-          <div class="tile-title">Contact</div>
-          <div class="tile-desc">Support and company contacts.</div>
-        </a>
+        <label class="field">
+          <span>Incentive (EGP / month)</span>
+          <input id="incentive" inputmode="decimal" placeholder="e.g. 300" />
+        </label>
+
+        <label class="field">
+          <span>Bonus (EGP / month)</span>
+          <input id="bonus" inputmode="decimal" placeholder="e.g. 500" />
+          <small class="hint">Bonus granted this month</small>
+        </label>
+
+        <label class="field">
+          <span>Overtime hours (per month)</span>
+          <input id="overtimeHours" inputmode="decimal" placeholder="e.g. 12" />
+          <small class="hint">Overtime value = (Hour rate) × overtime hours × 1.5</small>
+        </label>
+
+        <label class="field">
+          <span>Deduction hours (per month)</span>
+          <input id="deductionHours" inputmode="decimal" placeholder="e.g. 4" />
+          <small class="hint">Deduction value = (Hour rate) × deduction hours</small>
+        </label>
+
+        <label class="field">
+          <span>Medical insurance (EGP / month)</span>
+          <input id="medicalInsurance" inputmode="decimal" placeholder="e.g. 250" />
+          <small class="hint">Deducted from gross salary.</small>
+        </label>
+
+        <label class="field">
+          <span>Advance salary loan (EGP / month)</span>
+          <input id="advanceLoan" inputmode="decimal" placeholder="e.g. 500" />
+          <small class="hint">Deducted from net salary.</small>
+        </label>
+
+        <label class="field">
+          <span>Insurable salary base (EGP / month)</span>
+          <input id="insurableBase" inputmode="decimal" placeholder="min 5,500 (e.g. 5,500)" />
+          <small class="hint">Basic social insurance wage.</small>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="btnCalc" class="primary" type="button">Calculate</button>
+        <button id="btnReset" class="secondary" type="button">Reset</button>
+      </div>
+
+        
+
+<div class="results" aria-live="polite">
+  <div class="kpi">
+    <div class="label">Gross after medical (monthly)</div>
+    <div class="value" id="grossMonthly">—</div>
+  </div>
+
+  <div class="kpi">
+    <div class="label">Employee SI deduction (monthly)</div>
+    <div class="value" id="siMonthly">—</div>
+  </div>
+
+  <div class="kpi">
+    <div class="label">Salary tax (monthly)</div>
+    <div class="value" id="taxMonthly">—</div>
+  </div>
+
+  <div class="kpi">
+    <div class="label">Martyrs deduction (monthly)</div>
+    <div class="value" id="martyrsMonthly">—</div>
+  </div>
+
+  <div class="kpi">
+    <div class="label">Advance salary loan (monthly)</div>
+    <div class="value" id="advanceMonthly">—</div>
+  </div>
+
+  <div class="kpi net">
+    <div class="label">Net salary (monthly)</div>
+    <div class="value" id="netMonthly">—</div>
+  </div>
+</div>
+
+
+      <hr />
+
+      <div class="breakdown">
+        <h3>Breakdown</h3>
+        <dl>
+          <div><dt>Gross salary (annual)</dt><dd id="grossAnnual">—</dd></div>
+          <div><dt>Gross after medical (annual)</dt><dd id="grossAfterMedicalAnnual">—</dd></div>
+
+          <div><dt>Insurable base used</dt><dd id="insurableUsed">—</dd></div>
+
+          <div><dt>Employee SI deduction (annual)</dt><dd id="siAnnual">—</dd></div>
+          <div><dt>Company SI (annual, employer cost)</dt><dd id="companySiAnnual">—</dd></div>
+
+          <div><dt>Taxable income (annual)</dt><dd id="taxableAnnual">—</dd></div>
+          <div><dt>Salary tax (annual)</dt><dd id="taxAnnual">—</dd></div>
+
+          <div><dt>Hourly rate (Basic/240)</dt><dd id="hourlyRate">—</dd></div>
+          <div><dt>Overtime value (monthly)</dt><dd id="overtimeValue">—</dd></div>
+          <div><dt>Hour deductions (monthly)</dt><dd id="hourDeductionValue">—</dd></div>
+</dl>
       </div>
     </section>
 
     <footer class="footer">
-      <small>© <span id="year"></span> iEnergy. Internal use.</small>
+      <small>Built for GitHub Pages (static site).</small>
     </footer>
   </main>
 
-  <script>
-    document.getElementById('year').textContent = String(new Date().getFullYear());
-  </script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
