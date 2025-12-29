@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Salary query - lookup employee salary basics" />
+  <title>iEnergy | Salary Query</title>
+  <link rel="stylesheet" href="../home.css?v=2" />
+  <link rel="stylesheet" href="salary-query.css?v=1" />
+</head>
+<body>
+  <main class="container">
+    <header class="hero hero-compact">
+      <div class="hero-text">
+        <div class="pill">HR Tool</div>
+        <h1>Salary Query</h1>
+        <p class="tagline">Lookup employee basic data by employee code.</p>
+        <div class="top-actions">
+          <a class="link" href="../">← iEnergy Home</a>
+        </div>
+      </div>
+      <img class="hero-logo hero-logo-compact" src="../logo.jpg" alt="iEnergy logo" />
+    </header>
+
+    <section class="section">
+      <h2>Lookup</h2>
+      <p class="section-sub">Enter the employee code, then press Search.</p>
+
+      <div class="card">
+        <div class="row">
+          <label class="label" for="empCode">Employee Code</label>
+          <input id="empCode" class="input" inputmode="numeric" autocomplete="off" placeholder="e.g., 10235" />
+          <button id="btnSearch" class="btn">Search</button>
+        </div>
+
+        <div id="status" class="status" aria-live="polite"></div>
+
+        <div id="result" class="result hidden">
+          <div class="result-grid">
+            <div class="result-item">
+              <div class="k">Name</div>
+              <div class="v" id="rName">—</div>
+            </div>
+            <div class="result-item">
+              <div class="k">Position</div>
+              <div class="v" id="rPosition">—</div>
+            </div>
+            <div class="result-item">
+              <div class="k">Hiring Date</div>
+              <div class="v" id="rHiringDate">—</div>
+            </div>
+            <div class="result-item">
+              <div class="k">Basic Gross Salary</div>
+              <div class="v" id="rBasicGross">—</div>
+            </div>
+            <div class="result-item">
+              <div class="k">Basic Social Insurance Salary</div>
+              <div class="v" id="rBasicSI">—</div>
+            </div>
+          </div>
+        </div>
+
+        <details class="hint">
+          <summary>Excel file format</summary>
+          <p>
+            This page reads <code>data/employees.xlsx</code>. Replace it with your own file while keeping the first sheet
+            with these headers (row 1): <code>EmployeeCode</code>, <code>Name</code>, <code>Position</code>,
+            <code>HiringDate</code>, <code>BasicGrossSalary</code>, <code>BasicSocialInsuranceSalary</code>.
+          </p>
+        </details>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <small>© <span id="year"></span> iEnergy. Internal use.</small>
+    </footer>
+  </main>
+
+  <!-- SheetJS (XLSX) for reading Excel in the browser -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.2/dist/xlsx.full.min.js"></script>
+  <script src="salary-query.js?v=1"></script>
+  <script>
+    document.getElementById('year').textContent = String(new Date().getFullYear());
+  </script>
+</body>
+</html>
