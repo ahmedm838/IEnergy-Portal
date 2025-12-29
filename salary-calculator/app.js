@@ -427,7 +427,7 @@ function calculate() {
   const advanceAnnual = advanceLoan * 12;
 
   // Taxable income: Gross annual minus medical (deductible), employee SI, and personal exemption
-  const taxableAnnual = Math.max(0, (grossAnnual - medicalAnnual - siAnnual - personalExemption));
+  const taxableAnnual = Math.max(0, (((basicGross + allowances) * 12) - medicalAnnual - siAnnual - personalExemption));
   const taxAnnualRaw = calcAnnualTaxEG(taxableAnnual);
   const taxAnnual = Number.isFinite(taxAnnualRaw) ? taxAnnualRaw : 0;
   const taxMonthly = taxAnnual / 12;
@@ -484,7 +484,7 @@ function computeNetMonthlyForBasicGross(basicGross, p) {
   const medicalAnnual = p.medicalInsurance * 12;
   const siAnnual = siMonthly * 12;
 
-  const taxableAnnual = Math.max(0, (grossAnnual - medicalAnnual - siAnnual - DEFAULT_PERSONAL_EXEMPTION_ANNUAL));
+  const taxableAnnual = Math.max(0, (((basicGross + p.allowances) * 12) - medicalAnnual - siAnnual - DEFAULT_PERSONAL_EXEMPTION_ANNUAL));
   const taxAnnualRaw = calcAnnualTaxEG(taxableAnnual);
   const taxAnnual = Number.isFinite(taxAnnualRaw) ? taxAnnualRaw : 0;
   const taxMonthly = taxAnnual / 12;
