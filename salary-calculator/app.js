@@ -123,6 +123,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 const OVERTIME_MULTIPLIER = 1.5;
 
+// Social insurance (employee insurable wage base) accepted range.
+// Requirement: any value outside this range must show an error and stop calculation.
+const INSURABLE_BASE_MIN = 5500;
+const INSURABLE_BASE_MAX = 16700;
+
 // Default parameters (not user-editable in UI)
 const DEFAULT_EMPLOYEE_SI_RATE_PCT = 11;
 const DEFAULT_COMPANY_SI_RATE_PCT = 18.75;
@@ -286,6 +291,18 @@ function validateMin(name, n, min, errs) {
   if (n < min) errs.push(`${name} must be at least ${min.toLocaleString("en-US")} EGP.`);
 }
 
+function validateMax(name, n, max, errs) {
+  if (!Number.isFinite(n)) return;
+  if (n > max) errs.push(`${name} must be at most ${max.toLocaleString("en-US")} EGP.`);
+}
+
+function validateRangeInclusive(name, n, min, max, errs) {
+  if (!Number.isFinite(n)) return;
+  if (n < min || n > max) {
+    errs.push(`${name} must be between ${min.toLocaleString("en-US")} and ${max.toLocaleString("en-US")} EGP.`);
+  }
+}
+
 function showErrors(errs) {
   const boxes = [$("errorsTop"), $("errors")].filter(Boolean);
 
@@ -349,7 +366,8 @@ function calculate() {
   validateNonNegative("Advance salary loan", advanceLoan, errs);
 
   validateNonNegative("Insurable salary base", insurableBase, errs);
-  validateMin("Insurable salary base", insurableBase, 5500, errs);
+  // Insurable base must be strictly within the allowed band; do NOT auto-clamp.
+  validateRangeInclusive("Insurable salary base", insurableBase, INSURABLE_BASE_MIN, INSURABLE_BASE_MAX, errs);
   const siRatePct = DEFAULT_EMPLOYEE_SI_RATE_PCT;
   const companySiRatePct = DEFAULT_COMPANY_SI_RATE_PCT;
   const personalExemption = DEFAULT_PERSONAL_EXEMPTION_ANNUAL;
@@ -362,7 +380,7 @@ function calculate() {
     // Focus the most relevant field
     if (!Number.isFinite(basicGross) || basicGross < 5500) {
       try { $("basicGross").focus(); } catch (_) {}
-    } else if (!Number.isFinite(insurableBase) || insurableBase < 5500) {
+    } else if (!Number.isFinite(insurableBase) || insurableBase < INSURABLE_BASE_MIN || insurableBase > INSURABLE_BASE_MAX) {
       try { $("insurableBase").focus(); } catch (_) {}
     }
     return;
