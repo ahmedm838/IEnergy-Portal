@@ -543,9 +543,10 @@ function solveBasicGrossSection() {
   // Enforce the same minimum basic gross salary rule used by the forward calculator.
   const MIN_BASIC_GROSS = 5500;
 
-  // We solve for the BASIC gross salary that produces the user's target net salary
-  // (the target net salary is already the total net paid, including allowances).
-  const targetNetTotal = targetNet;
+  // We solve for the BASIC gross salary that produces a total net paid equal to:
+  // (Target net salary + Allowances).
+  // This matches the requirement that the basic gross net after deductions equals the sum of target net and allowances.
+  const targetNetTotal = targetNet + allowances;
 
   let low = MIN_BASIC_GROSS;
   let high = Math.max(20000, targetNetTotal * 2 + 50000);
