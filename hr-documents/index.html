@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="iEnergy HR documents" />
+  <title>iEnergy | HR Documents</title>
+  <link rel="stylesheet" href="../home.css?v=2" />
+  <style>
+    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; }
+    .list { margin:0; padding-left:18px; color:rgba(233,238,252,0.85); }
+    .list li { margin:8px 0; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <div class="top">
+      <div>
+        <div class="pill">HR</div>
+        <h1 style="margin:10px 0 6px;">HR Documents</h1>
+        <p class="tagline">Central place for HR templates and policies.</p>
+      </div>
+      <a class="back" href="../">← Back</a>
+    </div>
+
+    <section class="section">
+      <h2>Templates and policies</h2>
+      <p class="section-sub">Add PDF/DOCX files to this folder and replace the links below.</p>
+      <ul class="list">
+        <li>Leave Request Form (leave-request.pdf)</li>
+        <li>Overtime Approval Form (overtime-approval.pdf)</li>
+        <li>Employee Onboarding Checklist (onboarding-checklist.pdf)</li>
+        <li>Disciplinary Notice Template (disciplinary-notice.docx)</li>
+        <li>HR Policies Index (hr-policies.pdf)</li>
+      </ul>
+    </section>
+
+    <footer class="footer">
+      <small>© <span id="year"></span> iEnergy. Internal use.</small>
+    </footer>
+  </main>
+
+  <script>
+    document.getElementById('year').textContent = String(new Date().getFullYear());
+  </script>
+</body>
+</html>
