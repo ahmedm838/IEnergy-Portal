@@ -1,12 +1,6 @@
 "use strict";
 
-const PASSWORD  $("solveTargetNet").value = "";
-  $("solveInsurableBase").value = "";
-  $("solveAllowances").value = "";
-  $("solveOutBasicGross").value = "";
-  $("solveOutTax").value = "";
-  $("solveOutNet").value = "";
- = "iEnergy";
+const PASSWORD = "iEnergy";
 const AUTH_KEY = "salary_calc_authed_v1";
 const AUTH_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -622,6 +616,15 @@ function resetForm() {
   $("advanceLoan").value = "";
 
   $("insurableBase").value = "";
+
+  // Reset Basic Gross from Net section
+  $("solveTargetNet").value = "";
+  $("solveInsurableBase").value = "";
+  $("solveAllowances").value = "";
+  $("solveOutBasicGross").value = "";
+  $("solveOutTax").value = "";
+  $("solveOutNet").value = "";
+
 
   [
     "grossMonthly","siMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
