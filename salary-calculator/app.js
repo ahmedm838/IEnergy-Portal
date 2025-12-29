@@ -556,9 +556,9 @@ function solveBasicGrossSection() {
     showErrorsIn("errorsSolve", [lowRes.reason]);
     return;
   }
-  if (lowRes.netMonthly > targetNetTotal) {
+  if (targetNetTotal < MIN_BASIC_GROSS) {
     showErrorsIn("errorsSolve", [
-      `Target net salary is too low. Even the minimum basic gross salary (${MIN_BASIC_GROSS.toLocaleString("en-US")} EGP) produces a higher net.`
+      `Target net salary is too low. The sum of target net salary and allowances must be at least ${MIN_BASIC_GROSS.toLocaleString("en-US")} EGP.`
     ]);
     return;
   }
