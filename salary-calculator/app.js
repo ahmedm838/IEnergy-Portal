@@ -514,10 +514,6 @@ function solveBasicGrossSection() {
   const allowances = parseNumber($("solveAllowances").value);
   const insurableBase = parseNumber($("solveInsurableBase").value);
 
-  // Requirement: allowances are part of the taxable salary. For the reverse calculation, treat the
-  // user's intended take-home as (target net salary + allowances).
-  const targetNetTotal = targetNet + allowances;
-
   validateNonNegative("Target net salary", targetNet, errs);
   validateNonNegative("Allowances", allowances, errs);
   validateNonNegative("Insurable salary base", insurableBase, errs);
@@ -547,6 +543,10 @@ function solveBasicGrossSection() {
   // Enforce the same minimum basic gross salary rule used by the forward calculator.
   const MIN_BASIC_GROSS = 5500;
 
+  // We solve for the BASIC gross salary that produces the user's target net salary
+  // (the target net salary is already the total net paid, including allowances).
+  const targetNetTotal = targetNet;
+
   let low = MIN_BASIC_GROSS;
   let high = Math.max(20000, targetNetTotal * 2 + 50000);
 
@@ -557,7 +557,7 @@ function solveBasicGrossSection() {
   }
   if (lowRes.netMonthly > targetNetTotal) {
     showErrorsIn("errorsSolve", [
-      `Target total net (target net salary + allowances) is too low. Even the minimum basic gross salary (${MIN_BASIC_GROSS.toLocaleString("en-US")} EGP) produces a higher net.`
+      `Target net salary is too low. Even the minimum basic gross salary (${MIN_BASIC_GROSS.toLocaleString("en-US")} EGP) produces a higher net.`
     ]);
     return;
   }
@@ -576,36 +576,76 @@ function solveBasicGrossSection() {
   }
   if (highRes.netMonthly < targetNetTotal) {
     showErrorsIn("errorsSolve", [
-      "Unable to solve: target total net (target net salary + allowances) is too high given the current assumptions. Please review allowances or try a lower net."
+      "Unable to solve: target net salary is too high given the current assumptions. Please review allowances or try a lower net."
     ]);
     return;
   }
 
-  // Binary search for basicGross that yields the total target net.
+  // Bisection solve (monotonic in basic gross). Keep high precision, then pick the best 0.01 candidate.
+  const TOL = 0.01; // EGP
   let mid = low;
-  for (let i = 0; i < 60; i++) {
+
+  for (let i = 0; i < 90; i++) {
     mid = (low + high) / 2;
     const res = computeNetMonthlyForBasicGross(mid, p);
     if (!res.ok) {
       showErrorsIn("errorsSolve", [res.reason]);
       return;
     }
+
     const diff = res.netMonthly - targetNetTotal;
-    if (Math.abs(diff) <= 0.5) break;
+    if (Math.abs(diff) <= TOL) break;
     if (diff < 0) low = mid; else high = mid;
+
+    // If bounds are already within a piastre, stop.
+    if ((high - low) <= 0.005) break;
   }
 
-  const solved = Math.round(mid);
-  const finalRes = computeNetMonthlyForBasicGross(solved, p);
-  if (!finalRes.ok) {
-    showErrorsIn("errorsSolve", [finalRes.reason]);
+  // Candidate selection at 0.01 EGP resolution (to keep displayed net aligned to target after rounding).
+  const snap2 = (x) => Math.round(x * 100) / 100;
+  const floor2 = (x) => Math.floor(x * 100) / 100;
+  const ceil2 = (x) => Math.ceil(x * 100) / 100;
+
+  const candidates = Array.from(new Set([
+    snap2(mid),
+    floor2(mid),
+    ceil2(mid),
+    snap2(low),
+    snap2(high)
+  ])).filter((x) => Number.isFinite(x) && x >= MIN_BASIC_GROSS);
+
+  let bestGross = candidates[0] ?? snap2(mid);
+  let bestRes = computeNetMonthlyForBasicGross(bestGross, p);
+  if (!bestRes.ok) {
+    showErrorsIn("errorsSolve", [bestRes.reason]);
     return;
   }
+  let bestAbs = Math.abs(bestRes.netMonthly - targetNetTotal);
 
-  $("solveOutBasicGross").value = fmtNumber(solved, 0);
-  $("solveOutTax").value = fmtNumber(finalRes.taxMonthly, 2);
-  $("solveOutNet").value = fmtNumber(finalRes.netMonthly, 2);
+  for (let i = 1; i < candidates.length; i++) {
+    const g = candidates[i];
+    const r = computeNetMonthlyForBasicGross(g, p);
+    if (!r.ok) continue;
+    const a = Math.abs(r.netMonthly - targetNetTotal);
+    if (a < bestAbs) {
+      bestAbs = a;
+      bestGross = g;
+      bestRes = r;
+    }
+  }
+
+  $("solveOutBasicGross").value = fmtNumber(bestGross, 2);
+  $("solveOutTax").value = fmtNumber(bestRes.taxMonthly, 2);
+  $("solveOutNet").value = fmtNumber(bestRes.netMonthly, 2);
+
+  // If we still have a small mismatch (e.g., due to rounding preferences), show a gentle note.
+  if (bestAbs > 1) {
+    showErrorsIn("errorsSolve", [
+      `Note: the closest match found differs from the target by ${fmtNumber(bestAbs, 2)} EGP. If your payroll rounds tax/SI differently, please share the rounding rule and we can align it.`
+    ]);
+  }
 }
+
 
 
 function resetForm() {
