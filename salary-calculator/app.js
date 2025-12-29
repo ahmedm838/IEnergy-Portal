@@ -581,69 +581,48 @@ function solveBasicGrossSection() {
     return;
   }
 
-  // Bisection solve (monotonic in basic gross). Keep high precision, then pick the best 0.01 candidate.
-  const TOL = 0.01; // EGP
-  let mid = low;
+  // Higher-accuracy solve:
+  // Search on 0.01 EGP steps (piastres) and pick the closest match to the target net.
+  // This eliminates drift that can appear when we later format the basic gross for display.
 
-  for (let i = 0; i < 90; i++) {
-    mid = (low + high) / 2;
-    const res = computeNetMonthlyForBasicGross(mid, p);
+  const toCents = (x) => Math.round(x * 100);
+  const fromCents = (c) => c / 100;
+
+  let lo = toCents(low);
+  let hi = toCents(high);
+
+  for (let i = 0; i < 120 && lo < hi; i++) {
+    const mid = Math.floor((lo + hi) / 2);
+    const res = computeNetMonthlyForBasicGross(fromCents(mid), p);
     if (!res.ok) {
       showErrorsIn("errorsSolve", [res.reason]);
       return;
     }
-
-    const diff = res.netMonthly - targetNetTotal;
-    if (Math.abs(diff) <= TOL) break;
-    if (diff < 0) low = mid; else high = mid;
-
-    // If bounds are already within a piastre, stop.
-    if ((high - low) <= 0.005) break;
+    if (res.netMonthly < targetNetTotal) lo = mid + 1;
+    else hi = mid;
   }
 
-  // Candidate selection at 0.01 EGP resolution (to keep displayed net aligned to target after rounding).
-  const snap2 = (x) => Math.round(x * 100) / 100;
-  const floor2 = (x) => Math.floor(x * 100) / 100;
-  const ceil2 = (x) => Math.ceil(x * 100) / 100;
+  const candidates = [];
+  const window = 500; // +/- 5.00 EGP
+  const start = Math.max(toCents(MIN_BASIC_GROSS), lo - window);
+  const end = lo + window;
+  for (let c = start; c <= end; c++) {
+    const g = fromCents(c);
+    const r = computeNetMonthlyForBasicGross(g, p);
+    if (r.ok) candidates.push({ g, ...r, diff: Math.abs(r.netMonthly - targetNetTotal) });
+  }
 
-  const candidates = Array.from(new Set([
-    snap2(mid),
-    floor2(mid),
-    ceil2(mid),
-    snap2(low),
-    snap2(high)
-  ])).filter((x) => Number.isFinite(x) && x >= MIN_BASIC_GROSS);
-
-  let bestGross = candidates[0] ?? snap2(mid);
-  let bestRes = computeNetMonthlyForBasicGross(bestGross, p);
-  if (!bestRes.ok) {
-    showErrorsIn("errorsSolve", [bestRes.reason]);
+  if (!candidates.length) {
+    showErrorsIn("errorsSolve", ["Unable to solve due to invalid intermediate values."]);
     return;
   }
-  let bestAbs = Math.abs(bestRes.netMonthly - targetNetTotal);
 
-  for (let i = 1; i < candidates.length; i++) {
-    const g = candidates[i];
-    const r = computeNetMonthlyForBasicGross(g, p);
-    if (!r.ok) continue;
-    const a = Math.abs(r.netMonthly - targetNetTotal);
-    if (a < bestAbs) {
-      bestAbs = a;
-      bestGross = g;
-      bestRes = r;
-    }
-  }
+  candidates.sort((a, b) => a.diff - b.diff || a.g - b.g);
+  const best = candidates[0];
 
-  $("solveOutBasicGross").value = fmtNumber(bestGross, 2);
-  $("solveOutTax").value = fmtNumber(bestRes.taxMonthly, 2);
-  $("solveOutNet").value = fmtNumber(bestRes.netMonthly, 2);
-
-  // If we still have a small mismatch (e.g., due to rounding preferences), show a gentle note.
-  if (bestAbs > 1) {
-    showErrorsIn("errorsSolve", [
-      `Note: the closest match found differs from the target by ${fmtNumber(bestAbs, 2)} EGP. If your payroll rounds tax/SI differently, please share the rounding rule and we can align it.`
-    ]);
-  }
+  $("solveOutBasicGross").value = fmtNumber(best.g, 2);
+  $("solveOutTax").value = fmtNumber(best.taxMonthly, 2);
+  $("solveOutNet").value = fmtNumber(best.netMonthly, 2);
 }
 
 
