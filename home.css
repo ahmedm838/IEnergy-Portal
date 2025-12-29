@@ -137,3 +137,17 @@ body {
   margin-top: 14px;
   color: rgba(233,238,252,0.55);
 }
+
+
+/* --- Password gate (shared) --- */
+.lock-box{max-width:520px;margin:0 auto;}
+.lock-title{margin:10px 0 6px;font-size:18px;}
+.lock-sub{margin:0 0 14px;color:var(--muted);line-height:1.45;}
+.lock-form{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+.lock-field{flex:1 1 280px;}
+.lock-field label{display:block;margin:0 0 6px;color:rgba(233,238,252,0.80);font-size:13px;}
+.lock-input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.03);color:var(--text);outline:none;}
+.lock-input:focus{border-color:rgba(47,107,255,0.60);}
+.lock-btn{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border-radius:12px;border:1px solid rgba(47,107,255,0.45);background:rgba(47,107,255,0.12);color:var(--text);cursor:pointer;font-weight:750;}
+.lock-btn:hover{border-color:rgba(47,107,255,0.65);background:rgba(47,107,255,0.16);}
+.lock-msg{margin-top:12px;color:rgba(255,180,180,0.95);font-size:13px;line-height:1.4;}
