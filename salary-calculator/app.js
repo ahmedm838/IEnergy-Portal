@@ -514,6 +514,10 @@ function solveBasicGrossSection() {
   const allowances = parseNumber($("solveAllowances").value);
   const insurableBase = parseNumber($("solveInsurableBase").value);
 
+  // Requirement: allowances are part of the taxable salary. For the reverse calculation, treat the
+  // user's intended take-home as (target net salary + allowances).
+  const targetNetTotal = targetNet + allowances;
+
   validateNonNegative("Target net salary", targetNet, errs);
   validateNonNegative("Allowances", allowances, errs);
   validateNonNegative("Insurable salary base", insurableBase, errs);
@@ -544,16 +548,16 @@ function solveBasicGrossSection() {
   const MIN_BASIC_GROSS = 5500;
 
   let low = MIN_BASIC_GROSS;
-  let high = Math.max(20000, targetNet * 2 + 50000);
+  let high = Math.max(20000, targetNetTotal * 2 + 50000);
 
   const lowRes = computeNetMonthlyForBasicGross(low, p);
   if (!lowRes.ok) {
     showErrorsIn("errorsSolve", [lowRes.reason]);
     return;
   }
-  if (lowRes.netMonthly > targetNet) {
+  if (lowRes.netMonthly > targetNetTotal) {
     showErrorsIn("errorsSolve", [
-      `Target net salary is too low. Even the minimum basic gross salary (${MIN_BASIC_GROSS.toLocaleString("en-US")} EGP) produces a higher net.`
+      `Target total net (target net salary + allowances) is too low. Even the minimum basic gross salary (${MIN_BASIC_GROSS.toLocaleString("en-US")} EGP) produces a higher net.`
     ]);
     return;
   }
@@ -561,7 +565,7 @@ function solveBasicGrossSection() {
   // Increase upper bound until we bracket the target.
   let highRes = computeNetMonthlyForBasicGross(high, p);
   let guard = 0;
-  while ((highRes.ok && highRes.netMonthly < targetNet) && high < 5000000 && guard < 40) {
+  while ((highRes.ok && highRes.netMonthly < targetNetTotal) && high < 5000000 && guard < 40) {
     high *= 1.5;
     highRes = computeNetMonthlyForBasicGross(high, p);
     guard += 1;
@@ -570,14 +574,14 @@ function solveBasicGrossSection() {
     showErrorsIn("errorsSolve", [highRes.reason]);
     return;
   }
-  if (highRes.netMonthly < targetNet) {
+  if (highRes.netMonthly < targetNetTotal) {
     showErrorsIn("errorsSolve", [
-      "Unable to solve: target net salary is too high given the current assumptions. Please review allowances or try a lower net."
+      "Unable to solve: target total net (target net salary + allowances) is too high given the current assumptions. Please review allowances or try a lower net."
     ]);
     return;
   }
 
-  // Binary search for basicGross that yields targetNet.
+  // Binary search for basicGross that yields the total target net.
   let mid = low;
   for (let i = 0; i < 60; i++) {
     mid = (low + high) / 2;
@@ -586,7 +590,7 @@ function solveBasicGrossSection() {
       showErrorsIn("errorsSolve", [res.reason]);
       return;
     }
-    const diff = res.netMonthly - targetNet;
+    const diff = res.netMonthly - targetNetTotal;
     if (Math.abs(diff) <= 0.5) break;
     if (diff < 0) low = mid; else high = mid;
   }
