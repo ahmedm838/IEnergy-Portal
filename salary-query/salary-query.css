@@ -109,3 +109,20 @@
 
 
 .muted { opacity: 0.85; }
+
+/* Auth gate */
+.auth-card {
+  margin-top: 10px;
+}
+.auth-card h2 {
+  margin: 0 0 6px 0;
+  font-size: 1.15rem;
+}
+.row-auth {
+  margin-top: 10px;
+}
+
+/* Improve spacing for nested cards (file upload fallback inside main card) */
+#queryApp > .card > .card {
+  margin-top: 14px;
+}
