@@ -1,0 +1,128 @@
+/* Salary Query page extensions (inherits home.css) */
+
+.hero-compact {
+  padding: 22px 22px;
+  align-items: flex-start;
+}
+
+.hero-logo-compact {
+  width: 140px;
+  height: auto;
+  align-self: flex-start;
+}
+
+.top-actions { margin-top: 10px; }
+
+.link {
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.9;
+}
+.link:hover { text-decoration: underline; opacity: 1; }
+
+.card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.label {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.18);
+  color: inherit;
+  outline: none;
+}
+
+.input:focus {
+  border-color: rgba(255,255,255,0.35);
+}
+
+.btn {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.08);
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { background: rgba(255,255,255,0.12); }
+
+.status {
+  margin-top: 10px;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.result {
+  margin-top: 14px;
+  border-top: 1px dashed rgba(255,255,255,0.18);
+  padding-top: 14px;
+}
+
+.hidden { display: none; }
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.result-item {
+  background: rgba(0,0,0,0.16);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.k { font-size: 0.85rem; opacity: 0.8; margin-bottom: 6px; }
+.v { font-size: 1.02rem; font-weight: 600; }
+
+.hint {
+  margin-top: 12px;
+  opacity: 0.9;
+}
+.hint summary { cursor: pointer; }
+.hint code { padding: 0 6px; }
+
+@media (max-width: 780px) {
+  .row { grid-template-columns: 1fr; }
+  .btn { width: 100%; }
+  .result-grid { grid-template-columns: 1fr; }
+}
+
+
+.muted { opacity: 0.85; }
+
+/* Auth gate */
+.auth-card {
+  margin-top: 10px;
+}
+.auth-card h2 {
+  margin: 0 0 6px 0;
+  font-size: 1.15rem;
+}
+.row-auth {
+  margin-top: 10px;
+}
+
+/* Improve spacing for nested cards (file upload fallback inside main card) */
+#queryApp > .card > .card {
+  margin-top: 14px;
+}
