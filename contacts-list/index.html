@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Contacts list - lookup company contacts by name" />
+  <title>iEnergy | Contacts List</title>
+
+  <link rel="stylesheet" href="../home.css?v=2" />
+  <link rel="stylesheet" href="contacts-list.css?v=1" />
+</head>
+<body>
+  <main class="container">
+    <header class="hero hero-compact">
+      <div class="hero-text">
+        <div class="pill">Directory</div>
+        <h1>Contacts List</h1>
+        <p class="tagline">Search by name to view contact details.</p>
+        <div class="top-actions">
+          <a class="link" href="../">← iEnergy Home</a>
+        </div>
+      </div>
+      <img class="hero-logo hero-logo-compact" src="../logo.jpg" alt="iEnergy logo" />
+    </header>
+
+    <section class="section">
+      <h2>Search</h2>
+      <p class="section-sub">Start typing a name, then select from the suggestions.</p>
+
+      <div class="card">
+        <div class="row">
+          <div class="field">
+            <label class="label" for="nameInput">Employee Name</label>
+            <input class="input" id="nameInput" type="text" inputmode="text" placeholder="Type a name..." list="nameSuggestions" autocomplete="off" />
+            <datalist id="nameSuggestions"></datalist>
+            <div class="hint" id="hintMsg">Loading contacts…</div>
+          </div>
+          <div class="field field-actions">
+            <button class="btn" id="clearBtn" type="button">Clear</button>
+          </div>
+        </div>
+
+        <div class="matches" id="matches" hidden></div>
+
+        <div class="result" id="result" hidden>
+          <div class="result-header">
+            <div>
+              <div class="result-name" id="rName">—</div>
+              <div class="result-title" id="rTitle">—</div>
+            </div>
+            <div class="badge" id="rCode">Code: —</div>
+          </div>
+
+          <div class="result-grid">
+            <div class="kv">
+              <div class="k">Mobile</div>
+              <div class="v" id="rMobile">—</div>
+            </div>
+            <div class="kv">
+              <div class="k">Email</div>
+              <div class="v" id="rEmail">—</div>
+            </div>
+            <div class="kv">
+              <div class="k">Office</div>
+              <div class="v" id="rOffice">—</div>
+            </div>
+          </div>
+        </div>
+
+        <details class="details">
+          <summary>Data source</summary>
+          <p class="muted">
+            This page reads <code>data/contacts-list.xlsx</code> from the repository.
+            If the site cannot fetch it from GitHub Pages, upload the Excel file here as a fallback.
+          </p>
+
+          <div class="row">
+            <div class="field">
+              <label class="label" for="excelFile">Select .xlsx</label>
+              <input class="input" id="excelFile" type="file" accept=".xlsx" />
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <small>© <span id="year"></span> iEnergy. Internal use.</small>
+    </footer>
+  </main>
+
+  <script>
+    document.getElementById('year').textContent = String(new Date().getFullYear());
+  </script>
+
+  <!-- SheetJS (XLSX) loader with CDN fallbacks -->
+  <script>
+  (function() {
+    const CDN_LIST = [
+      'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+      'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+      'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+    ];
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    async function ensureXLSX() {
+      if (window.XLSX) return true;
+      for (const url of CDN_LIST) {
+        try {
+          await loadScript(url);
+          if (window.XLSX) return true;
+        } catch (e) {}
+      }
+      return false;
+    }
+
+    window.__ensureXLSX = ensureXLSX;
+  })();
+  </script>
+
+  <script src="contacts-list.js?v=1"></script>
+</body>
+</html>
