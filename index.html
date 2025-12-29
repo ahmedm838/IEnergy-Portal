@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="iEnergy internal tools portal" />
+  <title>iEnergy | Tools</title>
+  <link rel="stylesheet" href="home.css?v=1" />
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div class="hero-text">
+        <div class="pill">Tools Portal</div>
+        <h1>iEnergy</h1>
+        <p class="tagline">Quick access to iEnergy internal applications and calculators.</p>
+      </div>
+      <img class="hero-logo" src="logo.jpg" alt="iEnergy logo" />
+    </header>
+
+    <section class="section">
+      <h2>Applications</h2>
+      <p class="section-sub">Select a tool to continue.</p>
+
+      <div class="tiles">
+        <a class="tile primary" href="salary-calculator/">
+          <div class="tile-title">Salary Calculator</div>
+          <div class="tile-desc">Calculate gross, tax, SI, and net salary.</div>
+        </a>
+
+        <a class="tile" href="coming-soon.html">
+          <div class="tile-title">HR Documents</div>
+          <div class="tile-desc">Templates, forms, and HR utilities.</div>
+        </a>
+
+        <a class="tile" href="coming-soon.html">
+          <div class="tile-title">Operations</div>
+          <div class="tile-desc">Dashboards and operational tools.</div>
+        </a>
+
+        <a class="tile" href="coming-soon.html">
+          <div class="tile-title">Contact</div>
+          <div class="tile-desc">Support and company contacts.</div>
+        </a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <small>© <span id="year"></span> iEnergy. Internal use.</small>
+    </footer>
+  </main>
+
+  <script>
+    document.getElementById('year').textContent = String(new Date().getFullYear());
+  </script>
+</body>
+</html>
