@@ -1,124 +1,277 @@
-<!DOCTYPE html>
-
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width,initial-scale=1" name="viewport"/>
-<meta content="Salary query - lookup employee salary basics" name="description"/>
-<title>iEnergy | Salary Query</title>
-<link href="../home.css?v=2" rel="stylesheet"/>
-<link href="salary-query.css?v=2" rel="stylesheet"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="iEnergy salary query" />
+  <title>iEnergy | Salary Query</title>
+  <link rel="stylesheet" href="../home.css?v=2" />
+  <style>
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+    .field { flex: 1 1 260px; }
+    label { display:block; margin: 0 0 6px; color: rgba(233,238,252,0.80); font-size: 13px; }
+    input[type="text"] {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      outline: none;
+    }
+    input[type="text"]:focus { border-color: rgba(47,107,255,0.60); }
+    .btn {
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(47,107,255,0.45);
+      background: rgba(47,107,255,0.12);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .note { margin: 10px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+    .result {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: rgba(255,255,255,0.03);
+    }
+    .kv { display:grid; grid-template-columns: 220px 1fr; gap: 10px; }
+    .k { color: rgba(233,238,252,0.70); }
+    .v { font-weight: 700; }
+    @media (max-width: 640px) {
+      .kv { grid-template-columns: 1fr; }
+    }
+    .alert { margin-top: 10px; color: rgba(255,180,180,0.95); }
+    .ok { margin-top: 10px; color: rgba(190,255,210,0.90); }
+  </style>
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-<main class="container">
-<header class="hero hero-compact">
-<div class="hero-text">
-<div class="pill">HR Tool</div>
-<h1>Salary Query</h1>
-<p class="tagline">Lookup employee basic data by employee code.</p>
-<div class="top-actions">
-<a class="link" href="../">← iEnergy Home</a>
-</div>
-</div>
-<img alt="iEnergy logo" class="hero-logo hero-logo-compact" src="../logo.jpg"/>
-</header>
-<section class="section">
-<h2>Lookup</h2>
-<p class="section-sub">Enter the employee code, then press Search.</p><div class="card auth-card" id="authGate"><h2>Password Required</h2><p class="muted">Enter the password to access Salary Query. The session stays unlocked for 10 minutes.</p><div class="row row-auth"><label class="label" for="sqPassword">Password</label><input autocomplete="current-password" class="input" id="sqPassword" placeholder="•••••••" type="password"/><button class="btn" id="sqUnlock">Unlock</button></div><div aria-live="polite" class="status" id="sqAuthMsg"></div></div><div class="hidden" id="queryApp"><div class="card">
-<div class="row">
-<label class="label" for="empCode">Employee Code</label>
-<input autocomplete="off" class="input" id="empCode" inputmode="numeric" placeholder="e.g., 10235"/>
-<button class="btn" id="btnSearch">Search</button>
-</div>
-<div aria-live="polite" class="status" id="status"></div>
-<div class="card hidden" id="fileFallback">
-<h3>Excel file source</h3>
-<p class="muted">If the site cannot fetch <code>data/employees.xlsx</code> from GitHub Pages, upload the file here as a fallback.</p>
-<div class="row">
-<label class="label" for="excelFile">Select .xlsx</label>
-<input accept=".xlsx" class="input" id="excelFile" type="file"/>
-</div>
-<p class="hint">Expected headers in row 1: <code>EmployeeCode</code>, <code>Name</code>, <code>Position</code>, <code>HiringDate</code>, <code>BasicGrossSalary</code>, <code>BasicSocialInsuranceSalary</code>.</p>
-</div>
-<div class="result hidden" id="result">
-<div class="result-grid">
-<div class="result-item">
-<div class="k">Name</div>
-<div class="v" id="rName">—</div>
-</div>
-<div class="result-item">
-<div class="k">Position</div>
-<div class="v" id="rPosition">—</div>
-</div>
-<div class="result-item">
-<div class="k">Hiring Date</div>
-<div class="v" id="rHiringDate">—</div>
-</div>
-<div class="result-item">
-<div class="k">Basic Gross Salary</div>
-<div class="v" id="rBasicGross">—</div>
-</div>
-<div class="result-item">
-<div class="k">Basic Social Insurance Salary</div>
-<div class="v" id="rBasicSI">—</div>
-</div>
-</div>
-</div>
-</div></div>
+  <main class="container">
+    <header class="hero">
+      <div class="hero-text">
+        <div class="pill">Application</div>
+        <h1>Salary Query</h1>
+        <p class="tagline">Lookup employee basics by employee code (from <code>data/employees.xlsx</code>).</p>
+        <p style="margin:12px 0 0;"><a class="tile" style="display:inline-block;padding:10px 12px;" href="../index.html">← Back to Home</a></p>
+      </div>
+      <img class="hero-logo" src="../logo.jpg" alt="iEnergy logo" />
+    </header>
 
-</section>
-<footer class="footer">
-<small>© <span id="year"></span> iEnergy. Internal use.</small>
-</footer>
-</main>
-<!-- SheetJS (XLSX) loader with CDN fallbacks -->
-<script>
-    (function() {
-      const SOURCES = [
-        // Authoritative CDN (recommended by SheetJS CE docs)
-        'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
-        // Fallbacks (may be older)
-        'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-        'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
-      ];
+    <section class="section">
+      <h2>Search</h2>
+      <p class="section-sub">Enter the employee code exactly as registered.</p>
 
-      function loadScript(src) {
-        return new Promise((resolve, reject) => {
-          const s = document.createElement('script');
-          s.src = src;
-          s.async = true;
-          s.onload = () => resolve(src);
-          s.onerror = () => reject(new Error('Failed to load ' + src));
-          document.head.appendChild(s);
-        });
+      <div class="row">
+        <div class="field">
+          <label for="empCode">Employee Code</label>
+          <input id="empCode" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g., 10023" />
+        </div>
+        <button id="btnSearch" class="btn" type="button">Search</button>
+      </div>
+      <p class="note" id="status"></p>
+      <div id="alert" class="alert" style="display:none;"></div>
+      <div id="ok" class="ok" style="display:none;"></div>
+      <div id="result" class="result" style="display:none;"></div>
+    </section>
+
+    <footer class="footer">
+      <small>© <span id="year"></span> iEnergy. Internal use.</small>
+    </footer>
+  </main>
+
+  <script>
+    document.getElementById('year').textContent = String(new Date().getFullYear());
+
+    const $ = (id) => document.getElementById(id);
+    const nf = new Intl.NumberFormat('en-US');
+
+    let employeesCache = null; // { records: [], map: {field->header} }
+
+    function normalizeHeader(s) {
+      return String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    }
+
+    function pickHeader(headers, candidates) {
+      const byNorm = new Map();
+      for (const h of headers) byNorm.set(normalizeHeader(h), h);
+      for (const c of candidates) {
+        const k = normalizeHeader(c);
+        if (byNorm.has(k)) return byNorm.get(k);
+      }
+      // fuzzy contains
+      for (const c of candidates) {
+        const k = normalizeHeader(c);
+        for (const [hn, raw] of byNorm.entries()) {
+          if (hn.includes(k) || k.includes(hn)) return raw;
+        }
+      }
+      return null;
+    }
+
+    function formatMaybeNumber(v) {
+      if (v === null || v === undefined || v === '') return '-';
+      if (typeof v === 'number' && Number.isFinite(v)) return nf.format(v);
+      // numeric strings
+      const asNum = Number(String(v).replace(/,/g, ''));
+      if (!Number.isNaN(asNum) && String(v).trim() !== '') return nf.format(asNum);
+      return String(v);
+    }
+
+    function formatDate(v) {
+      if (v === null || v === undefined || v === '') return '-';
+      if (v instanceof Date && !isNaN(v.getTime())) {
+        const y = v.getFullYear();
+        const m = String(v.getMonth() + 1).padStart(2, '0');
+        const d = String(v.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      // Excel serial
+      if (typeof v === 'number' && Number.isFinite(v) && window.XLSX?.SSF?.parse_date_code) {
+        const dc = XLSX.SSF.parse_date_code(v);
+        if (dc && dc.y && dc.m && dc.d) {
+          const y = dc.y;
+          const m = String(dc.m).padStart(2, '0');
+          const d = String(dc.d).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        }
+      }
+      return String(v);
+    }
+
+    async function loadEmployees() {
+      if (employeesCache) return employeesCache;
+      if (!window.XLSX) throw new Error('XLSX library failed to load.');
+
+      $('status').textContent = 'Loading employees.xlsx…';
+      $('alert').style.display = 'none';
+      $('ok').style.display = 'none';
+
+      const resp = await fetch('../data/employees.xlsx', { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`Failed to load employees.xlsx (HTTP ${resp.status}).`);
+      const buf = await resp.arrayBuffer();
+
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      const sheetName = wb.SheetNames[0];
+      if (!sheetName) throw new Error('employees.xlsx has no worksheets.');
+
+      const ws = wb.Sheets[sheetName];
+      const records = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
+      if (!records.length) throw new Error('employees.xlsx has no data rows.');
+
+      const headers = Object.keys(records[0]);
+
+      const map = {
+        code: pickHeader(headers, ['Employee Code', 'Emp Code', 'EmpCode', 'Code', 'EmployeeID', 'ID', 'employee_code']),
+        name: pickHeader(headers, ['Name', 'Employee Name', 'Full Name', 'Employee']),
+        position: pickHeader(headers, ['Position', 'Job Title', 'Title', 'Designation', 'Role']),
+        hireDate: pickHeader(headers, ['Hiring Date', 'Hire Date', 'Joining Date', 'Start Date']),
+        basicGross: pickHeader(headers, ['Basic Gross Salary', 'Basic Gross', 'Gross Basic', 'Basic Salary']),
+        basicSI: pickHeader(headers, ['Basic Social Insurance Salary', 'Basic SI Salary', 'Insurable Salary', 'Social Insurance Salary', 'Basic Insurable Salary'])
+      };
+
+      employeesCache = { records, map, sheetName };
+      $('status').textContent = `Loaded ${records.length} records from sheet “${sheetName}”.`;
+      return employeesCache;
+    }
+
+    function showAlert(msg) {
+      $('alert').textContent = msg;
+      $('alert').style.display = 'block';
+      $('ok').style.display = 'none';
+    }
+
+    function showOk(msg) {
+      $('ok').textContent = msg;
+      $('ok').style.display = 'block';
+      $('alert').style.display = 'none';
+    }
+
+    function hideMessages() {
+      $('alert').style.display = 'none';
+      $('ok').style.display = 'none';
+    }
+
+    function getField(row, header) {
+      if (!header) return '';
+      return row?.[header] ?? '';
+    }
+
+    async function handleSearch() {
+      hideMessages();
+      $('result').style.display = 'none';
+
+      const codeIn = String($('empCode').value ?? '').trim();
+      if (!codeIn) {
+        showAlert('Please enter an employee code.');
+        return;
       }
 
-      function loadApp() {
-        const s = document.createElement('script');
-        s.src = 'salary-query.js?v=3';
-        s.defer = true;
-        document.body.appendChild(s);
-      }
+      $('btnSearch').disabled = true;
+      try {
+        const { records, map } = await loadEmployees();
 
-      (async function() {
-        for (const src of SOURCES) {
-          try {
-            await loadScript(src);
-            if (window.XLSX) {
-              loadApp();
-              return;
-            }
-          } catch (e) {
-            // try next
-          }
+        if (!map.code) {
+          showAlert('Could not detect the “Employee Code” column in employees.xlsx. Please verify the header name.');
+          return;
         }
 
-        // If nothing worked, still load the app so it can show the user-facing error message
-        loadApp();
-      })();
-    })();
+        const codeNorm = codeIn.toLowerCase();
+        const hit = records.find(r => String(getField(r, map.code)).trim().toLowerCase() === codeNorm);
 
-    document.getElementById('year').textContent = String(new Date().getFullYear());
+        if (!hit) {
+          showAlert(`No employee found for code: ${codeIn}`);
+          return;
+        }
+
+        const name = getField(hit, map.name);
+        const position = getField(hit, map.position);
+        const hireDate = getField(hit, map.hireDate);
+        const basicGross = getField(hit, map.basicGross);
+        const basicSI = getField(hit, map.basicSI);
+
+        const warnings = [];
+        for (const [k, v] of Object.entries(map)) {
+          if (!v) warnings.push(k);
+        }
+        if (warnings.length) {
+          showOk('Record found. Note: some columns were not detected automatically; update your header names if needed.');
+        } else {
+          showOk('Record found.');
+        }
+
+        $('result').innerHTML = `
+          <div class="kv">
+            <div class="k">Employee Code</div><div class="v">${codeIn}</div>
+            <div class="k">Name</div><div class="v">${name || '-'}</div>
+            <div class="k">Position</div><div class="v">${position || '-'}</div>
+            <div class="k">Hiring Date</div><div class="v">${formatDate(hireDate)}</div>
+            <div class="k">Basic Gross Salary</div><div class="v">${formatMaybeNumber(basicGross)}</div>
+            <div class="k">Basic Social Insurance Salary</div><div class="v">${formatMaybeNumber(basicSI)}</div>
+          </div>
+        `;
+        $('result').style.display = 'block';
+      } catch (e) {
+        showAlert(e?.message ? String(e.message) : 'Unexpected error while loading employees.xlsx');
+        $('status').textContent = '';
+      } finally {
+        $('btnSearch').disabled = false;
+      }
+    }
+
+    $('btnSearch').addEventListener('click', handleSearch);
+    $('empCode').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSearch();
+      }
+    });
   </script>
 </body>
 </html>
