@@ -1,6 +1,12 @@
 "use strict";
 
-const PASSWORD = "iEnergy";
+const PASSWORD  $("solveTargetNet").value = "";
+  $("solveInsurableBase").value = "";
+  $("solveAllowances").value = "";
+  $("solveOutBasicGross").value = "";
+  $("solveOutTax").value = "";
+  $("solveOutNet").value = "";
+ = "iEnergy";
 const AUTH_KEY = "salary_calc_authed_v1";
 const AUTH_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -185,8 +191,10 @@ function wireThousandsSeparators() {
   // Amount-like fields
   const amountFields = [
     "basicGross",
-    "targetNet",
-    "allowances",
+    "solveTargetNet",
+    "solveAllowances",
+    "solveInsurableBase",
+        "allowances",
     "incentive",
     "bonus",
     "medicalInsurance",
@@ -490,64 +498,55 @@ function computeNetMonthlyForBasicGross(basicGross, p) {
   const netBeforeLoan = grossMonthly - p.medicalInsurance - siMonthly - taxMonthly - martyrsMonthly;
   const netMonthly = netBeforeLoan - p.advanceLoan;
 
-  return { ok: true, netMonthly };
+  return { ok: true, netMonthly, taxMonthly, martyrsMonthly, siMonthly, grossMonthly, grossAfterMedicalMonthly };
 }
 
-function solveBasicGrossFromNet() {
+function showErrorsIn(containerId, messages) {
+  const box = $(containerId);
+  if (!box) return;
+  if (!messages || !messages.length) {
+    box.hidden = true;
+    box.innerHTML = "";
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = "<ul>" + messages.map((m) => `<li>${m}</li>`).join("") + "</ul>";
+}
+
+function solveBasicGrossSection() {
   const errs = [];
 
-  const targetNet = parseNumber($("targetNet").value);
-
-  const allowances = parseNumber($("allowances").value);
-  const incentive = parseNumber($("incentive").value);
-  const bonus = parseNumber($("bonus").value);
-
-  const overtimeHours = parseNumber($("overtimeHours").value);
-  const deductionHours = parseNumber($("deductionHours").value);
-
-  const medicalInsurance = parseNumber($("medicalInsurance").value);
-  const advanceLoan = parseNumber($("advanceLoan").value);
-
-  const insurableBase = parseNumber($("insurableBase").value);
+  const targetNet = parseNumber($("solveTargetNet").value);
+  const allowances = parseNumber($("solveAllowances").value);
+  const insurableBase = parseNumber($("solveInsurableBase").value);
 
   validateNonNegative("Target net salary", targetNet, errs);
-
   validateNonNegative("Allowances", allowances, errs);
-  validateNonNegative("Incentive", incentive, errs);
-  validateNonNegative("Bonus", bonus, errs);
-
-  validateNonNegative("Overtime hours", overtimeHours, errs);
-  validateNonNegative("Deduction hours", deductionHours, errs);
-
-  validateNonNegative("Medical insurance", medicalInsurance, errs);
-  validateNonNegative("Advance salary loan", advanceLoan, errs);
-
   validateNonNegative("Insurable salary base", insurableBase, errs);
   validateRangeInclusive("Insurable salary base", insurableBase, INSURABLE_BASE_MIN, INSURABLE_BASE_MAX, errs);
 
   if (errs.length) {
-    clearResults();
-    showErrors(errs);
-    if (!Number.isFinite(targetNet)) {
-      try { $("targetNet").focus(); } catch (_) {}
-    } else if (!Number.isFinite(insurableBase) || insurableBase < INSURABLE_BASE_MIN || insurableBase > INSURABLE_BASE_MAX) {
-      try { $("insurableBase").focus(); } catch (_) {}
-    }
+    $("solveOutBasicGross").value = "";
+    $("solveOutTax").value = "";
+    $("solveOutNet").value = "";
+    showErrorsIn("errorsSolve", errs);
     return;
   }
 
+  showErrorsIn("errorsSolve", []);
+
   const p = {
     allowances,
-    incentive,
-    bonus,
-    overtimeHours,
-    deductionHours,
-    medicalInsurance,
-    advanceLoan,
+    incentive: 0,
+    bonus: 0,
+    overtimeHours: 0,
+    deductionHours: 0,
+    medicalInsurance: 0,
+    advanceLoan: 0,
     insurableBase
   };
 
-  // Enforce the minimum basic gross salary rule used by the forward calculator.
+  // Enforce the same minimum basic gross salary rule used by the forward calculator.
   const MIN_BASIC_GROSS = 5500;
 
   let low = MIN_BASIC_GROSS;
@@ -555,13 +554,13 @@ function solveBasicGrossFromNet() {
 
   const lowRes = computeNetMonthlyForBasicGross(low, p);
   if (!lowRes.ok) {
-    clearResults();
-    showErrors([lowRes.reason]);
+    showErrorsIn("errorsSolve", [lowRes.reason]);
     return;
   }
   if (lowRes.netMonthly > targetNet) {
-    clearResults();
-    showErrors([`Target net salary is too low. Even the minimum basic gross salary (${MIN_BASIC_GROSS.toLocaleString("en-US")} EGP) produces a higher net.`]);
+    showErrorsIn("errorsSolve", [
+      `Target net salary is too low. Even the minimum basic gross salary (${MIN_BASIC_GROSS.toLocaleString("en-US")} EGP) produces a higher net.`
+    ]);
     return;
   }
 
@@ -574,24 +573,23 @@ function solveBasicGrossFromNet() {
     guard += 1;
   }
   if (!highRes.ok) {
-    clearResults();
-    showErrors([highRes.reason]);
+    showErrorsIn("errorsSolve", [highRes.reason]);
     return;
   }
   if (highRes.netMonthly < targetNet) {
-    clearResults();
-    showErrors(["Unable to solve: target net salary is too high for the current inputs. Please review allowances/deductions or try a lower net."]);
+    showErrorsIn("errorsSolve", [
+      "Unable to solve: target net salary is too high given the current assumptions. Please review allowances or try a lower net."
+    ]);
     return;
   }
 
   // Binary search for basicGross that yields targetNet.
   let mid = low;
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 60; i++) {
     mid = (low + high) / 2;
     const res = computeNetMonthlyForBasicGross(mid, p);
     if (!res.ok) {
-      clearResults();
-      showErrors([res.reason]);
+      showErrorsIn("errorsSolve", [res.reason]);
       return;
     }
     const diff = res.netMonthly - targetNet;
@@ -599,17 +597,21 @@ function solveBasicGrossFromNet() {
     if (diff < 0) low = mid; else high = mid;
   }
 
-  // Set the solved basic gross into the main input and run the regular calculation to show the full breakdown.
   const solved = Math.round(mid);
-  $("basicGross").value = String(solved);
-  formatInputThousands($("basicGross"));
-  calculate();
+  const finalRes = computeNetMonthlyForBasicGross(solved, p);
+  if (!finalRes.ok) {
+    showErrorsIn("errorsSolve", [finalRes.reason]);
+    return;
+  }
+
+  $("solveOutBasicGross").value = fmtNumber(solved, 0);
+  $("solveOutTax").value = fmtNumber(finalRes.taxMonthly, 2);
+  $("solveOutNet").value = fmtNumber(finalRes.netMonthly, 2);
 }
 
+
 function resetForm() {
-  $("basicGross").value = "";
-  $("targetNet").value = "";
-  $("allowances").value = "";
+  $("basicGross").value = "";  $("allowances").value = "";
   $("incentive").value = "";
   $("bonus").value = "";
 
@@ -637,22 +639,21 @@ function resetForm() {
 function initCalculatorBindings() {
   if (calculatorBindingsInitialized) return;
   calculatorBindingsInitialized = true;
-  const btnCalc = $("btnCalc");
-  const btnSolve = $("btnSolve");
-  const btnReset = $("btnReset");
-  if (btnCalc) btnCalc.addEventListener("click", calculate);
-  if (btnSolve) btnSolve.addEventListener("click", solveBasicGrossFromNet);
-  if (btnReset) btnReset.addEventListener("click", resetForm);
+  const btnCalc = $("btnCalc");  const btnReset = $("btnReset");
+  const btnSolveGross = $("btnSolveGross");
+  if (btnCalc) btnCalc.addEventListener("click", calculate);  if (btnReset) btnReset.addEventListener("click", resetForm);
+  if (btnSolveGross) btnSolveGross.addEventListener("click", solveBasicGrossSection);
 
   // Apply thousands separators to all numeric inputs.
   wireThousandsSeparators();
 
   // Enter-to-calc handlers (includes all inputs)
   [
-    "basicGross","targetNet","allowances","incentive","bonus",
+    "basicGross","allowances","incentive","bonus",
     "overtimeHours","deductionHours",
     "medicalInsurance","advanceLoan",
-    "insurableBase"
+    "insurableBase",
+    "solveTargetNet","solveInsurableBase","solveAllowances"
   ].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
