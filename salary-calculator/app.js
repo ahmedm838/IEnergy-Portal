@@ -426,8 +426,9 @@ function calculate() {
   const martyrsAnnual = martyrsMonthly * 12;
   const advanceAnnual = advanceLoan * 12;
 
-  // Taxable income: Gross annual minus medical (deductible), employee SI, and personal exemption
-  const taxableAnnual = Math.max(0, (((basicGross + allowances) * 12) - medicalAnnual - siAnnual - personalExemption));
+  // Taxable income: Gross after medical (annual) minus employee SI (annual) minus personal exemption.
+  // Requirement: taxable salary = Gross after medical (annual) - Employee SI (annual) - 20,000.
+  const taxableAnnual = Math.max(0, (grossAfterMedicalAnnual - siAnnual - personalExemption));
   const taxAnnualRaw = calcAnnualTaxEG(taxableAnnual);
   const taxAnnual = Number.isFinite(taxAnnualRaw) ? taxAnnualRaw : 0;
   const taxMonthly = taxAnnual / 12;
@@ -481,10 +482,11 @@ function computeNetMonthlyForBasicGross(basicGross, p) {
   const martyrsMonthly = grossAfterMedicalMonthly * 0.0005;
 
   const grossAnnual = grossMonthly * 12;
-  const medicalAnnual = p.medicalInsurance * 12;
+  const grossAfterMedicalAnnual = grossAfterMedicalMonthly * 12;
   const siAnnual = siMonthly * 12;
 
-  const taxableAnnual = Math.max(0, (((basicGross + p.allowances) * 12) - medicalAnnual - siAnnual - DEFAULT_PERSONAL_EXEMPTION_ANNUAL));
+  // Taxable income follows the same rule as the forward calculator.
+  const taxableAnnual = Math.max(0, (grossAfterMedicalAnnual - siAnnual - DEFAULT_PERSONAL_EXEMPTION_ANNUAL));
   const taxAnnualRaw = calcAnnualTaxEG(taxableAnnual);
   const taxAnnual = Number.isFinite(taxAnnualRaw) ? taxAnnualRaw : 0;
   const taxMonthly = taxAnnual / 12;
