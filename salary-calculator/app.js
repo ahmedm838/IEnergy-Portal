@@ -1,17 +1,17 @@
 "use strict";
 
-const PASSWORD = "iEnergy";
-const AUTH_KEY = "salary_calc_authed_v1";
-const AUTH_TTL_MS = 10 * 60 * 1000; // 10 minutes
+// NOTE: Salary Calculator is intentionally NOT password-protected.
+// Access control is handled at the portal level (main page) and other tools where required.
 
 let headerLogoHandlersBound = false;
+
+function $(id) { return document.getElementById(id); }
 
 function syncHeaderLogoHeight() {
   const text = $("headerText");
   const logo = $("headerLogo");
   if (!text || !logo) return;
 
-  // If the app is hidden, layout metrics will be zero.
   const rect = text.getBoundingClientRect();
   const h = Math.round(rect.height);
   if (h > 0) {
@@ -21,104 +21,21 @@ function syncHeaderLogoHeight() {
   }
 }
 
-function $(id) { return document.getElementById(id); }
-
-function showAuthError(show) {
-  const el = $("authError");
-  if (!el) return;
-  el.hidden = !show;
-}
-
-function lockApp() {
-  sessionStorage.removeItem(AUTH_KEY);
-  const auth = $("auth");
-  const app = $("app");
-  if (app) app.hidden = true;
-  if (auth) auth.style.display = "grid";
-  const input = $("passwordInput");
-  if (input) { input.value = ""; input.focus(); }
-}
-
-let lockTimer = null;
-
-function unlockApp() {
-  const auth = $("auth");
-  const app = $("app");
-  if (auth) auth.style.display = "none";
-  if (app) app.hidden = false;
-  initCalculatorBindings();
-
+function bindHeaderLogoSizing() {
   // Match the header logo height to the combined height of the title + sentence.
   syncHeaderLogoHeight();
-  if (!headerLogoHandlersBound) {
-    headerLogoHandlersBound = true;
-    window.addEventListener("resize", () => {
-      // Defer to allow layout to settle after resize.
-      requestAnimationFrame(syncHeaderLogoHeight);
-    });
-    const logo = $("headerLogo");
-    if (logo && !logo.complete) {
-      logo.addEventListener("load", () => requestAnimationFrame(syncHeaderLogoHeight), { once: true });
-    }
-  }
-  const expRaw = sessionStorage.getItem(AUTH_KEY);
-  const exp = expRaw ? Number(expRaw) : NaN;
-  if (lockTimer) { clearTimeout(lockTimer); lockTimer = null; }
-  if (Number.isFinite(exp)) {
-    const remaining = exp - Date.now();
-    if (remaining > 0) {
-      lockTimer = setTimeout(lockApp, remaining);
-    } else {
-      lockApp();
-    }
-  }
-
-}
-
-function handleLogin() {
-  const input = $("passwordInput");
-  const pwd = input ? input.value : "";
-  if (pwd === PASSWORD) {
-    sessionStorage.setItem(AUTH_KEY, String(Date.now() + AUTH_TTL_MS));
-    showAuthError(false);
-    unlockApp();
-  } else {
-    showAuthError(true);
-    if (input) input.focus();
+  if (headerLogoHandlersBound) return;
+  headerLogoHandlersBound = true;
+  window.addEventListener("resize", () => requestAnimationFrame(syncHeaderLogoHeight));
+  const logo = $("headerLogo");
+  if (logo && !logo.complete) {
+    logo.addEventListener("load", () => requestAnimationFrame(syncHeaderLogoHeight), { once: true });
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const expRaw = sessionStorage.getItem(AUTH_KEY);
-  const exp = expRaw ? Number(expRaw) : NaN;
-  const already = Number.isFinite(exp) && exp > Date.now();
-  const btn = $("btnLogin");
-  const input = $("passwordInput");
-
-  if (btn) btn.addEventListener("click", handleLogin);
-  if (input) {
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleLogin();
-      }
-    });
-    // focus on load
-    setTimeout(() => input.focus(), 50);
-  }
-
-  if (already) {
-    unlockApp();
-  } else {
-    sessionStorage.removeItem(AUTH_KEY);
-
-    // clear any expired token
-    sessionStorage.removeItem(AUTH_KEY);
-
-    // Ensure app is hidden until authenticated
-    const app = $("app");
-    if (app) app.hidden = true;
-  }
+  initCalculatorBindings();
+  bindHeaderLogoSizing();
 });
 
 const OVERTIME_MULTIPLIER = 1.5;

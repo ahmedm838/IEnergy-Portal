@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const PASSWORD = 'iEnergy';            // same as Salary Calculator
+  const PASSWORD = 'iEnergyS26';
   const AUTH_KEY = 'employee_db_authed_v1';
   const AUTH_TTL_MS = 10 * 60 * 1000;    // 10 minutes
 
