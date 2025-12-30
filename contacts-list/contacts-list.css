@@ -42,7 +42,8 @@
 .result-grid {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* 30% / 40% / 30% for Mobile / Email / Office */
+  grid-template-columns: 3fr 4fr 3fr;
   gap: 12px;
 }
 .kv { border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04); border-radius: 12px; padding: 12px; }
