@@ -1,5 +1,5 @@
 /* Contacts List
-   - Reads an Excel file in the browser (default: ../data/contacts-list.xlsx)
+   - Reads an Excel file in the browser (default: ./contacts-list.xlsx)
    - Autocomplete by Employee Name, then displays contact details
 */
 (function () {
@@ -63,11 +63,20 @@
 
   function buildExcelCandidates() {
     const candidates = [];
+    // Preferred: keep the Excel beside this page under /contacts-list/
+    candidates.push(new URL('./contacts-list.xlsx', window.location.href).toString());
+    candidates.push(new URL('contacts-list.xlsx', window.location.href).toString());
+
+    // Backward-compatible fallbacks (older builds placed the file under /data/)
     candidates.push(new URL('../data/contacts-list.xlsx', window.location.href).toString());
     candidates.push(new URL('data/contacts-list.xlsx', window.location.href).toString());
     candidates.push(new URL('./data/contacts-list.xlsx', window.location.href).toString());
 
     const repoBase = getRepoBasePrefix();
+    // Preferred (GitHub Pages project site): /<repo>/contacts-list/contacts-list.xlsx
+    candidates.push(new URL(repoBase + 'contacts-list/contacts-list.xlsx', window.location.origin).toString());
+
+    // Legacy: /<repo>/data/contacts-list.xlsx
     candidates.push(new URL(repoBase + 'data/contacts-list.xlsx', window.location.origin).toString());
     return Array.from(new Set(candidates));
   }
