@@ -54,17 +54,13 @@
 
     <section class="panel">
       <div class="panel-top">
-        <div class="segmented" role="tablist" aria-label="Search mode">
-          <button id="modeCode" class="seg-btn" type="button" aria-selected="false">Search by Code</button>
-          <button id="modeName" class="seg-btn active" type="button" aria-selected="true">Search by Name</button>
-        </div>
         <div class="panel-actions">
           <button id="btnReload" class="tile small" type="button" title="Reload Excel file">Reload Excel</button>
         </div>
       </div>
 
       <div class="search-row">
-        <input id="searchInput" class="search-input" type="text" autocomplete="off" placeholder="Type employee name (partial)..." />
+        <input id="searchInput" class="search-input" type="text" autocomplete="off" placeholder="Type employee name or code..." />
         <button id="btnSearch" class="primary small" type="button">Search</button>
       </div>
 
@@ -146,7 +142,7 @@
     })();
   </script>
 
-  <script src="employee-database.js?v=7"></script>
+  <script src="employee-database.js?v=8"></script>
   <script>document.getElementById('year').textContent = String(new Date().getFullYear());</script>
 </body>
 </html>

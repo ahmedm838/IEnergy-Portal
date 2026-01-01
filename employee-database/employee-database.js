@@ -97,8 +97,6 @@
   let headerOrder = []; // { row, code, name, normCode, normName }
   let loadedFrom = null;
 
-  let mode = 'code'; // 'code' | 'name'
-
   function escapeHtml(s) {
     return String(s)
       .replace(/&/g, '&amp;')
@@ -108,6 +106,9 @@
       .replace(/'/g, '&#039;');
   }
 
+  // (Legacy) Name suggestions via browser-native datalist.
+  // The portal uses the Matches panel instead, so this is a no-op unless a
+  // datalist is reintroduced.
   function updateNameSuggestions() {
     const dl = $('nameSuggestions');
     if (!dl) return;
@@ -400,30 +401,69 @@
     throw new Error(msg);
   }
 
-  function setMode(next) {
-    mode = next === 'name' ? 'name' : 'code';
-    const bCode = $('modeCode');
-    const bName = $('modeName');
-    if (bCode) { bCode.classList.toggle('active', mode === 'code'); bCode.setAttribute('aria-selected', String(mode === 'code')); }
-    if (bName) { bName.classList.toggle('active', mode === 'name'); bName.setAttribute('aria-selected', String(mode === 'name')); }
+  function normalizeCode(s) {
+    return normKey(s).replace(/\s+/g, '');
+  }
 
-    const input = $('searchInput');
-    if (input) {
-      input.value = '';
-      input.placeholder = mode === 'code'
-        ? 'Enter employee code (exact)...'
-        : 'Type employee name (partial)...';
+  function findExact(q) {
+    const qName = normKey(q);
+    const qCode = normalizeCode(q);
+    if (!qName) return null;
 
-      // Disable browser-native datalist autocomplete. We keep the portal's
-      // own Matches panel below the search bar for selection.
-      input.removeAttribute('list');
+    // Prefer exact code match, then exact name match.
+    const codeHits = index.filter(it => it.normCode && it.normCode === qCode);
+    if (codeHits.length === 1) return { type: 'code', item: codeHits[0] };
+    if (codeHits.length > 1) return { type: 'code', items: codeHits };
 
-      input.focus();
+    const nameHits = index.filter(it => it.normName && it.normName === qName);
+    if (nameHits.length === 1) return { type: 'name', item: nameHits[0] };
+    if (nameHits.length > 1) return { type: 'name', items: nameHits };
+
+    return null;
+  }
+
+  function findMatches(q, limit = 10) {
+    const qName = normKey(q);
+    const qCode = normalizeCode(q);
+    if (!qName) return [];
+
+    /** @type {Array<{item:any, score:number}>} */
+    const scored = [];
+
+    for (const it of index) {
+      const nCode = it.normCode;
+      const nName = it.normName;
+      if (!nCode && !nName) continue;
+
+      let score = 0;
+      if (nCode && qCode && nCode === qCode) score = 1000;
+      else {
+        if (nCode && qCode && nCode.startsWith(qCode)) score = Math.max(score, 320);
+        else if (nCode && qCode && nCode.includes(qCode)) score = Math.max(score, 220);
+
+        if (nName && nName.startsWith(qName)) score = Math.max(score, 180);
+        else if (nName && nName.includes(qName)) score = Math.max(score, 120);
+
+        const pos = normKey(pickField(it.row, ['Position', 'Job Title', 'Title']));
+        const dept = normKey(pickField(it.row, ['Department', 'Dept', 'Section']));
+        if (pos && pos.includes(qName)) score = Math.max(score, 60);
+        if (dept && dept.includes(qName)) score = Math.max(score, 60);
+      }
+
+      if (score > 0) scored.push({ item: it, score });
     }
 
+    scored.sort((a, b) => b.score - a.score || (a.item.name || '').localeCompare(b.item.name || ''));
+    return scored.slice(0, limit).map(s => s.item);
+  }
+
+  function selectItem(it) {
+    if (!it) return;
+    renderResult(it);
+    const input = $('searchInput');
+    if (input) input.value = it.name || it.code || '';
     hideMatches();
-    hideResult();
-    setHint('', false);
+    if (input) input.focus();
   }
 
   function hideMatches() {
@@ -443,10 +483,7 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'match-item';
-      btn.addEventListener('click', () => {
-        hideMatches();
-        renderResult(it);
-      });
+      btn.addEventListener('click', () => selectItem(it));
 
       const top = document.createElement('div');
       top.className = 'match-top';
@@ -545,77 +582,56 @@
   function runSearch() {
     const input = $('searchInput');
     const q = input ? normStr(input.value) : '';
-    hideMatches();
-    hideResult();
 
     if (!q) {
-      setHint('Please enter a value to search.', true);
+      hideMatches();
+      hideResult();
+      setHint('Please type an employee name or code.', true);
       return;
     }
 
     if (!index.length) {
+      hideMatches();
+      hideResult();
       setHint('Excel data is not loaded yet. Click Reload Excel.', true);
       return;
     }
 
-    const qKey = normKey(q);
-    if (mode === 'code') {
-      const qCode = qKey.replace(/\s+/g, '');
-      const hits = index.filter(it => it.normCode && it.normCode === qCode);
-
-      if (!hits.length) {
-        setHint('No employee found for code: ' + q, true);
-        return;
-      }
-      if (hits.length === 1) {
-        setHint('1 match found.', false);
-        renderResult(hits[0]);
-        return;
-      }
-      setHint(hits.length.toLocaleString() + ' matches found. Please choose one.', false);
-      showMatches(hits.slice(0, 50));
-      return;
-    }
-
-    // Name search (contains, case-insensitive)
-    const hits = index.filter(it => it.normName && it.normName.includes(qKey));
-    if (!hits.length) {
-      setHint('No employee found matching name: ' + q, true);
-      return;
-    }
-    if (hits.length === 1) {
+    const exact = findExact(q);
+    if (exact && exact.item) {
       setHint('1 match found.', false);
-      renderResult(hits[0]);
+      hideMatches();
+      selectItem(exact.item);
+      return;
+    }
+    if (exact && exact.items && exact.items.length) {
+      hideResult();
+      setHint(exact.items.length.toLocaleString() + ' exact matches found. Please choose one.', false);
+      showMatches(exact.items.slice(0, 50));
       return;
     }
 
-    setHint(hits.length.toLocaleString() + ' matches found. Showing top ' + Math.min(50, hits.length) + '.', false);
-    showMatches(hits.slice(0, 50));
-  }
-
-  function findNameMatches(q, limit = 8) {
-    const query = normKey(q);
-    if (!query) return [];
-
-    const starts = [];
-    const contains = [];
-
-    for (const it of index) {
-      if (!it.normName) continue;
-      if (it.normName.startsWith(query)) starts.push(it);
-      else if (it.normName.includes(query)) contains.push(it);
-      if (starts.length + contains.length >= limit) {
-        // keep scanning a little to prefer startsWith matches (already gathered first)
-        // but break once we have enough.
-        break;
-      }
+    const matches = findMatches(q, 10);
+    if (!matches.length) {
+      hideMatches();
+      hideResult();
+      setHint('No employee found matching: ' + q, true);
+      return;
     }
 
-    return starts.concat(contains).slice(0, limit);
+    // If the user pressed Search, selecting the first match is faster.
+    if (matches.length === 1) {
+      setHint('1 match found.', false);
+      hideMatches();
+      selectItem(matches[0]);
+      return;
+    }
+
+    setHint(matches.length.toLocaleString() + ' match(es) found. Select from the list below.', false);
+    showMatches(matches);
   }
 
-  function handleNameTyping() {
-    if (mode !== 'name') return;
+  function handleTyping() {
     const input = $('searchInput');
     const q = input ? normStr(input.value) : '';
 
@@ -626,38 +642,43 @@
       return;
     }
 
-    // If the user typed an exact full name, show it immediately (same behavior as Contacts List).
-    const qKey = normKey(q);
-    const exact = index.filter(it => it.normName === qKey);
-    if (exact.length === 1) {
+    if (!index.length) {
       hideMatches();
+      hideResult();
+      setHint('Excel data is not loaded yet. Click Reload Excel.', true);
+      return;
+    }
+
+    const exact = findExact(q);
+    if (exact && exact.item) {
       setHint('1 match found.', false);
-      renderResult(exact[0]);
+      hideMatches();
+      selectItem(exact.item);
       return;
     }
 
     hideResult();
-    const matches = findNameMatches(q, 8);
+    const matches = (exact && exact.items && exact.items.length)
+      ? exact.items.slice(0, 10)
+      : findMatches(q, 10);
+
     if (!matches.length) {
       hideMatches();
-      setHint('No employee found matching this name yet. Keep typing.', true);
+      setHint('No matches yet. Keep typing.', true);
       return;
     }
-    setHint('Select a name from the list, or press Search.', false);
+
+    setHint('Select from the Matches list, or press Enter.', false);
     showMatches(matches);
   }
 
   async function initApp() {
     // UI wiring
-    const bCode = $('modeCode');
-    const bName = $('modeName');
     const bSearch = $('btnSearch');
     const bReload = $('btnReload');
     const bClear = $('btnClear');
     const input = $('searchInput');
 
-    if (bCode) bCode.addEventListener('click', () => setMode('code'));
-    if (bName) bName.addEventListener('click', () => setMode('name'));
     if (bSearch) bSearch.addEventListener('click', runSearch);
     if (bClear) bClear.addEventListener('click', () => {
       const i = $('searchInput');
@@ -677,23 +698,44 @@
     });
 
     if (input) {
+      // Ensure browser-native autocomplete does not show.
+      input.setAttribute('autocomplete', 'off');
+      input.removeAttribute('list');
+
       input.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') {
           ev.preventDefault();
+          // Enter selects exact match; otherwise selects the first match.
+          const q = normStr(input.value);
+          const exact = findExact(q);
+          if (exact && exact.item) {
+            setHint('1 match found.', false);
+            selectItem(exact.item);
+            return;
+          }
+          const matches = findMatches(q, 10);
+          if (matches.length > 0) {
+            setHint('Selected first match.', false);
+            selectItem(matches[0]);
+            return;
+          }
           runSearch();
         }
       });
 
-      // Typeahead suggestions in Name mode.
+      // Typeahead suggestions (name or code) using the Matches panel.
       let typingTimer = null;
       input.addEventListener('input', () => {
         if (typingTimer) clearTimeout(typingTimer);
-        typingTimer = setTimeout(handleNameTyping, 120);
+        typingTimer = setTimeout(handleTyping, 120);
       });
     }
 
-    // Default mode
-    setMode('name');
+    // Initial UI state
+    if (input) input.placeholder = 'Type employee name or code...';
+    hideMatches();
+    hideResult();
+    setHint('', false);
 
     // Auto-load
     try {
