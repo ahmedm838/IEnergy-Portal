@@ -9,6 +9,7 @@
   const elQuery = document.getElementById('nameInput');
   const elHint = document.getElementById('hintMsg');
   const elMatches = document.getElementById('matches');
+  const elMatchesList = document.getElementById('matchesList');
   const elClear = document.getElementById('clearBtn');
 
   const elResult = document.getElementById('result');
@@ -137,19 +138,55 @@
     setHint(`Loaded ${index.length} contact(s). Type to search by name or code.`, false);
   }
 
-  function renderMatches(list) {
-    if (!elMatches) return;
+  function hideMatches() {
+    if (elMatchesList) elMatchesList.innerHTML = '';
+    if (elMatches) elMatches.hidden = true;
+  }
+
+  function showMatches(list) {
+    if (!elMatches || !elMatchesList) return;
     if (!list || list.length === 0) {
-      elMatches.hidden = true;
-      elMatches.innerHTML = '';
+      hideMatches();
       return;
     }
 
+    elMatchesList.innerHTML = '';
+    for (const m of list) {
+      const it = index[m.idx];
+      if (!it) continue;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'match-item';
+      btn.setAttribute('data-idx', String(m.idx));
+
+      const top = document.createElement('div');
+      top.className = 'match-top';
+
+      const name = document.createElement('div');
+      name.className = 'match-name';
+      name.textContent = it.name || '—';
+
+      const code = document.createElement('div');
+      code.className = 'match-code';
+      code.textContent = it.code || '—';
+
+      top.appendChild(name);
+      top.appendChild(code);
+
+      const sub = document.createElement('div');
+      sub.className = 'match-sub';
+      const office = safeIntString(pickField(it.row, ['Office Number', 'Office', 'Office No.']));
+      const bits = [normStr(it.title), office ? `Office: ${office}` : ''].filter(Boolean);
+      sub.textContent = bits.join(' • ') || '—';
+
+      btn.appendChild(top);
+      btn.appendChild(sub);
+
+      elMatchesList.appendChild(btn);
+    }
+
     elMatches.hidden = false;
-    elMatches.innerHTML = list.map((m) => {
-      const label = m.name && m.code ? `${m.name} — ${m.code}` : (m.name || m.code || '');
-      return `<button type="button" class="match" data-idx="${m.idx}">${escapeHtml(label)}</button>`;
-    }).join('');
   }
 
   function setResult(row) {
@@ -230,7 +267,7 @@
     const it = index[i];
     setResult(it.row);
     if (elQuery) elQuery.value = it.name || it.code || '';
-    renderMatches([]);
+    hideMatches();
     if (elQuery) elQuery.focus();
   }
 
@@ -291,7 +328,7 @@
     else setResult(null);
 
     const matches = findMatches(q, 10);
-    renderMatches(matches);
+    showMatches(matches);
   });
 
   elQuery?.addEventListener('keydown', (e) => {
@@ -300,7 +337,7 @@
     const exact = findExact(q);
     if (exact) {
       setResult(exact.row);
-      renderMatches([]);
+      hideMatches();
       return;
     }
     const matches = findMatches(q, 10);
@@ -319,7 +356,7 @@
 
   elClear?.addEventListener('click', () => {
     if (elQuery) elQuery.value = '';
-    renderMatches([]);
+    hideMatches();
     setResult(null);
     setHint(index.length ? 'Type to search by name or code.' : 'No contacts loaded yet.', false);
     if (elQuery) elQuery.focus();

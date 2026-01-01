@@ -15,16 +15,41 @@
 }
 .btn:hover { background: rgba(255,255,255,0.10); }
 
-.matches { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
-.match {
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.05);
-  padding: 8px 10px;
-  border-radius: 999px;
-  cursor: pointer;
-  font-size: 13px;
+/* Matches layout aligned with Employee Database page */
+.matches {
+  margin-top: 12px;
+  border-top: 1px dashed rgba(255,255,255,0.14);
+  padding-top: 12px;
 }
-.match:hover { background: rgba(255,255,255,0.10); }
+.matches-title {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.matches-list {
+  display: grid;
+  gap: 8px;
+}
+.match-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.18);
+  padding: 10px 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+.match-item:hover { background: rgba(255,255,255,0.08); }
+.match-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+.match-name { font-weight: 700; }
+.match-code { color: var(--muted); font-size: 13px; }
+.match-sub { margin-top: 3px; color: var(--muted); font-size: 13px; }
 
 .result { margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(255,255,255,0.15); }
 .result-header { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
