@@ -108,14 +108,8 @@
       .replace(/'/g, '&#039;');
   }
 
-  function updateNameSuggestions() {
-    const dl = $('nameSuggestions');
-    if (!dl) return;
-
-    const names = index.map(it => it.name).filter(Boolean);
-    const uniq = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
-    dl.innerHTML = uniq.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
-  }
+  // NOTE: We intentionally do not use browser-native autocomplete (datalist) for names.
+  // The UI uses the custom "Matches" list instead.
 
   function setHint(msg, isError) {
     const el = $('hint');
@@ -380,8 +374,7 @@
         }
         const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
         buildIndex(json);
-        // Populate name autocomplete list
-        updateNameSuggestions();
+        // Keep search index ready; name selection is handled via the custom Matches list.
         loadedFrom = p;
         setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
         setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s).', false);
@@ -413,10 +406,6 @@
       input.placeholder = mode === 'code'
         ? 'Enter employee code (exact)...'
         : 'Type employee name (partial)...';
-
-      // Autocomplete list (names) only in Name mode.
-      if (mode === 'name') input.setAttribute('list', 'nameSuggestions');
-      else input.removeAttribute('list');
 
       input.focus();
     }
