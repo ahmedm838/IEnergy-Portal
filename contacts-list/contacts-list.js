@@ -1,12 +1,12 @@
 /* Contacts List
    - Reads an Excel file in the browser (default: ./contacts-list.xlsx)
-   - Autocomplete by Employee Name, then displays contact details
+   - Search by Employee Name OR Code
+   - No native browser autocomplete dropdown; selections are made from the Matches section
 */
 (function () {
   'use strict';
 
-  const elName = document.getElementById('nameInput');
-  const elSuggestions = document.getElementById('nameSuggestions');
+  const elQuery = document.getElementById('nameInput');
   const elHint = document.getElementById('hintMsg');
   const elMatches = document.getElementById('matches');
   const elClear = document.getElementById('clearBtn');
@@ -19,33 +19,39 @@
   const elREmail = document.getElementById('rEmail');
   const elROffice = document.getElementById('rOffice');
 
-  const elExcelFile = document.getElementById('excelFile');
-
   /** @type {Array<Record<string, any>>} */
   let rows = [];
-  /** @type {Map<string, Record<string, any>[]>} */
-  const byName = new Map(); // lower(name) -> list of rows
+  /** @type {Array<{row: Record<string, any>, name: string, code: string, title: string, nName: string, nCode: string}>} */
+  let index = [];
 
   function normStr(v) {
     if (v === null || v === undefined) return '';
-    return String(v).trim();
+    return String(v).replace(/\s+/g, ' ').trim();
+  }
+
+  function normKey(v) {
+    return normStr(v).toLowerCase();
   }
 
   function normalizeHeader(h) {
-    return normStr(h).toLowerCase().replace(/\s+/g, ' ');
+    return normKey(h).replace(/\s+/g, ' ');
   }
 
   function safeIntString(v) {
     // Excel may store numbers as floats or scientific notation.
     if (v === null || v === undefined || v === '') return '';
-    if (typeof v === 'number' && Number.isFinite(v)) {
-      // Convert without scientific notation
-      const asInt = Math.trunc(v);
-      return String(asInt);
-    }
-    // Strings: strip trailing .0
+    if (typeof v === 'number' && Number.isFinite(v)) return String(Math.trunc(v));
     const s = String(v).trim();
     return s.replace(/\.0$/, '');
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   function setHint(msg, isError) {
@@ -75,9 +81,9 @@
     const repoBase = getRepoBasePrefix();
     // Preferred (GitHub Pages project site): /<repo>/contacts-list/contacts-list.xlsx
     candidates.push(new URL(repoBase + 'contacts-list/contacts-list.xlsx', window.location.origin).toString());
-
     // Legacy: /<repo>/data/contacts-list.xlsx
     candidates.push(new URL(repoBase + 'data/contacts-list.xlsx', window.location.origin).toString());
+
     return Array.from(new Set(candidates));
   }
 
@@ -86,50 +92,49 @@
     return XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
   }
 
-  function buildIndex(data) {
-    rows = data;
+  function pickField(row, candidates) {
+    // 1) Exact keys
+    for (const c of candidates) {
+      if (Object.prototype.hasOwnProperty.call(row, c) && normStr(row[c])) return row[c];
+    }
+    // 2) Normalized key match
+    const keys = Object.keys(row || {});
+    for (const c of candidates) {
+      const cNorm = normalizeHeader(c);
+      const k = keys.find(k0 => normalizeHeader(k0) === cNorm);
+      if (k && normStr(row[k])) return row[k];
+    }
+    // 3) Contains match
+    for (const c of candidates) {
+      const cNorm = normalizeHeader(c);
+      const k = keys.find(k0 => normalizeHeader(k0).includes(cNorm));
+      if (k && normStr(row[k])) return row[k];
+    }
+    return '';
+  }
 
-    byName.clear();
-    const names = [];
+  function buildIndex(data) {
+    rows = data || [];
+    index = [];
 
     for (const r of rows) {
-      // Support slightly different column names
-      const name = normStr(r['Employee Name'] ?? r['Name'] ?? r['Full Name'] ?? r['employee name'] ?? r['employee_name']);
-      if (!name) continue;
+      const name = normStr(pickField(r, ['Employee Name', 'Name', 'Full Name']));
+      const code = normStr(pickField(r, ['Code', 'Employee Code', 'EmployeeCode']));
+      const title = normStr(pickField(r, ['Title', 'Position', 'Job Title']));
 
-      const key = name.toLowerCase();
-      if (!byName.has(key)) byName.set(key, []);
-      byName.get(key).push(r);
-      names.push(name);
+      if (!name && !code) continue;
+
+      index.push({
+        row: r,
+        name,
+        code,
+        title,
+        nName: normKey(name),
+        nCode: normKey(code)
+      });
     }
 
-    // Populate datalist
-    const uniq = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
-    elSuggestions.innerHTML = uniq.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
-    setHint(`Loaded ${uniq.length} contact(s). Start typing to search.`, false);
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
-  function findMatches(q, limit = 8) {
-    const query = normStr(q).toLowerCase();
-    if (!query) return [];
-    const out = [];
-    for (const [key] of byName) {
-      if (key.includes(query)) {
-        out.push(key);
-        if (out.length >= limit) break;
-      }
-    }
-    // Convert back to display names (preserve original casing by taking first row)
-    return out.map(k => normStr(byName.get(k)?.[0]?.['Employee Name'] ?? byName.get(k)?.[0]?.['Name'] ?? k));
+    setHint(`Loaded ${index.length} contact(s). Type to search by name or code.`, false);
   }
 
   function renderMatches(list) {
@@ -139,52 +144,94 @@
       elMatches.innerHTML = '';
       return;
     }
+
     elMatches.hidden = false;
-    elMatches.innerHTML = list.map(n => `<button type="button" class="match" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('');
+    elMatches.innerHTML = list.map((m) => {
+      const label = m.name && m.code ? `${m.name} — ${m.code}` : (m.name || m.code || '');
+      return `<button type="button" class="match" data-idx="${m.idx}">${escapeHtml(label)}</button>`;
+    }).join('');
   }
 
   function setResult(row) {
     if (!row) {
-      elResult.hidden = true;
+      if (elResult) elResult.hidden = true;
       return;
     }
 
-    const name = normStr(row['Employee Name'] ?? row['Name'] ?? row['Full Name'] ?? '');
-    const title = normStr(row['Title'] ?? row['Position'] ?? '');
-    const code = normStr(row['Code'] ?? row['Employee Code'] ?? row['EmployeeCode'] ?? '');
+    const name = normStr(pickField(row, ['Employee Name', 'Name', 'Full Name']));
+    const title = normStr(pickField(row, ['Title', 'Position', 'Job Title']));
+    const code = normStr(pickField(row, ['Code', 'Employee Code', 'EmployeeCode']));
 
-    const mobile = safeIntString(row['Mobile Number'] ?? row['Mobile'] ?? row['Phone'] ?? '');
-    const email = normStr(row['Email'] ?? row['E-mail'] ?? '');
-    const office = safeIntString(row['Office Number'] ?? row['Office'] ?? '');
+    const mobile = safeIntString(pickField(row, ['Mobile Number', 'Mobile', 'Phone', 'Mobile No.']));
+    const email = normStr(pickField(row, ['Email', 'E-mail']));
+    const office = safeIntString(pickField(row, ['Office Number', 'Office', 'Office No.']));
 
-    elRName.textContent = name || '—';
-    elRTitle.textContent = title || '—';
-    elRCode.textContent = `Code: ${code || '—'}`;
+    if (elRName) elRName.textContent = name || '—';
+    if (elRTitle) elRTitle.textContent = title || '—';
+    if (elRCode) elRCode.textContent = `Code: ${code || '—'}`;
 
-    elRMobile.textContent = mobile || '—';
-    elREmail.textContent = email || '—';
-    elROffice.textContent = office || '—';
+    if (elRMobile) elRMobile.textContent = mobile || '—';
+    if (elREmail) elREmail.textContent = email || '—';
+    if (elROffice) elROffice.textContent = office || '—';
 
-    elResult.hidden = false;
+    if (elResult) elResult.hidden = false;
   }
 
-  function resolveSelection(value) {
-    const v = normStr(value);
-    if (!v) {
-      setResult(null);
-      return;
-    }
-    const key = v.toLowerCase();
-    const hit = byName.get(key);
-    if (hit && hit.length >= 1) {
-      // If duplicates exist, take the first and show a note in hint.
-      setResult(hit[0]);
-      if (hit.length > 1) setHint(`Found ${hit.length} entries with the same name. Showing the first match.`, false);
-      return;
+  function findExact(q) {
+    const query = normKey(q);
+    if (!query) return null;
+
+    // Prefer exact code match, then exact name match
+    const byCode = index.find(it => it.nCode && it.nCode === query);
+    if (byCode) return byCode;
+    const byName = index.find(it => it.nName && it.nName === query);
+    if (byName) return byName;
+    return null;
+  }
+
+  function findMatches(q, limit = 10) {
+    const query = normKey(q);
+    if (!query) return [];
+
+    /** @type {Array<{idx:number, name:string, code:string, score:number}>} */
+    const scored = [];
+
+    for (let i = 0; i < index.length; i++) {
+      const it = index[i];
+      const nName = it.nName;
+      const nCode = it.nCode;
+      if (!nName && !nCode) continue;
+
+      let score = 0;
+      if (nCode && nCode === query) score = 1000;
+      else {
+        if (nCode && nCode.startsWith(query)) score = Math.max(score, 320);
+        else if (nCode && nCode.includes(query)) score = Math.max(score, 220);
+
+        if (nName && nName.startsWith(query)) score = Math.max(score, 180);
+        else if (nName && nName.includes(query)) score = Math.max(score, 120);
+
+        const t = normKey(it.title);
+        if (t && t.includes(query)) score = Math.max(score, 60);
+      }
+
+      if (score > 0) {
+        scored.push({ idx: i, name: it.name, code: it.code, score });
+      }
     }
 
-    // If not exact, show closest matches (already rendered) and keep result hidden.
-    setResult(null);
+    scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+    return scored.slice(0, limit);
+  }
+
+  function selectByIndex(idx) {
+    const i = Number(idx);
+    if (!Number.isFinite(i) || i < 0 || i >= index.length) return;
+    const it = index[i];
+    setResult(it.row);
+    if (elQuery) elQuery.value = it.name || it.code || '';
+    renderMatches([]);
+    if (elQuery) elQuery.focus();
   }
 
   async function readWorkbookFromArrayBuffer(buf) {
@@ -194,9 +241,8 @@
     const ws = wb.Sheets[sheetName];
     const data = sheetToJson(ws);
 
-    // Normalize headers: SheetJS already uses headers as-is. Ensure we map variations.
-    // We'll also create a normalized object for each row for more robust access.
-    const normalized = data.map((r) => {
+    // Also add normalized header aliases for robustness.
+    return data.map((r) => {
       const o = {};
       for (const k of Object.keys(r)) {
         o[k] = r[k];
@@ -205,8 +251,6 @@
       }
       return o;
     });
-
-    return normalized;
   }
 
   async function tryLoadFromUrl() {
@@ -235,53 +279,50 @@
 
     const loaded = await tryLoadFromUrl();
     if (!loaded) {
-      setHint('Unable to load contacts-list.xlsx from the site. Upload the Excel file below.', true);
+      setHint('Unable to load contacts-list.xlsx from the site. Ensure it exists under /contacts-list/.', true);
     }
   }
 
   // Events
-  elName?.addEventListener('input', () => {
-    const q = elName.value;
-    const matches = findMatches(q, 8);
-    renderMatches(matches);
+  elQuery?.addEventListener('input', () => {
+    const q = elQuery.value;
+    const exact = findExact(q);
+    if (exact) setResult(exact.row);
+    else setResult(null);
 
-    // Show result only on exact match (so user can select first)
-    resolveSelection(q);
+    const matches = findMatches(q, 10);
+    renderMatches(matches);
   });
 
-  elName?.addEventListener('change', () => {
-    resolveSelection(elName.value);
+  elQuery?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const q = elQuery.value;
+    const exact = findExact(q);
+    if (exact) {
+      setResult(exact.row);
+      renderMatches([]);
+      return;
+    }
+    const matches = findMatches(q, 10);
+    if (matches.length > 0) {
+      e.preventDefault();
+      selectByIndex(matches[0].idx);
+    }
   });
 
   elMatches?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-name]');
+    const btn = e.target.closest('[data-idx]');
     if (!btn) return;
-    const name = btn.getAttribute('data-name') || '';
-    elName.value = name;
-    renderMatches([]);
-    resolveSelection(name);
-    elName.focus();
+    const idx = btn.getAttribute('data-idx');
+    selectByIndex(idx);
   });
 
   elClear?.addEventListener('click', () => {
-    elName.value = '';
+    if (elQuery) elQuery.value = '';
     renderMatches([]);
     setResult(null);
-    setHint(byName.size ? 'Start typing to search.' : 'No contacts loaded yet.', false);
-    elName.focus();
-  });
-
-  elExcelFile?.addEventListener('change', async () => {
-    const file = elExcelFile.files && elExcelFile.files[0];
-    if (!file) return;
-
-    try {
-      const buf = await file.arrayBuffer();
-      const data = await readWorkbookFromArrayBuffer(buf);
-      buildIndex(data);
-    } catch (e) {
-      setHint(`Failed to read Excel file: ${e && e.message ? e.message : 'Unknown error'}`, true);
-    }
+    setHint(index.length ? 'Type to search by name or code.' : 'No contacts loaded yet.', false);
+    if (elQuery) elQuery.focus();
   });
 
   init();
