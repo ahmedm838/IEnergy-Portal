@@ -82,14 +82,31 @@
   // -----------------------------
   // Excel loading + search
   // -----------------------------
+  // NOTE: GitHub Pages under a repo is hosted at https://<user>.github.io/<repo>/.
+  // To avoid relative-path edge cases, we derive a "site root" prefix when running on github.io.
+  function getSiteRoot() {
+    const parts = (window.location.pathname || '').split('/').filter(Boolean);
+    const isGithubPages = (window.location.hostname || '').toLowerCase().endsWith('github.io');
+    if (isGithubPages && parts.length >= 1) return '/' + parts[0] + '/';
+    return '/';
+  }
+
+  const SITE_ROOT = getSiteRoot();
   const DEFAULT_XLSX_PATH = './employees-database.xlsx';
   const FALLBACK_XLSX_PATHS = [
+    // Preferred: file sits in the same folder as this page (/employee-database/)
     DEFAULT_XLSX_PATH,
-    './employees-database.xlsx',
+
+    // Robust: absolute-from-site-root (works even if page URL is missing a trailing slash)
+    SITE_ROOT + 'employee-database/employees-database.xlsx',
+
+    // Common alternates / legacy naming
+    '../employees-database.xlsx',
+    SITE_ROOT + 'employees-database.xlsx',
     './IEnergy Employees Database.xlsx',
     './IEnergy Employees Database.xls',
     '../data/employees.xlsx',
-    './employees.xlsx'
+    SITE_ROOT + 'data/employees.xlsx'
   ];
 
   let rows = [];
@@ -387,8 +404,10 @@
     setStatus('Excel: not loaded');
     const msg =
       'Unable to load the employee database Excel file.\n\n' +
-      'Expected file path: ' + DEFAULT_XLSX_PATH + '\n' +
-      'Ensure the file exists and is published to GitHub Pages.\n\n' +
+      'Expected file path (same folder as this page): ' + DEFAULT_XLSX_PATH + '\n' +
+      'Alternative expected path (site root): ' + (SITE_ROOT + 'employee-database/employees-database.xlsx') + '\n\n' +
+      'Ensure the file exists in the repository and is published to GitHub Pages.\n\n' +
+      'Attempted paths:\n- ' + FALLBACK_XLSX_PATHS.join('\n- ') + '\n\n' +
       'Details: ' + (lastErr ? lastErr.message : 'Unknown error');
     throw new Error(msg);
   }
