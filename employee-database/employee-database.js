@@ -205,6 +205,30 @@
     );
   }
 
+  function isMobileField(key) {
+    const k = normKey(key).replace(/[^a-z0-9]/g, '');
+    return (k === 'mobileno' || k === 'secmobileno');
+  }
+
+  function formatMobileNumber(val) {
+    if (val === null || val === undefined) return '—';
+
+    let s = '';
+    if (typeof val === 'number' && Number.isFinite(val)) {
+      s = String(Math.round(val));
+    } else {
+      s = normStr(val);
+    }
+
+    // Remove any formatting and keep digits only.
+    s = s.replace(/,/g, '').replace(/\s+/g, '').replace(/[^0-9]/g, '');
+    if (!s) return '—';
+
+    // Add leading zero if missing.
+    if (s[0] !== '0') s = '0' + s;
+    return s;
+  }
+
   function tryParseDateString(s) {
     const t = normStr(s);
     if (!t) return null;
@@ -231,6 +255,11 @@
   function formatValue(key, val) {
     if (val === null || val === undefined) return '—';
     if (val === '') return '—';
+
+    // Mobile fields must always be shown as digits without separators, and with a leading 0.
+    if (isMobileField(key)) {
+      return formatMobileNumber(val);
+    }
 
     if (val instanceof Date && !Number.isNaN(val.getTime())) {
       return formatDateDDMMYYYY(val);
