@@ -82,127 +82,15 @@
   // -----------------------------
   // Excel loading + search
   // -----------------------------
-  // NOTE: GitHub Pages under a repo is hosted at https://<user>.github.io/<repo>/.
-  // To avoid relative-path edge cases, we derive a "site root" prefix when running on github.io.
-  function getSiteRoot() {
-    const parts = (window.location.pathname || '').split('/').filter(Boolean);
-    const isGithubPages = (window.location.hostname || '').toLowerCase().endsWith('github.io');
-    if (isGithubPages && parts.length >= 1) return '/' + parts[0] + '/';
-    return '/';
-  }
-
-  // If this is GitHub Pages, we can also fall back to the raw GitHub URL.
-  // This can help if Pages is configured to publish from a build folder that
-  // does not include the Excel file (or if a service worker/caching mismatch occurs).
-  function getGithubRawRoots() {
-    const host = (window.location.hostname || '').toLowerCase();
-    const isGithubPages = host.endsWith('github.io');
-    if (!isGithubPages) return [];
-
-    const username = host.split('.')[0];
-    const parts = (window.location.pathname || '').split('/').filter(Boolean);
-    const repo = parts.length ? parts[0] : '';
-    if (!username || !repo) return [];
-
-    // Try common default branches.
-    return [
-      `https://raw.githubusercontent.com/${username}/${repo}/main/`,
-      `https://raw.githubusercontent.com/${username}/${repo}/master/`
-    ];
-  }
-
-
-  // GitHub Contents API fallback (avoids raw.githubusercontent.com and Pages path issues).
-  // Works for public repos and files < ~1MB, which is typically the case for this Excel.
-  function getGithubRepoContext() {
-    const host = (window.location.hostname || '').toLowerCase();
-    const isGithubPages = host.endsWith('github.io');
-    const username = isGithubPages ? host.split('.')[0] : '';
-    const parts = (window.location.pathname || '').split('/').filter(Boolean);
-    const repo = parts.length ? parts[0] : '';
-    return { isGithubPages, username, repo };
-  }
-
-  async function tryLoadViaGithubContentsApi() {
-    const ctx = getGithubRepoContext();
-    if (!ctx.username || !ctx.repo) return false;
-
-    const candidateFiles = [
-      'employee-database/employees-database.xlsx',
-      'employee-database/employees.xlsx',
-      'data/employees.xlsx'
-    ];
-    const candidateBranches = ['main', 'master'];
-
-    for (const br of candidateBranches) {
-      for (const file of candidateFiles) {
-        const apiUrl = `https://api.github.com/repos/${ctx.username}/${ctx.repo}/contents/${file}?ref=${br}`;
-        try {
-          const resp = await fetch(apiUrl, { cache: 'no-store' });
-          if (!resp.ok) continue;
-          const meta = await resp.json();
-          if (!meta || meta.encoding !== 'base64' || !meta.content) continue;
-
-          const b64 = String(meta.content).replace(/\n/g, '');
-          const bin = atob(b64);
-          const bytes = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-
-          const wb = XLSX.read(bytes.buffer, { type: 'array', cellDates: true });
-          const sheetName = wb.SheetNames && wb.SheetNames[0];
-          if (!sheetName) continue;
-          const ws = wb.Sheets[sheetName];
-
-          // Capture header order exactly as in the sheet (first row)
-          try {
-            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
-            const hdr = Array.isArray(aoa) && aoa.length ? aoa[0] : [];
-            headerOrder = (hdr || []).map(h => normStr(h)).filter(h => h);
-          } catch (e) {
-            headerOrder = [];
-          }
-
-          const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
-          buildIndex(json);
-
-          loadedFrom = apiUrl;
-          setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
-          setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s). (GitHub API)', false);
-          return true;
-        } catch (e) {
-          // Keep trying other options.
-        }
-      }
-    }
-    return false;
-  }
-
-
-  const SITE_ROOT = getSiteRoot();
-  const RAW_ROOTS = getGithubRawRoots();
   const DEFAULT_XLSX_PATH = './employees-database.xlsx';
   const FALLBACK_XLSX_PATHS = [
-    // Preferred: file sits in the same folder as this page (/employee-database/)
     DEFAULT_XLSX_PATH,
-
-    // Robust: absolute-from-site-root (works even if page URL is missing a trailing slash)
-    SITE_ROOT + 'employee-database/employees-database.xlsx',
-
-    // Common alternates / legacy naming
-    '../employees-database.xlsx',
-    SITE_ROOT + 'employees-database.xlsx',
+    './employees-database.xlsx',
     './IEnergy Employees Database.xlsx',
     './IEnergy Employees Database.xls',
     '../data/employees.xlsx',
-    SITE_ROOT + 'data/employees.xlsx'
-  ].concat(
-    // Raw GitHub fallbacks (GitHub Pages only)
-    RAW_ROOTS.flatMap(r => [
-      r + 'employee-database/employees-database.xlsx',
-      r + 'employee-database/employees.xlsx',
-      r + 'data/employees.xlsx'
-    ])
-  );
+    './employees.xlsx'
+  ];
 
   let rows = [];
   let index = [];
@@ -220,8 +108,14 @@
       .replace(/'/g, '&#039;');
   }
 
-  // NOTE: We intentionally do not use browser-native autocomplete (datalist) for names.
-  // The UI uses the custom "Matches" list instead.
+  function updateNameSuggestions() {
+    const dl = $('nameSuggestions');
+    if (!dl) return;
+
+    const names = index.map(it => it.name).filter(Boolean);
+    const uniq = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+    dl.innerHTML = uniq.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
+  }
 
   function setHint(msg, isError) {
     const el = $('hint');
@@ -448,6 +342,9 @@
 
       index.push({ row: r, code: normStr(code), name: normStr(name), normCode, normName });
     }
+
+    // Refresh name suggestions for the autocomplete list.
+    updateNameSuggestions();
   }
 
   async function loadXlsx() {
@@ -461,7 +358,6 @@
     setStatus('Excel: loading…');
 
     let lastErr = null;
-    const attemptErrors = [];
     loadedFrom = null;
 
     for (const p of FALLBACK_XLSX_PATHS) {
@@ -484,39 +380,23 @@
         }
         const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
         buildIndex(json);
-        // Keep search index ready; name selection is handled via the custom Matches list.
+        // Populate name autocomplete list
+        updateNameSuggestions();
         loadedFrom = p;
         setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
         setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s).', false);
         return true;
       } catch (e) {
         lastErr = e;
-        attemptErrors.push({ path: p, error: (e && e.message) ? e.message : String(e) });
       }
     }
 
-    // Last-resort: GitHub Contents API (often works even when Pages paths or raw.githubusercontent.com are blocked).
-    try {
-      const ok = await tryLoadViaGithubContentsApi();
-      if (ok) return true;
-    } catch (e) {
-      lastErr = e;
-      attemptErrors.push({ path: 'GitHub Contents API', error: (e && e.message) ? e.message : String(e) });
-    }
-
     setStatus('Excel: not loaded');
-    const details = (lastErr && lastErr.message) ? lastErr.message : 'Unknown error';
-    const perPath = attemptErrors.length
-      ? attemptErrors.map(x => `- ${x.path}: ${x.error}`).join('\n')
-      : '- (none)';
     const msg =
       'Unable to load the employee database Excel file.\n\n' +
-      'Expected file path (same folder as this page): ' + DEFAULT_XLSX_PATH + '\n' +
-      'Alternative expected path (site root): ' + (SITE_ROOT + 'employee-database/employees-database.xlsx') + '\n\n' +
-      'Ensure the file exists in the repository and is published to GitHub Pages.\n\n' +
-      'Attempted paths:\n- ' + FALLBACK_XLSX_PATHS.join('\n- ') + '\n\n' +
-      'Details: ' + details + '\n\n' +
-      'Per-path results:\n' + perPath;
+      'Expected file path: ' + DEFAULT_XLSX_PATH + '\n' +
+      'Ensure the file exists and is published to GitHub Pages.\n\n' +
+      'Details: ' + (lastErr ? lastErr.message : 'Unknown error');
     throw new Error(msg);
   }
 
@@ -533,6 +413,10 @@
       input.placeholder = mode === 'code'
         ? 'Enter employee code (exact)...'
         : 'Type employee name (partial)...';
+
+      // Autocomplete list (names) only in Name mode.
+      if (mode === 'name') input.setAttribute('list', 'nameSuggestions');
+      else input.removeAttribute('list');
 
       input.focus();
     }
