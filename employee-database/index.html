@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="Employee Database" />
+  <meta name="description" content="Employee Database - lookup employee master data" />
   <title>iEnergy | Employee Database</title>
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../home.css?v=2" />
-  <link rel="stylesheet" href="employee-database.css?v=1" />
+  <link rel="stylesheet" href="employee-database.css?v=2" />
 </head>
 <body>
   <!-- Auth (popup style) -->
@@ -39,15 +39,114 @@
       <div class="hero-text">
         <div class="pill">Tools Portal</div>
         <h1>Employee Database</h1>
-        <p class="tagline">This module is under preparation.</p>
+        <p class="tagline">Search employee master data by code or name.</p>
+        <div class="meta">
+          <span id="xlsxStatus" class="meta-item">Excel: not loaded</span>
+          <span class="meta-dot">•</span>
+          <span class="meta-item">Session auto-lock: 10 minutes</span>
+        </div>
         <p style="margin:12px 0 0;">
           <a class="tile" style="display:inline-block;padding:10px 12px;" href="../index.html">← Back to Home</a>
         </p>
       </div>
       <img class="hero-logo" src="../logo.jpg" alt="iEnergy logo" />
     </header>
+
+    <section class="panel">
+      <div class="panel-top">
+        <div class="segmented" role="tablist" aria-label="Search mode">
+          <button id="modeCode" class="seg-btn active" type="button" aria-selected="true">Search by Code</button>
+          <button id="modeName" class="seg-btn" type="button" aria-selected="false">Search by Name</button>
+        </div>
+        <div class="panel-actions">
+          <button id="btnReload" class="tile small" type="button" title="Reload Excel file">Reload Excel</button>
+        </div>
+      </div>
+
+      <div class="search-row">
+        <input id="searchInput" class="search-input" type="text" autocomplete="off" placeholder="Enter employee code (exact)..." />
+        <button id="btnSearch" class="primary small" type="button">Search</button>
+      </div>
+
+      <div id="hint" class="hint" role="status" aria-live="polite"></div>
+
+      <div id="matches" class="matches" hidden>
+        <div class="matches-title">Matches</div>
+        <div id="matchesList" class="matches-list"></div>
+      </div>
+    </section>
+
+    <section id="result" class="result" hidden>
+      <div class="result-head">
+        <div class="result-title">
+          <h2 id="rTitle">Employee Details</h2>
+          <div id="rSubtitle" class="result-subtitle"></div>
+        </div>
+        <div class="result-actions">
+          <button id="btnClear" class="tile small" type="button">Clear</button>
+        </div>
+      </div>
+
+      <div class="kv-grid">
+        <div class="kv"><div class="k">Employee Code</div><div id="rCode" class="v">—</div></div>
+        <div class="kv"><div class="k">Employee Name</div><div id="rName" class="v">—</div></div>
+        <div class="kv"><div class="k">Position</div><div id="rPosition" class="v">—</div></div>
+        <div class="kv"><div class="k">Department</div><div id="rDept" class="v">—</div></div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th style="width:38%;">Field</th><th>Value</th></tr>
+          </thead>
+          <tbody id="fieldsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div>© <span id="year"></span> iEnergy</div>
+      <div class="footnote">Excel file is loaded client-side in your browser.</div>
+    </footer>
   </main>
 
-  <script src="employee-database.js?v=1"></script>
+  <!-- SheetJS (XLSX) loader with CDN fallbacks -->
+  <script>
+    (function () {
+      'use strict';
+      const candidates = [
+        'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+        'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+        'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+      ];
+
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.async = true;
+          s.onload = () => resolve(true);
+          s.onerror = () => reject(new Error('Failed to load ' + src));
+          document.head.appendChild(s);
+        });
+      }
+
+      async function ensureXLSX() {
+        if (window.XLSX) return true;
+        for (const src of candidates) {
+          try {
+            await loadScript(src);
+            if (window.XLSX) return true;
+          } catch (e) { /* try next */ }
+        }
+        return false;
+      }
+
+      window.__ensureXLSX = ensureXLSX;
+    })();
+  </script>
+
+  <script src="employee-database.js?v=2"></script>
+  <script>document.getElementById('year').textContent = String(new Date().getFullYear());</script>
 </body>
 </html>
