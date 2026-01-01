@@ -139,6 +139,21 @@
     return normStr(v).toLowerCase();
   }
 
+  // Resolve a header (which may have different whitespace/newlines) to the actual key used in the parsed row object.
+  function resolveHeaderKey(row, header) {
+    if (!row || !header) return header;
+    const target = normKey(header);
+    const keys = Object.keys(row);
+    const exact = keys.find(k0 => normKey(k0) === target);
+    return exact || header;
+  }
+
+  // Use a clean label for display (Excel headers sometimes include newlines).
+  function prettyHeaderLabel(header) {
+    return normStr(header) || '';
+  }
+
+
   function pickField(row, candidates) {
     // Try exact keys first
     for (const c of candidates) {
@@ -375,7 +390,7 @@
         try {
           const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
           const hdr = Array.isArray(aoa) && aoa.length ? aoa[0] : [];
-          headerOrder = (hdr || []).map(h => normStr(h)).filter(h => h);
+          headerOrder = (hdr || []).map(h => (h === null || h === undefined) ? '' : String(h).trim()).filter(h => h);
         } catch (e) {
           headerOrder = [];
         }
@@ -564,10 +579,10 @@
         const tr = document.createElement('tr');
 
         const tdK = document.createElement('td');
-        tdK.textContent = k;
+        tdK.textContent = prettyHeaderLabel(k);
 
         const tdV = document.createElement('td');
-        const v = row[k];
+        const v = row[resolveHeaderKey(row, k)];
         tdV.textContent = formatValue(k, v);
 
         tr.appendChild(tdK);
