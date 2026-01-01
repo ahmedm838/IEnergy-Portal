@@ -236,7 +236,8 @@
       k === 'idno' ||
       k === 'mobileno' ||
       k === 'secmobileno' ||
-      k === 'sino'
+      k === 'sino' ||
+      k === 'sijobcode'
     );
   }
 
