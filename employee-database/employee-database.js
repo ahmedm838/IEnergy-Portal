@@ -93,7 +93,8 @@
   ];
 
   let rows = [];
-  let index = []; // { row, code, name, normCode, normName }
+  let index = [];
+  let headerOrder = []; // { row, code, name, normCode, normName }
   let loadedFrom = null;
 
   let mode = 'code'; // 'code' | 'name'
@@ -156,26 +157,78 @@
     return /date|dob|birth|hiring|joining|start|end|issue|expiry|expiration/i.test(k);
   }
 
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function formatDateDDMMYYYY(d) {
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '—';
+    const dd = pad2(d.getDate());
+    const mm = pad2(d.getMonth() + 1);
+    const yy = d.getFullYear();
+    return dd + '/' + mm + '/' + yy;
+  }
+
+  function isNoCommaField(key) {
+    const k = normKey(key).replace(/[^a-z0-9]/g, '');
+    // Exact field names requested (allow for punctuation/spaces): ID No., Mobile No., Sec. Mobile No., SI No.
+    return (
+      k === 'idno' ||
+      k === 'mobileno' ||
+      k === 'secmobileno' ||
+      k === 'sino'
+    );
+  }
+
+  function tryParseDateString(s) {
+    const t = normStr(s);
+    if (!t) return null;
+
+    // ISO-like: YYYY-MM-DD or YYYY/MM/DD
+    let m = t.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:\s|T|$)/);
+    if (m) {
+      const y = Number(m[1]), mo = Number(m[2]), da = Number(m[3]);
+      const d = new Date(y, mo - 1, da);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+
+    // D/M/YYYY or DD/MM/YYYY (treat as day-first)
+    m = t.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})(?:\s|$)/);
+    if (m) {
+      const da = Number(m[1]), mo = Number(m[2]), y = Number(m[3]);
+      const d = new Date(y, mo - 1, da);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+
+    return null;
+  }
+
   function formatValue(key, val) {
     if (val === null || val === undefined) return '—';
     if (val === '') return '—';
 
     if (val instanceof Date && !Number.isNaN(val.getTime())) {
-      return val.toLocaleDateString();
+      return formatDateDDMMYYYY(val);
     }
 
     if (typeof val === 'number' && Number.isFinite(val)) {
       // Heuristic: treat as date serial if key indicates a date and value is in plausible range
       if (looksLikeDateKey(key) && val > 20000 && val < 70000) {
         const d = excelDateToJsDate(val);
-        if (d) return d.toLocaleDateString();
+        if (d) return formatDateDDMMYYYY(d);
       }
       const isInt = Math.abs(val - Math.round(val)) < 1e-9;
+      if (isNoCommaField(key)) return String(Math.round(val));
       if (isInt) return Math.round(val).toLocaleString();
       return val.toLocaleString(undefined, { maximumFractionDigits: 4 });
     }
 
     const s = normStr(val);
+    if (looksLikeDateKey(key)) {
+      const d = tryParseDateString(s);
+      if (d) return formatDateDDMMYYYY(d);
+    }
+    if (isNoCommaField(key)) {
+      return s.replace(/,/g, '') || '—';
+    }
     return s || '—';
   }
 
@@ -236,10 +289,18 @@
         if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + p);
         const buf = await resp.arrayBuffer();
         // SheetJS can detect formats from buffer
-        const wb = XLSX.read(buf, { type: 'array' });
+        const wb = XLSX.read(buf, { type: 'array', cellDates: true });
         const sheetName = wb.SheetNames && wb.SheetNames[0];
         if (!sheetName) throw new Error('No worksheets found in Excel file.');
         const ws = wb.Sheets[sheetName];
+        // Capture header order exactly as in the sheet (first row)
+        try {
+          const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+          const hdr = Array.isArray(aoa) && aoa.length ? aoa[0] : [];
+          headerOrder = (hdr || []).map(h => normStr(h)).filter(h => h);
+        } catch (e) {
+          headerOrder = [];
+        }
         const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
         buildIndex(json);
         loadedFrom = p;
@@ -362,7 +423,9 @@
     const sub = $('rSubtitle');
     if (sub) sub.textContent = subtitleBits.join(' • ');
 
-    const keys = makeKeySort(Object.keys(row || {}));
+    const keys = (Array.isArray(headerOrder) && headerOrder.length)
+      ? headerOrder
+      : makeKeySort(Object.keys(row || {}));
     const body = $('fieldsBody');
     if (body) {
       body.innerHTML = '';
