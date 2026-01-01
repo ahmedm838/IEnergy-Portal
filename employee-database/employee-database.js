@@ -99,6 +99,24 @@
 
   let mode = 'code'; // 'code' | 'name'
 
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function updateNameSuggestions() {
+    const dl = $('nameSuggestions');
+    if (!dl) return;
+
+    const names = index.map(it => it.name).filter(Boolean);
+    const uniq = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+    dl.innerHTML = uniq.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
+  }
+
   function setHint(msg, isError) {
     const el = $('hint');
     if (!el) return;
@@ -324,6 +342,9 @@
 
       index.push({ row: r, code: normStr(code), name: normStr(name), normCode, normName });
     }
+
+    // Refresh name suggestions for the autocomplete list.
+    updateNameSuggestions();
   }
 
   async function loadXlsx() {
@@ -359,6 +380,8 @@
         }
         const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
         buildIndex(json);
+        // Populate name autocomplete list
+        updateNameSuggestions();
         loadedFrom = p;
         setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
         setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s).', false);
@@ -390,6 +413,11 @@
       input.placeholder = mode === 'code'
         ? 'Enter employee code (exact)...'
         : 'Type employee name (partial)...';
+
+      // Autocomplete list (names) only in Name mode.
+      if (mode === 'name') input.setAttribute('list', 'nameSuggestions');
+      else input.removeAttribute('list');
+
       input.focus();
     }
 
@@ -565,6 +593,60 @@
     showMatches(hits.slice(0, 50));
   }
 
+  function findNameMatches(q, limit = 8) {
+    const query = normKey(q);
+    if (!query) return [];
+
+    const starts = [];
+    const contains = [];
+
+    for (const it of index) {
+      if (!it.normName) continue;
+      if (it.normName.startsWith(query)) starts.push(it);
+      else if (it.normName.includes(query)) contains.push(it);
+      if (starts.length + contains.length >= limit) {
+        // keep scanning a little to prefer startsWith matches (already gathered first)
+        // but break once we have enough.
+        break;
+      }
+    }
+
+    return starts.concat(contains).slice(0, limit);
+  }
+
+  function handleNameTyping() {
+    if (mode !== 'name') return;
+    const input = $('searchInput');
+    const q = input ? normStr(input.value) : '';
+
+    if (!q) {
+      hideMatches();
+      hideResult();
+      setHint('', false);
+      return;
+    }
+
+    // If the user typed an exact full name, show it immediately (same behavior as Contacts List).
+    const qKey = normKey(q);
+    const exact = index.filter(it => it.normName === qKey);
+    if (exact.length === 1) {
+      hideMatches();
+      setHint('1 match found.', false);
+      renderResult(exact[0]);
+      return;
+    }
+
+    hideResult();
+    const matches = findNameMatches(q, 8);
+    if (!matches.length) {
+      hideMatches();
+      setHint('No employee found matching this name yet. Keep typing.', true);
+      return;
+    }
+    setHint('Select a name from the list, or press Search.', false);
+    showMatches(matches);
+  }
+
   async function initApp() {
     // UI wiring
     const bCode = $('modeCode');
@@ -601,10 +683,17 @@
           runSearch();
         }
       });
+
+      // Typeahead suggestions in Name mode.
+      let typingTimer = null;
+      input.addEventListener('input', () => {
+        if (typingTimer) clearTimeout(typingTimer);
+        typingTimer = setTimeout(handleNameTyping, 120);
+      });
     }
 
     // Default mode
-    setMode('code');
+    setMode('name');
 
     // Auto-load
     try {
