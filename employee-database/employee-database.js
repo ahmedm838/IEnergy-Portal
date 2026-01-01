@@ -82,7 +82,7 @@
   // -----------------------------
   // Excel loading + search
   // -----------------------------
-  const DEFAULT_XLSX_PATH = './employees-database.xls';
+  const DEFAULT_XLSX_PATH = './employees-database.xlsx';
   const FALLBACK_XLSX_PATHS = [
     DEFAULT_XLSX_PATH,
     './employees-database.xlsx',
