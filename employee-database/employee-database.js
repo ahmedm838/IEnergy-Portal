@@ -91,7 +91,28 @@
     return '/';
   }
 
+  // If this is GitHub Pages, we can also fall back to the raw GitHub URL.
+  // This can help if Pages is configured to publish from a build folder that
+  // does not include the Excel file (or if a service worker/caching mismatch occurs).
+  function getGithubRawRoots() {
+    const host = (window.location.hostname || '').toLowerCase();
+    const isGithubPages = host.endsWith('github.io');
+    if (!isGithubPages) return [];
+
+    const username = host.split('.')[0];
+    const parts = (window.location.pathname || '').split('/').filter(Boolean);
+    const repo = parts.length ? parts[0] : '';
+    if (!username || !repo) return [];
+
+    // Try common default branches.
+    return [
+      `https://raw.githubusercontent.com/${username}/${repo}/main/`,
+      `https://raw.githubusercontent.com/${username}/${repo}/master/`
+    ];
+  }
+
   const SITE_ROOT = getSiteRoot();
+  const RAW_ROOTS = getGithubRawRoots();
   const DEFAULT_XLSX_PATH = './employees-database.xlsx';
   const FALLBACK_XLSX_PATHS = [
     // Preferred: file sits in the same folder as this page (/employee-database/)
@@ -107,7 +128,14 @@
     './IEnergy Employees Database.xls',
     '../data/employees.xlsx',
     SITE_ROOT + 'data/employees.xlsx'
-  ];
+  ].concat(
+    // Raw GitHub fallbacks (GitHub Pages only)
+    RAW_ROOTS.flatMap(r => [
+      r + 'employee-database/employees-database.xlsx',
+      r + 'employee-database/employees.xlsx',
+      r + 'data/employees.xlsx'
+    ])
+  );
 
   let rows = [];
   let index = [];
