@@ -415,10 +415,10 @@
     if (loadedFrom) subtitleBits.push('Source: ' + loadedFrom.replace('./',''));
     subtitleBits.push('Sheet row: ' + (index.indexOf(item) + 1).toLocaleString());
 
-    $('rCode').textContent = code || '—';
-    $('rName').textContent = name || '—';
-    $('rPosition').textContent = pos || '—';
-    $('rDept').textContent = dept || '—';
+    const elCode = $('rCode'); if (elCode) elCode.textContent = code || '—';
+    const elName = $('rName'); if (elName) elName.textContent = name || '—';
+    const elPos = $('rPosition'); if (elPos) elPos.textContent = pos || '—';
+    const elDept = $('rDept'); if (elDept) elDept.textContent = dept || '—';
 
     const sub = $('rSubtitle');
     if (sub) sub.textContent = subtitleBits.join(' • ');
