@@ -111,6 +111,73 @@
     ];
   }
 
+
+  // GitHub Contents API fallback (avoids raw.githubusercontent.com and Pages path issues).
+  // Works for public repos and files < ~1MB, which is typically the case for this Excel.
+  function getGithubRepoContext() {
+    const host = (window.location.hostname || '').toLowerCase();
+    const isGithubPages = host.endsWith('github.io');
+    const username = isGithubPages ? host.split('.')[0] : '';
+    const parts = (window.location.pathname || '').split('/').filter(Boolean);
+    const repo = parts.length ? parts[0] : '';
+    return { isGithubPages, username, repo };
+  }
+
+  async function tryLoadViaGithubContentsApi() {
+    const ctx = getGithubRepoContext();
+    if (!ctx.username || !ctx.repo) return false;
+
+    const candidateFiles = [
+      'employee-database/employees-database.xlsx',
+      'employee-database/employees.xlsx',
+      'data/employees.xlsx'
+    ];
+    const candidateBranches = ['main', 'master'];
+
+    for (const br of candidateBranches) {
+      for (const file of candidateFiles) {
+        const apiUrl = `https://api.github.com/repos/${ctx.username}/${ctx.repo}/contents/${file}?ref=${br}`;
+        try {
+          const resp = await fetch(apiUrl, { cache: 'no-store' });
+          if (!resp.ok) continue;
+          const meta = await resp.json();
+          if (!meta || meta.encoding !== 'base64' || !meta.content) continue;
+
+          const b64 = String(meta.content).replace(/\n/g, '');
+          const bin = atob(b64);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+          const wb = XLSX.read(bytes.buffer, { type: 'array', cellDates: true });
+          const sheetName = wb.SheetNames && wb.SheetNames[0];
+          if (!sheetName) continue;
+          const ws = wb.Sheets[sheetName];
+
+          // Capture header order exactly as in the sheet (first row)
+          try {
+            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+            const hdr = Array.isArray(aoa) && aoa.length ? aoa[0] : [];
+            headerOrder = (hdr || []).map(h => normStr(h)).filter(h => h);
+          } catch (e) {
+            headerOrder = [];
+          }
+
+          const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
+          buildIndex(json);
+
+          loadedFrom = apiUrl;
+          setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
+          setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s). (GitHub API)', false);
+          return true;
+        } catch (e) {
+          // Keep trying other options.
+        }
+      }
+    }
+    return false;
+  }
+
+
   const SITE_ROOT = getSiteRoot();
   const RAW_ROOTS = getGithubRawRoots();
   const DEFAULT_XLSX_PATH = './employees-database.xlsx';
@@ -397,6 +464,7 @@
     setStatus('Excel: loading…');
 
     let lastErr = null;
+    const attemptErrors = [];
     loadedFrom = null;
 
     for (const p of FALLBACK_XLSX_PATHS) {
@@ -426,7 +494,17 @@
         return true;
       } catch (e) {
         lastErr = e;
+        attemptErrors.push({ path: p, error: (e && e.message) ? e.message : String(e) });
       }
+    }
+
+    // Last-resort: GitHub Contents API (often works even when Pages paths or raw.githubusercontent.com are blocked).
+    try {
+      const ok = await tryLoadViaGithubContentsApi();
+      if (ok) return true;
+    } catch (e) {
+      lastErr = e;
+      attemptErrors.push({ path: 'GitHub Contents API', error: (e && e.message) ? e.message : String(e) });
     }
 
     setStatus('Excel: not loaded');
@@ -436,7 +514,11 @@
       'Alternative expected path (site root): ' + (SITE_ROOT + 'employee-database/employees-database.xlsx') + '\n\n' +
       'Ensure the file exists in the repository and is published to GitHub Pages.\n\n' +
       'Attempted paths:\n- ' + FALLBACK_XLSX_PATHS.join('\n- ') + '\n\n' +
-      'Details: ' + (lastErr ? lastErr.message : 'Unknown error');
+      'Details: ' + (lastErr ? lastErr.message : 'Unknown error') + '
+
+' + 'Per-path results:
+' + (attemptErrors.length ? attemptErrors.map(x => `- ${x.path}: ${x.error}`).join('
+') : '- (none)');
     throw new Error(msg);
   }
 
