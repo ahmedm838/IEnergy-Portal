@@ -1,6 +1,6 @@
 /* Employee Database
    - Password protected (10 min unlock): iEnergyS26
-   - Reads an Excel file in the browser (default: ./employees-database.xls)
+   - Reads an Excel file in the browser (default: ./IEnergy Employees Database.xlsx)
    - Search by Employee Code (exact) or Employee Name (contains)
    - Displays all columns for the selected employee row
 */
@@ -82,12 +82,13 @@
   // -----------------------------
   // Excel loading + search
   // -----------------------------
-  const DEFAULT_XLSX_PATH = './employees-database.xlsx';
+  const EXCEL_PASSWORD = 'iEnergy25'; // Excel workbook open password
+  const DEFAULT_XLSX_PATH = './IEnergy Employees Database.xlsx';
   const FALLBACK_XLSX_PATHS = [
     DEFAULT_XLSX_PATH,
+    './IEnergy%20Employees%20Database.xlsx',
     './employees-database.xlsx',
-    './IEnergy Employees Database.xlsx',
-    './IEnergy Employees Database.xls',
+    './employees-database.xls',
     '../data/employees.xlsx',
     './employees.xlsx'
   ];
@@ -364,12 +365,21 @@
   }
 
   async function loadXlsx() {
-    // Ensure XLSX is present (loader is in HTML)
-    if (window.__ensureXLSX) {
-      const ok = await window.__ensureXLSX();
-      if (!ok || !window.XLSX) throw new Error('Unable to load XLSX library.');
+    // Prefer XlsxPopulate for password-protected workbooks; fall back to SheetJS for unencrypted workbooks.
+    const hasEnsurePop = typeof window.__ensureXlsxPopulate === 'function';
+    const hasEnsureXLSX = typeof window.__ensureXLSX === 'function';
+
+    if (hasEnsurePop) {
+      try { await window.__ensureXlsxPopulate(); } catch (e) { /* ignore */ }
     }
-    if (!window.XLSX) throw new Error('XLSX library not found.');
+    if (hasEnsureXLSX) {
+      try { await window.__ensureXLSX(); } catch (e) { /* ignore */ }
+    }
+
+    const hasPop = !!(window.XlsxPopulate && window.XlsxPopulate.fromDataAsync);
+    const hasSheetJS = !!window.XLSX;
+
+    if (!hasPop && !hasSheetJS) throw new Error('Unable to load Excel parser libraries (XlsxPopulate / SheetJS).');
 
     setStatus('Excel: loading…');
 
@@ -381,27 +391,82 @@
         const resp = await fetch(encodeURI(p), { cache: 'no-store' });
         if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + p);
         const buf = await resp.arrayBuffer();
-        // SheetJS can detect formats from buffer
-        const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-        const sheetName = wb.SheetNames && wb.SheetNames[0];
-        if (!sheetName) throw new Error('No worksheets found in Excel file.');
-        const ws = wb.Sheets[sheetName];
-        // Capture header order exactly as in the sheet (first row)
-        try {
-          const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
-          const hdr = Array.isArray(aoa) && aoa.length ? aoa[0] : [];
-          headerOrder = (hdr || []).map(h => (h === null || h === undefined) ? '' : String(h).trim()).filter(h => h);
-        } catch (e) {
-          headerOrder = [];
+
+        // 1) Try XlsxPopulate (supports password-protected workbooks)
+        if (hasPop) {
+          try {
+            // First try with password. If the file is not encrypted, this also works.
+            const wb = await window.XlsxPopulate.fromDataAsync(buf, { password: EXCEL_PASSWORD });
+
+            const sheet = wb.sheet(0);
+            if (!sheet) throw new Error('No worksheets found in Excel file.');
+
+            const used = sheet.usedRange();
+            const aoa = used ? used.value() : [];
+            const hdr = Array.isArray(aoa) && aoa.length ? aoa[0] : [];
+
+            headerOrder = (hdr || [])
+              .map(h => (h === null || h === undefined) ? '' : String(h).trim())
+              .filter(h => h);
+
+            const data = [];
+            const cols = headerOrder.length;
+
+            for (let r = 1; r < (aoa || []).length; r++) {
+              const rowArr = aoa[r] || [];
+              const obj = {};
+              let any = false;
+
+              for (let c = 0; c < cols; c++) {
+                const key = headerOrder[c];
+                const v = (c < rowArr.length) ? rowArr[c] : '';
+                obj[key] = (v === undefined ? '' : v);
+                if (v !== null && v !== undefined && String(v).trim() !== '') any = true;
+              }
+
+              if (any) data.push(obj);
+            }
+
+            buildIndex(data);
+            updateNameSuggestions();
+
+            loadedFrom = p;
+            setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
+            setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s).', false);
+            return true;
+          } catch (ePop) {
+            // fall through to SheetJS or next path
+            lastErr = ePop;
+          }
         }
-        const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
-        buildIndex(json);
-        // Populate name autocomplete list
-        updateNameSuggestions();
-        loadedFrom = p;
-        setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
-        setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s).', false);
-        return true;
+
+        // 2) Fallback: SheetJS (works for unencrypted xlsx only)
+        if (hasSheetJS) {
+          const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+          const sheetName = wb.SheetNames && wb.SheetNames[0];
+          if (!sheetName) throw new Error('No worksheets found in Excel file.');
+          const ws = wb.Sheets[sheetName];
+
+          // Capture header order exactly as in the sheet (first row)
+          try {
+            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+            const hdr = Array.isArray(aoa) && aoa.length ? aoa[0] : [];
+            headerOrder = (hdr || []).map(h => (h === null || h === undefined) ? '' : String(h).trim()).filter(h => h);
+          } catch (e) {
+            headerOrder = [];
+          }
+
+          const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
+          buildIndex(json);
+          updateNameSuggestions();
+
+          loadedFrom = p;
+          setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
+          setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s).', false);
+          return true;
+        }
+
+        throw new Error('Excel file could not be parsed.');
       } catch (e) {
         lastErr = e;
       }
@@ -412,6 +477,7 @@
       'Unable to load the employee database Excel file.\n\n' +
       'Expected file path: ' + DEFAULT_XLSX_PATH + '\n' +
       'Ensure the file exists and is published to GitHub Pages.\n\n' +
+      'If the workbook is password-protected, the portal must load XlsxPopulate with encryption support.\n\n' +
       'Details: ' + (lastErr ? lastErr.message : 'Unknown error');
     throw new Error(msg);
   }
