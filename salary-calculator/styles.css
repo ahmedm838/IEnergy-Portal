@@ -41,7 +41,7 @@ body {
 
 .header-logo {
   margin-left: auto;
-  width: 312px;
+  width: min(312px, 70vw);
   max-width: none;
   object-fit: contain;
   /* Fallback height (JS will sync it to title+sentence height) */

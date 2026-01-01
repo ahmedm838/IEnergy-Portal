@@ -56,7 +56,7 @@ body {
 }
 
 .hero-logo {
-  width: 312px;
+  width: min(312px, 70vw);
   height: 78px;
   max-width: 40vw;
   object-fit: contain;
@@ -95,7 +95,7 @@ body {
   }
   .hero-logo {
     align-self: flex-end;
-    width: 312px;
+    width: min(312px, 70vw);
     max-width: 100%;
   }
 }

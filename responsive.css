@@ -1,0 +1,95 @@
+/* Global responsive tuning for iEnergy Portal
+   - Ensures consistent scaling across desktop/tablet/mobile
+   - Improves small-screen readability and prevents horizontal overflow
+*/
+
+:root{
+  --space: clamp(12px, 2.2vw, 20px);
+  --space-sm: clamp(8px, 1.6vw, 14px);
+  --container-max: 1120px;
+}
+
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
+html{ -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+body{
+  margin:0;
+  min-height:100vh;
+  /* Keep typography comfortable across screen sizes */
+  font-size: clamp(14px, 1.7vw, 16px);
+  line-height: 1.45;
+}
+
+/* Media should never overflow the viewport */
+img, svg, video, canvas{
+  max-width:100%;
+  height:auto;
+}
+
+/* Inputs/buttons: keep within viewport */
+input, select, textarea, button{
+  max-width:100%;
+}
+
+/* A safe default container pattern (works with existing .container rules) */
+.container{
+  width: min(var(--container-max), 100%);
+  padding-left: var(--space);
+  padding-right: var(--space);
+}
+
+/* Prevent long tokens (codes/emails/IDs) from forcing overflow */
+.kv, .kv-row, .result, .result-item, .matches-list, .matches, .meta, .docs-title, .tile-desc, .tile-title{
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Table and wide blocks: allow horizontal scroll on small screens */
+.table-wrap, .table-container, .docs, .data-table-wrap{
+  overflow-x:auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Logos: avoid fixed widths overflowing on small screens */
+.hero-logo, .logo, .header-logo{
+  width: auto !important;
+  max-width: min(312px, 70vw);
+  height: auto;
+}
+
+/* Small-screen layout helpers */
+@media (max-width: 720px){
+  /* Common header/top rows should stack */
+  .top, .actions, .auth-actions, .result-header, .matches-title, .docs-head{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .top > *, .actions > *, .auth-actions > *, .result-header > *, .matches-title > *, .docs-head > *{
+    width: 100%;
+  }
+
+  /* Cards/tiles should fill the width */
+  .card, .tile, .section{
+    width: 100%;
+  }
+
+  /* Document list items stack */
+  .docs-item{
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Remove fixed max-width constraints inside list titles */
+  .docs-title{ max-width: 100% !important; }
+}
+
+@media (max-width: 420px){
+  /* Slightly tighter padding on very small devices */
+  .container{
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
+  }
+}
