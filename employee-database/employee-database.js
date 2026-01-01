@@ -141,6 +141,33 @@
     return '';
   }
 
+  function pickFieldKey(row, candidates) {
+    // Same matching strategy as pickField(), but returns the matched column name (key).
+    if (!row) return '';
+
+    // Try exact keys first
+    for (const c of candidates) {
+      if (Object.prototype.hasOwnProperty.call(row, c) && normStr(row[c])) return c;
+    }
+
+    // Try fuzzy keys
+    const keys = Object.keys(row || {});
+    for (const c of candidates) {
+      const cNorm = normKey(c);
+      const k = keys.find(k0 => normKey(k0) === cNorm);
+      if (k && normStr(row[k])) return k;
+    }
+
+    // Try contains
+    for (const c of candidates) {
+      const cNorm = normKey(c);
+      const k = keys.find(k0 => normKey(k0).includes(cNorm));
+      if (k && normStr(row[k])) return k;
+    }
+
+    return '';
+  }
+
   function excelDateToJsDate(serial) {
     // Excel 1900 system (best-effort)
     const s = Number(serial);
@@ -406,22 +433,30 @@
 
     const row = item.row || {};
 
-    const code = item.code || normStr(pickField(row, ['EmployeeCode', 'EmpCode', 'Code', 'ID', 'Employee ID']));
-    const name = item.name || normStr(pickField(row, ['EmployeeName', 'Name', 'Full Name', 'FullName']));
-    const pos  = normStr(pickField(row, ['Position', 'Job Title', 'Title']));
-    const dept = normStr(pickField(row, ['Department', 'Dept', 'Section']));
+    // Summary fields (kept at the top)
+    const codeKey = pickFieldKey(row, ['EmployeeCode', 'EmpCode', 'Employee Code', 'Code', 'ID', 'Employee ID', 'Emp ID']);
+    const nameKey = pickFieldKey(row, ['EmployeeName', 'Name', 'Full Name', 'FullName', 'Employee', 'Employee Name']);
+    const posKey  = pickFieldKey(row, ['Position', 'Job Title', 'Title']);
+    const deptKey = pickFieldKey(row, ['Department', 'Dept', 'Section']);
+
+    const code = item.code || normStr(codeKey ? row[codeKey] : pickField(row, ['EmployeeCode', 'EmpCode', 'Code', 'ID', 'Employee ID']));
+    const name = item.name || normStr(nameKey ? row[nameKey] : pickField(row, ['EmployeeName', 'Name', 'Full Name', 'FullName']));
+    const pos  = normStr(posKey ? row[posKey] : pickField(row, ['Position', 'Job Title', 'Title']));
+    const dept = normStr(deptKey ? row[deptKey] : pickField(row, ['Department', 'Dept', 'Section']));
 
     const subtitleBits = [];
     if (loadedFrom) subtitleBits.push('Source: ' + loadedFrom.replace('./',''));
     subtitleBits.push('Sheet row: ' + (index.indexOf(item) + 1).toLocaleString());
 
-    const elCode = $('rCode'); if (elCode) elCode.textContent = code || '—';
-    const elName = $('rName'); if (elName) elName.textContent = name || '—';
-    const elPos = $('rPosition'); if (elPos) elPos.textContent = pos || '—';
-    const elDept = $('rDept'); if (elDept) elDept.textContent = dept || '—';
+    $('rCode').textContent = code || '—';
+    $('rName').textContent = name || '—';
+    $('rPosition').textContent = pos || '—';
+    $('rDept').textContent = dept || '—';
 
     const sub = $('rSubtitle');
     if (sub) sub.textContent = subtitleBits.join(' • ');
+
+    const excludeDetailKeys = new Set([codeKey, nameKey, posKey, deptKey].filter(Boolean).map(normKey));
 
     const keys = (Array.isArray(headerOrder) && headerOrder.length)
       ? headerOrder
@@ -430,6 +465,8 @@
     if (body) {
       body.innerHTML = '';
       for (const k of keys) {
+        // Remove the already-shown summary fields from the details table.
+        if (excludeDetailKeys.has(normKey(k))) continue;
         const tr = document.createElement('tr');
 
         const tdK = document.createElement('td');
