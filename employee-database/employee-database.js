@@ -448,9 +448,6 @@
 
       index.push({ row: r, code: normStr(code), name: normStr(name), normCode, normName });
     }
-
-    // Refresh name suggestions for the autocomplete list.
-    updateNameSuggestions();
   }
 
   async function loadXlsx() {
@@ -508,17 +505,18 @@
     }
 
     setStatus('Excel: not loaded');
+    const details = (lastErr && lastErr.message) ? lastErr.message : 'Unknown error';
+    const perPath = attemptErrors.length
+      ? attemptErrors.map(x => `- ${x.path}: ${x.error}`).join('\n')
+      : '- (none)';
     const msg =
       'Unable to load the employee database Excel file.\n\n' +
       'Expected file path (same folder as this page): ' + DEFAULT_XLSX_PATH + '\n' +
       'Alternative expected path (site root): ' + (SITE_ROOT + 'employee-database/employees-database.xlsx') + '\n\n' +
       'Ensure the file exists in the repository and is published to GitHub Pages.\n\n' +
       'Attempted paths:\n- ' + FALLBACK_XLSX_PATHS.join('\n- ') + '\n\n' +
-      'Details: ' + (lastErr ? lastErr.message : 'Unknown error') + '
-
-' + 'Per-path results:
-' + (attemptErrors.length ? attemptErrors.map(x => `- ${x.path}: ${x.error}`).join('
-') : '- (none)');
+      'Details: ' + details + '\n\n' +
+      'Per-path results:\n' + perPath;
     throw new Error(msg);
   }
 
