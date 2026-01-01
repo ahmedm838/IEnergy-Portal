@@ -414,9 +414,9 @@
         ? 'Enter employee code (exact)...'
         : 'Type employee name (partial)...';
 
-      // Autocomplete list (names) only in Name mode.
-      if (mode === 'name') input.setAttribute('list', 'nameSuggestions');
-      else input.removeAttribute('list');
+      // Disable browser-native datalist autocomplete. We keep the portal's
+      // own Matches panel below the search bar for selection.
+      input.removeAttribute('list');
 
       input.focus();
     }
