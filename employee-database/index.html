@@ -18,10 +18,13 @@
         <div class="auth-title">
           <a class="back-link" href="../index.html">← iEnergy Home</a>
           <h1>Employee Database</h1>
-          <p>Please enter the password to continue.</p>
+          <p>Please sign in to continue.</p>
         </div>
         <img class="logo" src="../logo.jpg" alt="Company logo" />
       </div>
+
+      <label class="auth-label" for="usernameInput">Username</label>
+      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" placeholder="admin or employee" />
 
       <label class="auth-label" for="passwordInput">Password</label>
       <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" placeholder="•••••••" />
@@ -30,7 +33,24 @@
         <button id="btnLogin" class="primary" type="button">Unlock</button>
       </div>
 
-      <div id="authError" class="auth-error" hidden>Incorrect password.</div>
+      <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
+    </div>
+  </div>
+
+  <!-- Access denied -->
+  <div id="accessDenied" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">← iEnergy Home</a>
+          <h1>Access denied</h1>
+          <p>This page is available for Admin only.</p>
+        </div>
+        <img class="logo" src="../logo.jpg" alt="Company logo" />
+      </div>
+      <div class="auth-actions">
+        <a class="primary" href="../index.html" style="display:inline-block;text-decoration:none;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.08);color:inherit;">Back to Home</a>
+      </div>
     </div>
   </div>
 
@@ -177,6 +197,7 @@
     })();
   </script>
 
+  <script src="../auth.js?v=1"></script>
   <script src="employee-database.js?v=10"></script>
   <script>document.getElementById('year').textContent = String(new Date().getFullYear());</script>
 </body>
