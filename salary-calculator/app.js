@@ -247,7 +247,7 @@ function showErrors(errs) {
 
 function clearResults() {
   [
-    "grossMonthly","siMonthly","companySiMonthly","taxableMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
+    "grossBeforeDeductions","grossMonthly","siMonthly","companySiMonthly","taxableMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
     "grossAnnual","grossAfterMedicalAnnual","insurableUsed","siAnnual","companySiAnnual","taxableAnnual","taxAnnual",
     "hourlyRate","overtimeValue","hourDeductionValue"
   ].forEach((id) => {
@@ -310,6 +310,10 @@ function calculate() {
   const overtimeValueMonthly = overtimeHours * hourlyRate * OVERTIME_MULTIPLIER;
   const hourDeductionValueMonthly = deductionHours * hourlyRate;
 
+  // Gross before deductions (monthly): basic gross salary + allowances + bonus + overtime
+  // Requirement: exclude deductions (hour deductions, medical, SI, tax, etc.).
+  const grossBeforeDeductionsMonthly = basicGross + allowances + bonus + overtimeValueMonthly;
+
   // Gross before medical (gross earnings)
   const grossMonthly = basicGross + allowances + incentive + bonus + overtimeValueMonthly - hourDeductionValueMonthly;
 
@@ -360,6 +364,7 @@ function calculate() {
   showErrors([]);
 
   // Show gross AFTER medical in the KPI area (as requested)
+  setText("grossBeforeDeductions", fmtEGP(grossBeforeDeductionsMonthly));
   setText("grossMonthly", fmtEGP(grossAfterMedicalMonthly));
 setText("siMonthly", fmtEGP(siMonthly));
 setText("companySiMonthly", fmtEGP(companySiMonthly));
