@@ -1,5 +1,5 @@
 /* Salary Query
-   - Role protected (Admin only)
+   - No login required (unlocked)
    - Reads an Excel file in the browser (default: ./employees salaries.xlsx)
    - Looks up an employee by EmployeeCode and displays key fields
 */
@@ -202,17 +202,6 @@
   // Boot
   // -----------------------------
   document.addEventListener('DOMContentLoaded', () => {
-    if (!window.IEnergyAuth) {
-      // Fail closed
-      const auth = $('auth');
-      if (auth) auth.style.display = 'grid';
-      return;
-    }
-
-    IEnergyAuth.ensureAuth({
-      allowedRoles: ['admin'],
-      homeHref: '../index.html',
-      onAuthed: () => { initQueryApp(); }
-    });
+    initQueryApp();
   });
 })();
