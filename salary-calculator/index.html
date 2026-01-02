@@ -6,10 +6,35 @@
   <title>Salary Calculator</title>
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
+  <link rel="stylesheet" href="../home.css?v=3" />
   <link rel="stylesheet" href="styles.css?v=18" />
 </head>
 <body>
-  <main id="app" class="container">
+
+  <!-- Auth (session up to 15 minutes or until tab closes) -->
+  <div id="auth" class="auth">
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">← iEnergy Home</a>
+          <h1>Salary Calculator</h1>
+          <p>Please enter the password to continue.</p>
+        </div>
+        <img class="logo" src="../logo.jpg" alt="Company logo" />
+      </div>
+
+      <label class="auth-label" for="passwordInput">Password</label>
+      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" placeholder="•••••••" />
+
+      <div class="auth-actions">
+        <button id="btnLogin" class="primary" type="button">Unlock</button>
+      </div>
+
+      <div id="authError" class="auth-error" hidden>Incorrect password.</div>
+    </div>
+  </div>
+
+  <main id="app" class="container" hidden>
     <header class="header">
       <div class="header-bar">
         <div id="headerText" class="header-text">
@@ -207,5 +232,95 @@
   </main>
 
   <script src="app.js?v=20260102_4"></script>
+
+  <script>
+    (function () {
+      'use strict';
+      const PASSWORDS = ["iEnergy2026", "iEnergyS26"];
+      const AUTH_KEY = 'ienergy_portal_session_expiry_v1';
+      const AUTH_TTL_MS = 15 * 60 * 1000; // 15 minutes max
+      const LEGACY_KEYS = ['ienergy_home_authed_v1','salary_query_authed_v1','employee_db_authed_v1'];
+
+      function $(id) { return document.getElementById(id); }
+
+      function migrateLegacyAuth() {
+        let best = 0;
+        for (const k of LEGACY_KEYS) {
+          const v = Number(sessionStorage.getItem(k) || '0');
+          if (v > best) best = v;
+        }
+        const cur = Number(sessionStorage.getItem(AUTH_KEY) || '0');
+        if (best > cur) sessionStorage.setItem(AUTH_KEY, String(best));
+        for (const k of LEGACY_KEYS) sessionStorage.removeItem(k);
+      }
+
+      function showAuthError(show) {
+        const el = $('authError');
+        if (el) el.hidden = !show;
+      }
+
+      let lockTimer = null;
+
+      function lockApp() {
+        sessionStorage.removeItem(AUTH_KEY);
+        const auth = $('auth');
+        const app = $('app');
+        if (app) app.hidden = true;
+        if (auth) auth.style.display = 'grid';
+        const input = $('passwordInput');
+        if (input) { input.value = ''; input.focus(); }
+      }
+
+      function scheduleLock(expiryMs) {
+        if (lockTimer) clearTimeout(lockTimer);
+        const remaining = expiryMs - Date.now();
+        if (remaining > 0) lockTimer = setTimeout(lockApp, remaining);
+        else lockApp();
+      }
+
+      function unlockApp() {
+        const auth = $('auth');
+        const app = $('app');
+        if (auth) auth.style.display = 'none';
+        if (app) app.hidden = false;
+
+        const expiry = Number(sessionStorage.getItem(AUTH_KEY) || '0');
+        if (expiry) scheduleLock(expiry);
+      }
+
+      function handleLogin() {
+        const input = $('passwordInput');
+        const pwd = input ? input.value : '';
+        if (PASSWORDS.includes(pwd)) {
+          migrateLegacyAuth();
+          const expiry = Date.now() + AUTH_TTL_MS;
+          sessionStorage.setItem(AUTH_KEY, String(expiry));
+          showAuthError(false);
+          unlockApp();
+        } else {
+          showAuthError(true);
+          if (input) input.focus();
+        }
+      }
+
+      function ensureAuth() {
+        migrateLegacyAuth();
+        const expiry = Number(sessionStorage.getItem(AUTH_KEY) || '0');
+        if (expiry && expiry > Date.now()) unlockApp();
+        else lockApp();
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const btn = $('btnLogin');
+        const input = $('passwordInput');
+        if (btn) btn.addEventListener('click', handleLogin);
+        if (input) input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') handleLogin();
+        });
+        ensureAuth();
+      });
+    })();
+  </script>
+
 </body>
 </html>
