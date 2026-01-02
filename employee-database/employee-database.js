@@ -1,5 +1,5 @@
 /* Employee Database
-   - Password protected (10 min unlock): iEnergyS26
+   - Password protected (session unlock up to 15 minutes): iEnergy2026
    - Reads an Excel file in the browser (default: ./IEnergy Employees Database.xlsx)
    - Search by Employee Code (exact) or Employee Name (contains)
    - Displays all columns for the selected employee row
@@ -10,9 +10,23 @@
   // -----------------------------
   // Auth gate (popup style)
   // -----------------------------
-  const PASSWORD = 'iEnergyS26';
-  const AUTH_KEY = 'employee_db_authed_v1';
-  const AUTH_TTL_MS = 10 * 60 * 1000; // 10 minutes
+  const PASSWORDS = ["iEnergy2026", "iEnergyS26"];
+  const AUTH_KEY = 'ienergy_portal_session_expiry_v1';
+  const AUTH_TTL_MS = 15 * 60 * 1000; // 15 minutes (max)
+
+
+  const LEGACY_KEYS = ["employee_db_authed_v1", "ienergy_home_authed_v1", "salary_query_authed_v1"];
+
+  function migrateLegacyAuth() {
+    let best = 0;
+    for (const k of LEGACY_KEYS) {
+      const v = Number(sessionStorage.getItem(k) || '0');
+      if (v > best) best = v;
+    }
+    const cur = Number(sessionStorage.getItem(AUTH_KEY) || '0');
+    if (best > cur) sessionStorage.setItem(AUTH_KEY, String(best));
+    for (const k of LEGACY_KEYS) sessionStorage.removeItem(k);
+  }
 
   function $(id) { return document.getElementById(id); }
 
@@ -59,7 +73,8 @@
   function handleLogin() {
     const input = $('passwordInput');
     const pwd = input ? input.value : '';
-    if (pwd === PASSWORD) {
+    if (PASSWORDS.includes(pwd)) {
+      migrateLegacyAuth();
       const expiry = Date.now() + AUTH_TTL_MS;
       sessionStorage.setItem(AUTH_KEY, String(expiry));
       showAuthError(false);
@@ -71,6 +86,7 @@
   }
 
   function ensureAuth() {
+    migrateLegacyAuth();
     const expiry = Number(sessionStorage.getItem(AUTH_KEY) || '0');
     if (expiry && expiry > Date.now()) {
       unlockApp();
