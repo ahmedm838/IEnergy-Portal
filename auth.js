@@ -60,7 +60,8 @@
 
   function login(username, password) {
     clearLegacy();
-    const u = String(username || '').trim();
+    // Username is case-insensitive for convenience.
+    const u = String(username || '').trim().toLowerCase();
     const rec = USERS[u];
     if (!rec) return { ok: false };
     if (String(password || '') !== rec.password) return { ok: false };
@@ -100,6 +101,10 @@
     const passInput = $('passwordInput');
     const btnLogin = $('btnLogin');
     const errEl = $('authError');
+
+    // Optional "switch user" button (useful when landing on an admin-only page
+    // while already authenticated as a non-admin user).
+    const btnSwitchUser = $('btnSwitchUser');
 
     let lockTimer = null;
     let authedCallbackFired = false;
@@ -192,6 +197,13 @@
 
     // Bind UI events (idempotent-ish)
     if (btnLogin) btnLogin.addEventListener('click', attemptLogin);
+
+    if (btnSwitchUser) {
+      btnSwitchUser.addEventListener('click', () => {
+        logout();
+        showLogin();
+      });
+    }
 
     const onEnter = (e) => {
       if (e.key === 'Enter') {
