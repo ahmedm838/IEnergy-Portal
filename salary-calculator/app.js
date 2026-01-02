@@ -247,7 +247,7 @@ function showErrors(errs) {
 
 function clearResults() {
   [
-    "grossMonthly","siMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
+    "grossMonthly","siMonthly","companySiMonthly","taxableMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
     "grossAnnual","grossAfterMedicalAnnual","insurableUsed","siAnnual","companySiAnnual","taxableAnnual","taxAnnual",
     "hourlyRate","overtimeValue","hourDeductionValue"
   ].forEach((id) => {
@@ -330,6 +330,9 @@ function calculate() {
   const companySiRate = companySiRatePct / 100.0;
   const companySiMonthly = insurableUsed * companySiRate;
 
+  // Taxable salary (monthly): gross after medical (monthly) minus employee SI share (monthly)
+  const taxableMonthly = grossAfterMedicalMonthly - siMonthly;
+
   // Martyrs deduction based on gross AFTER medical
   const martyrsMonthly = grossAfterMedicalMonthly * 0.0005;
 
@@ -359,6 +362,8 @@ function calculate() {
   // Show gross AFTER medical in the KPI area (as requested)
   setText("grossMonthly", fmtEGP(grossAfterMedicalMonthly));
 setText("siMonthly", fmtEGP(siMonthly));
+setText("companySiMonthly", fmtEGP(companySiMonthly));
+setText("taxableMonthly", fmtEGP(taxableMonthly));
 setText("taxMonthly", fmtEGP(taxMonthly));
 setText("martyrsMonthly", fmtEGP(martyrsMonthly));
 setText("advanceMonthly", fmtEGP(advanceLoan));
@@ -570,7 +575,7 @@ function resetForm() {
 
 
   [
-    "grossMonthly","siMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
+    "grossMonthly","siMonthly","companySiMonthly","taxableMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
     "grossAnnual","grossAfterMedicalAnnual","insurableUsed","siAnnual","companySiAnnual","taxableAnnual","taxAnnual",
     "hourlyRate","overtimeValue","hourDeductionValue"
   ].forEach(id => {
