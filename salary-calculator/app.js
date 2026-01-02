@@ -1,6 +1,7 @@
 "use strict";
 
-// NOTE: Access control is handled by ../auth.js (session up to 15 minutes or until tab closes).
+// NOTE: Salary Calculator is intentionally NOT password-protected.
+// Access control is handled at the portal level (main page) and other tools where required.
 
 let headerLogoHandlersBound = false;
 
