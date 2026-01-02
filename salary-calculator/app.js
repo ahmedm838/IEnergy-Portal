@@ -322,7 +322,7 @@ function calculate() {
 
   if (grossAfterMedicalMonthly < 0) {
     clearResults();
-    showErrors(["Gross after medical became negative. Please review hour deductions and medical insurance."]);
+    showErrors(["Gross after deductions became negative. Please review hour deductions and medical insurance."]);
     try { $('medicalInsurance').focus(); } catch (_) {}
     return;
   }
@@ -334,7 +334,7 @@ function calculate() {
   const companySiRate = companySiRatePct / 100.0;
   const companySiMonthly = insurableUsed * companySiRate;
 
-  // Taxable salary (monthly): gross after medical (monthly) minus employee SI share (monthly)
+  // Taxable salary: gross after deductions minus employee SI share
   const taxableMonthly = grossAfterMedicalMonthly - siMonthly;
 
   // Martyrs deduction based on gross AFTER medical
@@ -350,8 +350,8 @@ function calculate() {
   const martyrsAnnual = martyrsMonthly * 12;
   const advanceAnnual = advanceLoan * 12;
 
-  // Taxable income: Gross after medical (annual) minus employee SI (annual) minus personal exemption.
-  // Requirement: taxable salary = Gross after medical (annual) - Employee SI (annual) - 20,000.
+  // Taxable income: Gross after deductions (annual) minus employee SI (annual) minus personal exemption.
+  // Requirement: taxable salary = Gross after deductions (annual) - Employee SI (annual) - 20,000.
   const taxableAnnual = Math.max(0, (grossAfterMedicalAnnual - siAnnual - personalExemption));
   const taxAnnualRaw = calcAnnualTaxEG(taxableAnnual);
   const taxAnnual = Number.isFinite(taxAnnualRaw) ? taxAnnualRaw : 0;
@@ -363,7 +363,7 @@ function calculate() {
 
   showErrors([]);
 
-  // Show gross AFTER medical in the KPI area (as requested)
+  // Show gross AFTER deductions in the KPI area
   setText("grossBeforeDeductions", fmtEGP(grossBeforeDeductionsMonthly));
   setText("grossMonthly", fmtEGP(grossAfterMedicalMonthly));
 setText("siMonthly", fmtEGP(siMonthly));
@@ -400,7 +400,7 @@ function computeNetMonthlyForBasicGross(basicGross, p) {
   const grossAfterMedicalMonthly = grossMonthly - p.medicalInsurance;
 
   if (grossAfterMedicalMonthly < 0) {
-    return { ok: false, reason: "Gross after medical became negative. Please review hour deductions and medical insurance." };
+    return { ok: false, reason: "Gross after deductions became negative. Please review hour deductions and medical insurance." };
   }
 
   const insurableUsed = p.insurableBase;
