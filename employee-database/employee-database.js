@@ -771,16 +771,10 @@
     const y = $('year');
     if (y) y.textContent = String(new Date().getFullYear());
 
-    if (!window.IEnergyAuth) {
-      const auth = $('auth');
-      if (auth) auth.style.display = 'grid';
-      return;
-    }
+    // Public page (no auth gate)
+    const app = $('app');
+    if (app) app.hidden = false;
 
-    IEnergyAuth.ensureAuth({
-      allowedRoles: ['admin'],
-      homeHref: '../index.html',
-      onAuthed: () => { initOnce(); }
-    });
+    initOnce();
   });
 })();
