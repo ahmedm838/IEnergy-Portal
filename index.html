@@ -120,7 +120,7 @@
         if (y) y.textContent = String(new Date().getFullYear());
 
         IEnergyAuth.ensureAuth({
-          allowedRoles: ['admin', 'user'],
+          allowedRoles: ['admin', 'employee'],
           homeHref: 'index.html',
           onAuthed: applyRoleUI
         });
