@@ -24,7 +24,7 @@
 
       <label class="field">
         <span>Username</span>
-        <input id="usernameInput" type="text" autocomplete="username" placeholder="admin or employee" />
+        <input id="usernameInput" type="text" autocomplete="username" placeholder="admin or user" />
       </label>
 
       <label class="field">
@@ -120,7 +120,7 @@
         if (y) y.textContent = String(new Date().getFullYear());
 
         IEnergyAuth.ensureAuth({
-          allowedRoles: ['admin', 'employee'],
+          allowedRoles: ['admin', 'user'],
           homeHref: 'index.html',
           onAuthed: applyRoleUI
         });
