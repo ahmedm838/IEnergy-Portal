@@ -140,13 +140,19 @@ button {
 
 .results {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Desktop: 4 KPIs per row */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
-@media (max-width: 900px) {
+
+/* Responsive fallbacks */
+@media (max-width: 1050px) {
+  .results { grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
+@media (max-width: 820px) {
   .results { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
-@media (max-width: 600px) {
+@media (max-width: 560px) {
   .results { grid-template-columns: 1fr; }
 }
 
@@ -160,6 +166,11 @@ button {
 .kpi .value { font-size: 18px; margin-top: 6px; font-weight: 750; }
 
 .net { border-color: rgba(62,224,136,0.35); }
+
+/* Keep Net salary prominent without breaking the 4-per-row KPI layout */
+.kpi.net {
+  grid-column: 1 / -1;
+}
 
 hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 
