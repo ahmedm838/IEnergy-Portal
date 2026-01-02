@@ -310,9 +310,9 @@ function calculate() {
   const overtimeValueMonthly = overtimeHours * hourlyRate * OVERTIME_MULTIPLIER;
   const hourDeductionValueMonthly = deductionHours * hourlyRate;
 
-  // Gross before deductions (monthly): basic gross salary + allowances + bonus + overtime
+  // Gross before deductions (monthly): basic gross salary + allowances + incentive + bonus + overtime
   // Requirement: exclude deductions (hour deductions, medical, SI, tax, etc.).
-  const grossBeforeDeductionsMonthly = basicGross + allowances + bonus + overtimeValueMonthly;
+  const grossBeforeDeductionsMonthly = basicGross + allowances + incentive + bonus + overtimeValueMonthly;
 
   // Gross before medical (gross earnings)
   const grossMonthly = basicGross + allowances + incentive + bonus + overtimeValueMonthly - hourDeductionValueMonthly;
