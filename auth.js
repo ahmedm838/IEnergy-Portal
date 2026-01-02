@@ -7,9 +7,14 @@
 (function () {
   'use strict';
 
-  const AUTH_EXP_KEY = 'ienergy_portal_session_expiry_v2';
-  const AUTH_ROLE_KEY = 'ienergy_portal_role_v2';
-  const AUTH_USER_KEY = 'ienergy_portal_user_v2';
+  // v3: hardened storage + cross-page persistence
+  // - Primary store: sessionStorage (clears when tab closes)
+  // - Secondary store: localStorage (used to restore a session across page loads / tabs)
+  //   NOTE: localStorage is best-effort and still governed by the same 15-minute expiry.
+
+  const AUTH_EXP_KEY = 'ienergy_portal_session_expiry_v3';
+  const AUTH_ROLE_KEY = 'ienergy_portal_role_v3';
+  const AUTH_USER_KEY = 'ienergy_portal_user_v3';
 
   const AUTH_TTL_MS = 15 * 60 * 1000; // 15 minutes max
 
@@ -20,7 +25,13 @@
   };
 
   const LEGACY_KEYS_TO_CLEAR = [
+    // Older portal keys
     'ienergy_portal_session_expiry_v1',
+    'ienergy_portal_role_v2',
+    'ienergy_portal_user_v2',
+    'ienergy_portal_session_expiry_v2',
+
+    // Older per-page auth keys
     'ienergy_home_authed_v1',
     'salary_query_authed_v1',
     'employee_db_authed_v1'
@@ -29,46 +40,126 @@
   function now() { return Date.now(); }
   function $(id) { return document.getElementById(id); }
 
+  function safeStorage(kind) {
+    // Returns a storage-like object or null (if unavailable or blocked).
+    try {
+      const k = '__ienergy_test__';
+      kind.setItem(k, '1');
+      kind.removeItem(k);
+      return kind;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  const S = safeStorage(window.sessionStorage);
+  const L = safeStorage(window.localStorage);
+
+  function sGet(key) {
+    try { return S ? S.getItem(key) : null; } catch (_) { return null; }
+  }
+  function sSet(key, val) {
+    try { if (S) S.setItem(key, val); } catch (_) {}
+  }
+  function sDel(key) {
+    try { if (S) S.removeItem(key); } catch (_) {}
+  }
+
+  function lGet(key) {
+    try { return L ? L.getItem(key) : null; } catch (_) { return null; }
+  }
+  function lSet(key, val) {
+    try { if (L) L.setItem(key, val); } catch (_) {}
+  }
+  function lDel(key) {
+    try { if (L) L.removeItem(key); } catch (_) {}
+  }
+
+  function readAuthFrom(storeGet) {
+    const exp = Number(storeGet(AUTH_EXP_KEY) || '0');
+    const role = String(storeGet(AUTH_ROLE_KEY) || '');
+    const user = String(storeGet(AUTH_USER_KEY) || '');
+    return { exp, role, user };
+  }
+
+  function writeAuth(exp, role, user) {
+    // Persist to both stores when possible.
+    sSet(AUTH_EXP_KEY, String(exp));
+    sSet(AUTH_ROLE_KEY, String(role));
+    sSet(AUTH_USER_KEY, String(user));
+
+    lSet(AUTH_EXP_KEY, String(exp));
+    lSet(AUTH_ROLE_KEY, String(role));
+    lSet(AUTH_USER_KEY, String(user));
+  }
+
+  function clearAuth() {
+    sDel(AUTH_EXP_KEY);
+    sDel(AUTH_ROLE_KEY);
+    sDel(AUTH_USER_KEY);
+
+    lDel(AUTH_EXP_KEY);
+    lDel(AUTH_ROLE_KEY);
+    lDel(AUTH_USER_KEY);
+  }
+
   function clearLegacy() {
     for (const k of LEGACY_KEYS_TO_CLEAR) {
-      try { sessionStorage.removeItem(k); } catch (_) {}
+      try { if (S) S.removeItem(k); } catch (_) {}
+      try { if (L) L.removeItem(k); } catch (_) {}
     }
   }
 
   function getExpiry() {
-    return Number(sessionStorage.getItem(AUTH_EXP_KEY) || '0');
+    // Prefer session storage, fall back to local.
+    const ses = readAuthFrom(sGet);
+    if (ses.exp) return ses.exp;
+    const loc = readAuthFrom(lGet);
+    return loc.exp || 0;
   }
 
   function getRole() {
-    return String(sessionStorage.getItem(AUTH_ROLE_KEY) || '');
+    const ses = readAuthFrom(sGet);
+    if (ses.role) return ses.role;
+    const loc = readAuthFrom(lGet);
+    return loc.role || '';
   }
 
   function getUser() {
-    return String(sessionStorage.getItem(AUTH_USER_KEY) || '');
+    const ses = readAuthFrom(sGet);
+    if (ses.user) return ses.user;
+    const loc = readAuthFrom(lGet);
+    return loc.user || '';
   }
 
   function isSessionValid() {
-    const exp = getExpiry();
-    return !!(exp && exp > now() && getRole());
+    const ses = readAuthFrom(sGet);
+    if (ses.exp && ses.exp > now() && ses.role) return true;
+
+    // Restore from localStorage if valid.
+    const loc = readAuthFrom(lGet);
+    if (loc.exp && loc.exp > now() && loc.role) {
+      // Rehydrate sessionStorage for this tab.
+      writeAuth(loc.exp, loc.role, loc.user);
+      return true;
+    }
+    return false;
   }
 
   function logout() {
-    sessionStorage.removeItem(AUTH_EXP_KEY);
-    sessionStorage.removeItem(AUTH_ROLE_KEY);
-    sessionStorage.removeItem(AUTH_USER_KEY);
+    clearAuth();
   }
 
   function login(username, password) {
     clearLegacy();
-    const u = String(username || '').trim();
+    // Make username handling more forgiving (case-insensitive + trim).
+    const u = String(username || '').trim().toLowerCase();
     const rec = USERS[u];
     if (!rec) return { ok: false };
     if (String(password || '') !== rec.password) return { ok: false };
 
     const exp = now() + AUTH_TTL_MS;
-    sessionStorage.setItem(AUTH_EXP_KEY, String(exp));
-    sessionStorage.setItem(AUTH_ROLE_KEY, rec.role);
-    sessionStorage.setItem(AUTH_USER_KEY, u);
+    writeAuth(exp, rec.role, u);
     return { ok: true, expiry: exp, role: rec.role, user: u };
   }
 
