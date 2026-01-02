@@ -167,10 +167,7 @@ button {
 
 .net { border-color: rgba(62,224,136,0.35); }
 
-/* Keep Net salary prominent without breaking the 4-per-row KPI layout */
-.kpi.net {
-  grid-column: 1 / -1;
-}
+/* Net salary stays within the same KPI grid (4 per row on desktop) */
 
 hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 
