@@ -16,10 +16,10 @@ body {
 }
 
 .container {
-  max-width: 980px;
+  max-width: 882px;
   margin: 0 auto;
   /* Add top padding so the fixed logo does not overlap content */
-  padding: 28px 16px 40px;
+  padding: 25px 14px 36px;
 }
 
 .header h1 { margin: 0 0 6px; font-size: 26px; }
