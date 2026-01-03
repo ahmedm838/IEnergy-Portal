@@ -4,7 +4,8 @@
   --text: #e9eefc;
   --muted: #a9b4d0;
   --line: rgba(255,255,255,0.10);
-  --section-gap: 14px;
+  /* Slightly tighter vertical rhythm across the page (~10% reduction) */
+  --section-gap: 13px;
 }
 
 * { box-sizing: border-box; }
@@ -23,7 +24,7 @@ body {
   padding: 17px 14px 23px;
 }
 
-.header h1 { margin: 0 0 6px; font-size: 26px; }
+.header h1 { margin: 0 0 5px; font-size: 26px; }
 .sub { margin: 0; color: var(--muted); }
 
 /* Header layout: text left, logo right */
@@ -63,8 +64,8 @@ body {
   background: rgba(18,27,46,0.92);
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 18px;
-  margin-top: 16px;
+  padding: 16px;
+  margin-top: 14px;
   box-shadow: 0 18px 50px rgba(0,0,0,0.25);
 }
 
@@ -78,7 +79,7 @@ body {
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 11px;
 }
 
 /* Tighten vertical spacing in the main inputs area (requested) */
@@ -111,10 +112,10 @@ body {
 
 .row {
   display: flex;
-  gap: 14px;
+  gap: 13px;
   flex-wrap: wrap;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 11px;
 }
 
 .inline { min-width: 220px; }
@@ -130,13 +131,13 @@ body {
 .actions {
   display: flex;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 13px;
   margin-bottom: var(--section-gap);
 }
 
 button {
   border: 0;
-  padding: 10px 14px;
+  padding: 9px 13px;
   border-radius: 10px;
   cursor: pointer;
   font-weight: 650;
@@ -145,7 +146,7 @@ button {
 .secondary { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--line); }
 
 .disclaimer {
-  margin: 12px 0 0;
+  margin: 11px 0 0;
   color: rgba(233,238,252,0.62);
   font-size: 12px;
   line-height: 1.4;
@@ -155,7 +156,7 @@ button {
   display: grid;
   /* Desktop: 4 KPIs per row */
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 9px;
 }
 
 /* Responsive fallbacks */
@@ -170,27 +171,27 @@ button {
 }
 
 .kpi {
-  padding: 12px;
+  padding: 11px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(255,255,255,0.03);
 }
 .kpi .label { color: var(--muted); font-size: 12px; }
-.kpi .value { font-size: 18px; margin-top: 6px; font-weight: 750; }
+.kpi .value { font-size: 18px; margin-top: 5px; font-weight: 750; }
 
 .net { border-color: rgba(62,224,136,0.35); }
 
 /* Net salary stays within the same KPI grid (4 per row on desktop) */
 
-hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 
-.breakdown h3 { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
-.breakdown dl { margin: 0; display: grid; gap: 8px; }
+.breakdown h3 { margin: 0 0 9px; font-size: 14px; color: var(--muted); }
+.breakdown dl { margin: 0; display: grid; gap: 7px; }
 .breakdown dl > div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 9px 11px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(255,255,255,0.02);
@@ -201,13 +202,13 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 .errors {
   border: 1px solid rgba(255,107,107,0.45);
   background: rgba(255,107,107,0.10);
-  padding: 10px 12px;
+  padding: 9px 11px;
   border-radius: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 11px;
   color: #ffd0d0;
 }
 
-.footer { margin-top: 14px; color: rgba(233,238,252,0.55); }
+.footer { margin-top: 13px; color: rgba(233,238,252,0.55); }
 .header-top {
   display: flex;
   align-items: center;
@@ -315,7 +316,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 /* Navigation link back to iEnergy home */
 .back-link {
   display: inline-block;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
   color: rgba(233,238,252,0.85);
   text-decoration: none;
   font-size: 13px;
