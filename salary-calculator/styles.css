@@ -19,7 +19,8 @@ body {
   max-width: 1060px;
   margin: 0 auto;
   /* Add top padding so the fixed logo does not overlap content */
-  padding: 25px 14px 36px;
+  /* Reduce overall container vertical footprint (~10%) */
+  padding: 23px 14px 32px;
 }
 
 .header h1 { margin: 0 0 6px; font-size: 26px; }
