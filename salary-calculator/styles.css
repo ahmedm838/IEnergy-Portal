@@ -330,3 +330,21 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
   background: rgba(255,255,255,0.02);
   opacity: 0.95;
 }
+
+/* Additional compacting: decrease overall page height by ~8% */
+:root { --section-gap: 12px; }
+
+.container { padding: 15px 14px 21px; }
+
+.header + .card { margin-top: 6px; }
+
+.card { padding: 15px; margin-top: 13px; }
+
+.grid { gap: 10px; }
+
+.inputs-grid { row-gap: 7px; }
+.inputs-grid .field { gap: 4px; }
+
+.actions { margin-top: 12px; }
+
+button { padding: 8px 12px; }
