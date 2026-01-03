@@ -16,7 +16,7 @@ body {
 }
 
 .container {
-  max-width: 882px;
+  max-width: 1060px;
   margin: 0 auto;
   /* Add top padding so the fixed logo does not overlap content */
   padding: 25px 14px 36px;
