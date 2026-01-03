@@ -99,6 +99,9 @@
       </div>
       <small>© <span id="year"></span> iEnergy. Internal use.</small>
     </footer>
+
+    <!-- Logout (ends session immediately) -->
+    <button id="btnLogout" class="btn logout-btn" type="button" aria-label="Logout">Logout</button>
   </main>
 
   <script src="auth.js?v=2"></script>
@@ -118,6 +121,21 @@
       document.addEventListener('DOMContentLoaded', () => {
         const y = $('year');
         if (y) y.textContent = String(new Date().getFullYear());
+
+        const btnLogout = document.getElementById('btnLogout');
+        if (btnLogout) {
+          btnLogout.addEventListener('click', () => {
+            try { if (window.IEnergyAuth) IEnergyAuth.logout(); } catch (_) {}
+            // Clear any legacy auth flags as well.
+            try {
+              ['ienergy_portal_session_expiry_v1','ienergy_home_authed_v1','salary_query_authed_v1','employee_db_authed_v1']
+                .forEach((k) => { try { sessionStorage.removeItem(k); } catch (_) {} });
+            } catch (_) {}
+
+            // Reload to immediately show the lock screen.
+            try { window.location.href = 'index.html'; } catch (_) {}
+          });
+        }
 
         IEnergyAuth.ensureAuth({
           allowedRoles: ['admin', 'employee'],
