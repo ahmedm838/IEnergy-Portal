@@ -24,7 +24,7 @@
 
       <label class="field">
         <span>Username</span>
-        <input id="usernameInput" type="text" autocomplete="username" placeholder="admin or employee" />
+        <input id="usernameInput" type="text" autocomplete="username" placeholder="admin or user" />
       </label>
 
       <label class="field">
@@ -61,12 +61,12 @@
           <div class="tile-desc">Calculate gross, tax, SI, and net salary.</div>
         </a>
 
-        <a class="tile" href="salary-query/">
+        <a class="tile" href="salary-query/" data-role="admin">
           <div class="tile-title">Salary Query</div>
           <div class="tile-desc">Lookup employee basics by employee code.</div>
         </a>
 
-        <a class="tile" href="employee-database/">
+        <a class="tile" href="employee-database/" data-role="admin">
           <div class="tile-title">Employee Database</div>
           <div class="tile-desc">Browse and manage employee master data.</div>
         </a>
@@ -99,10 +99,9 @@
       </div>
       <small>© <span id="year"></span> iEnergy. Internal use.</small>
     </footer>
-
-    <!-- Logout (ends session immediately) -->
-    <button id="btnLogout" class="btn logout-btn" type="button" aria-label="Logout">Logout</button>
   </main>
+
+  <button id="logoutBtn" class="btn logout-btn" type="button">Logout</button>
 
   <script src="auth.js?v=2"></script>
   <script>
@@ -122,25 +121,20 @@
         const y = $('year');
         if (y) y.textContent = String(new Date().getFullYear());
 
-        const btnLogout = document.getElementById('btnLogout');
-        if (btnLogout) {
-          btnLogout.addEventListener('click', () => {
-            try { if (window.IEnergyAuth) IEnergyAuth.logout(); } catch (_) {}
-            // Clear any legacy auth flags as well.
-            try {
-              ['ienergy_portal_session_expiry_v1','ienergy_home_authed_v1','salary_query_authed_v1','employee_db_authed_v1']
-                .forEach((k) => { try { sessionStorage.removeItem(k); } catch (_) {} });
-            } catch (_) {}
-
-            // Reload to immediately show the lock screen.
-            try { window.location.href = 'index.html'; } catch (_) {}
+        const logoutBtn = $('logoutBtn');
+        if (logoutBtn) {
+          // Show only when an authenticated session exists.
+          logoutBtn.style.display = (IEnergyAuth && IEnergyAuth.isSessionValid && IEnergyAuth.isSessionValid()) ? '' : 'none';
+          logoutBtn.addEventListener('click', () => {
+            try { IEnergyAuth.logout(); } catch (e) {}
+            window.location.href = 'index.html';
           });
         }
 
         IEnergyAuth.ensureAuth({
-          allowedRoles: ['admin', 'employee'],
+          allowedRoles: ['admin', 'user'],
           homeHref: 'index.html',
-          onAuthed: applyRoleUI
+          onAuthed: function () { applyRoleUI(); const lb = $('logoutBtn'); if (lb) lb.style.display = ''; }
         });
 
         applyRoleUI();

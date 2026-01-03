@@ -2,7 +2,7 @@
    - Session lifetime: until tab closes (sessionStorage) OR 15 minutes max (whichever comes first)
    - Users:
      1) admin / iEnergy2023  -> role: admin (full access)
-     2) employee / iEnergy  -> role: employee (limited access)
+     2) user / iEnergy  -> role: user (limited access)
 */
 (function () {
   'use strict';
@@ -16,7 +16,7 @@
   // Hardcoded users (client-side gate only)
   const USERS = {
     admin: { password: 'iEnergy2023', role: 'admin' },
-    employee: { password: 'iEnergy', role: 'employee' }
+    user: { password: 'iEnergy', role: 'user' }
   };
 
   const LEGACY_KEYS_TO_CLEAR = [
@@ -85,7 +85,7 @@
 
     const allowedRoles = (opts && Array.isArray(opts.allowedRoles) && opts.allowedRoles.length)
       ? opts.allowedRoles
-      : ['admin', 'employee'];
+      : ['admin', 'user'];
 
     const homeHref = (opts && typeof opts.homeHref === 'string' && opts.homeHref)
       ? opts.homeHref
