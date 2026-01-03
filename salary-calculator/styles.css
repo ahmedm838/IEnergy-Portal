@@ -20,7 +20,7 @@ body {
   margin: 0 auto;
   /* Add top padding so the fixed logo does not overlap content */
   /* Reduce overall container vertical footprint (additional ~15%) */
-  padding: 20px 14px 27px;
+  padding: 17px 14px 23px;
 }
 
 .header h1 { margin: 0 0 6px; font-size: 26px; }
