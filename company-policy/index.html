@@ -117,13 +117,19 @@
           const href = encodeURI('./' + filename);
           const meta = [ext, sizeHuman].filter(Boolean).join(' • ');
 
+          const type = doc.type ? String(doc.type).toLowerCase() : '';
+          const isText = type === 'text' || filename.toLowerCase().endsWith('.html') || filename.toLowerCase().endsWith('.txt');
+          const actionLabel = isText ? 'View' : 'Download';
+          const titleAttrs = isText ? 'target="_blank" rel="noopener"' : 'download';
+          const actionAttrs = titleAttrs;
+
           return `
             <li class="docs-item">
               <div class="docs-left">
-                <a class="docs-title" href="${href}" download>${title}</a>
+                <a class="docs-title" href="${href}" ${titleAttrs}>${title}</a>
                 <div class="docs-meta">${meta}</div>
               </div>
-              <a class="download" href="${href}" download>Download</a>
+              <a class="download" href="${href}" ${actionAttrs}>${actionLabel}</a>
             </li>
           `;
         }).join('');
