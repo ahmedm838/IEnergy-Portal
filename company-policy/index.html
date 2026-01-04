@@ -118,9 +118,12 @@
           const meta = [ext, sizeHuman].filter(Boolean).join(' • ');
 
           const type = doc.type ? String(doc.type).toLowerCase() : '';
+          const isPdf = type === 'pdf' || filename.toLowerCase().endsWith('.pdf');
           const isText = type === 'text' || filename.toLowerCase().endsWith('.html') || filename.toLowerCase().endsWith('.txt');
-          const actionLabel = isText ? 'View' : 'Download';
-          const titleAttrs = isText ? 'target="_blank" rel="noopener"' : 'download';
+
+          // Company Policy: PDFs should open in the browser (no forced download).
+          const actionLabel = isPdf ? 'Open' : (isText ? 'View' : 'Download');
+          const titleAttrs = (isPdf || isText) ? 'target="_blank" rel="noopener"' : 'download';
           const actionAttrs = titleAttrs;
 
           return `
