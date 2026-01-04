@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="description" content="iEnergy annual leaves balance" />
+  <title>iEnergy | Annual Leaves Balance</title>
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="stylesheet" href="../responsive.css?v=1" />
+  <link rel="stylesheet" href="../home.css?v=3" />
+  <style>
+    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; }
+    .card { border:1px solid var(--line); border-radius:16px; padding:14px; background:rgba(255,255,255,0.03); }
+    .muted { color:rgba(233,238,252,0.70); }
+  </style>
+</head>
+<body>
+
+  <!-- Auth (session up to 15 minutes or until tab closes) -->
+  <div id="auth" class="auth">
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">← iEnergy Home</a>
+          <h1>Annual Leaves Balance</h1>
+          <p>Please sign in to continue.</p>
+        </div>
+        <img class="logo" src="../logo.jpg" alt="Company logo" />
+      </div>
+
+      <label class="auth-label" for="usernameInput">Username</label>
+      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" placeholder="admin or user" />
+
+      <label class="auth-label" for="passwordInput">Password</label>
+      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" placeholder="•••••••" />
+
+      <div class="auth-actions">
+        <button id="btnLogin" class="primary" type="button">Unlock</button>
+      </div>
+
+      <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
+    </div>
+  </div>
+
+  <main id="app" class="container" hidden>
+    <div class="top">
+      <div>
+        <div class="pill">HR</div>
+        <h1 style="margin:10px 0 6px;">Annual Leaves Balance</h1>
+        <p class="tagline">Track annual leave entitlement and remaining balance.</p>
+      </div>
+      <a class="back" href="../">← Back</a>
+    </div>
+
+    <section class="section">
+      <h2>Status</h2>
+      <p class="section-sub">This module will be connected to the leave tracking database.</p>
+
+      <div class="card">
+        <p style="margin:0 0 10px;">This page is under preparation.</p>
+        <p class="muted" style="margin:0;">Temporary workaround: use the leave tracker file to record leaves and calculate balances until this page is connected to the database.</p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <small>© <span id="year"></span> iEnergy. Internal use.</small>
+    </footer>
+  </main>
+
+  <script src="../auth.js?v=2"></script>
+  <script>
+    (function () {
+      'use strict';
+      document.addEventListener('DOMContentLoaded', () => {
+        const y = document.getElementById('year');
+        if (y) y.textContent = String(new Date().getFullYear());
+        IEnergyAuth.ensureAuth({ allowedRoles: ['admin', 'user'], homeHref: '../index.html' });
+      });
+    })();
+  </script>
+
+</body>
+</html>

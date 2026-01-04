@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="description" content="iEnergy company policy" />
+  <title>iEnergy | Company Policy</title>
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="stylesheet" href="../responsive.css?v=1" />
+  <link rel="stylesheet" href="../home.css?v=3" />
+  <style>
+    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; }
+
+    .docs { margin-top:10px; border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+    .docs-head { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:rgba(255,255,255,0.03); }
+    .docs-head b { font-weight:700; }
+    .docs-head small { color:rgba(233,238,252,0.65); }
+    .docs-list { list-style:none; margin:0; padding:0; }
+    .docs-item { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:12px 14px; border-top:1px solid var(--line); }
+    .docs-item:first-child { border-top:0; }
+    .docs-left { display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .docs-title { color:rgba(233,238,252,0.92); text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .docs-meta { color:rgba(233,238,252,0.60); font-size:13px; }
+    .download { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; white-space:nowrap; }
+    .state { color:rgba(233,238,252,0.75); padding:12px 14px; }
+  </style>
+</head>
+<body>
+
+  <!-- Auth (session up to 15 minutes or until tab closes) -->
+  <div id="auth" class="auth">
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">← iEnergy Home</a>
+          <h1>Company Policy</h1>
+          <p>Please sign in to continue.</p>
+        </div>
+        <img class="logo" src="../logo.jpg" alt="Company logo" />
+      </div>
+
+      <label class="auth-label" for="usernameInput">Username</label>
+      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" placeholder="admin or user" />
+
+      <label class="auth-label" for="passwordInput">Password</label>
+      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" placeholder="•••••••" />
+
+      <div class="auth-actions">
+        <button id="btnLogin" class="primary" type="button">Unlock</button>
+      </div>
+
+      <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
+    </div>
+  </div>
+
+  <main id="app" class="container" hidden>
+    <div class="top">
+      <div>
+        <div class="pill">Policy</div>
+        <h1 style="margin:10px 0 6px;">Company Policy</h1>
+        <p class="tagline">Latest company policy documents and announcements.</p>
+      </div>
+      <a class="back" href="../">← Back</a>
+    </div>
+
+    <section class="section">
+      <h2>Documents</h2>
+      <p class="section-sub">Download the latest company policy files.</p>
+
+      <div class="docs" aria-live="polite">
+        <div class="docs-head">
+          <b>Available files</b>
+          <small id="generatedAt"></small>
+        </div>
+        <div id="state" class="state">Loading documents…</div>
+        <ul id="docsList" class="docs-list" style="display:none;"></ul>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <small>© <span id="year"></span> iEnergy. Internal use.</small>
+    </footer>
+  </main>
+
+  <script>
+    document.getElementById('year').textContent = String(new Date().getFullYear());
+
+    async function loadDocuments() {
+      const stateEl = document.getElementById('state');
+      const listEl = document.getElementById('docsList');
+      const genEl = document.getElementById('generatedAt');
+
+      try {
+        const res = await fetch('./documents.json?v=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('documents.json not found');
+        const data = await res.json();
+
+        const docs = Array.isArray(data.documents) ? data.documents : [];
+        if (data.generatedAt) {
+          try {
+            const d = new Date(data.generatedAt);
+            genEl.textContent = 'Updated: ' + d.toLocaleString();
+          } catch (_) {}
+        }
+
+        if (!docs.length) {
+          stateEl.textContent = 'No documents found in this folder.';
+          return;
+        }
+
+        const itemsHtml = docs.map(doc => {
+          const filename = String(doc.file || '');
+          const title = String(doc.title || filename);
+          const sizeHuman = doc.sizeHuman ? String(doc.sizeHuman) : '';
+          const ext = doc.ext ? String(doc.ext).toUpperCase() : '';
+          const href = encodeURI('./' + filename);
+          const meta = [ext, sizeHuman].filter(Boolean).join(' • ');
+
+          return `
+            <li class="docs-item">
+              <div class="docs-left">
+                <a class="docs-title" href="${href}" download>${title}</a>
+                <div class="docs-meta">${meta}</div>
+              </div>
+              <a class="download" href="${href}" download>Download</a>
+            </li>
+          `;
+        }).join('');
+
+        listEl.innerHTML = itemsHtml;
+        stateEl.style.display = 'none';
+        listEl.style.display = '';
+      } catch (err) {
+        stateEl.textContent = 'Unable to load documents list. Please ensure documents.json exists in this folder.';
+      }
+    }
+
+    loadDocuments();
+  </script>
+
+  <script src="../auth.js?v=2"></script>
+  <script>
+    (function () {
+      'use strict';
+      document.addEventListener('DOMContentLoaded', () => {
+        IEnergyAuth.ensureAuth({ allowedRoles: ['admin', 'user'], homeHref: '../index.html' });
+      });
+    })();
+  </script>
+
+</body>
+</html>
