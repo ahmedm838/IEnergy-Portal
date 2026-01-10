@@ -3,82 +3,40 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="description" content="iEnergy annual leaves balance" />
-  <title>iEnergy | Annual Leaves Balance</title>
+  <meta name="robots" content="noindex" />
+  <title>iEnergy | Leave Manager</title>
   <link rel="icon" type="image/png" href="../favicon.png" />
-  <link rel="stylesheet" href="../responsive.css?v=1" />
-  <link rel="stylesheet" href="../home.css?v=3" />
+
+  <!-- Immediate redirect to the dedicated Leave Manager app -->
+  <meta http-equiv="refresh" content="0; url=https://ahmedm838.github.io/leave-manager/login" />
+
   <style>
-    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
-    .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; }
-    .card { border:1px solid var(--line); border-radius:16px; padding:14px; background:rgba(255,255,255,0.03); }
-    .muted { color:rgba(233,238,252,0.70); }
+    :root { color-scheme: dark; }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:#0b1020; color:#e9eefc; }
+    .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { max-width:720px; width:100%; border:1px solid rgba(233,238,252,0.16); border-radius:16px; padding:18px 18px 16px; background:rgba(255,255,255,0.03); }
+    h1 { margin:0 0 6px; font-size:20px; }
+    p { margin:0; color:rgba(233,238,252,0.78); line-height:1.5; }
+    a { color:#9cc0ff; }
+    .muted { margin-top:10px; font-size:13px; color:rgba(233,238,252,0.62); }
   </style>
-</head>
-<body>
 
-  <!-- Auth (session up to 15 minutes or until tab closes) -->
-  <div id="auth" class="auth">
-    <div class="auth-card">
-      <div class="auth-top">
-        <div class="auth-title">
-          <a class="back-link" href="../index.html">← iEnergy Home</a>
-          <h1>Annual Leaves Balance</h1>
-          <p>Please sign in to continue.</p>
-        </div>
-        <img class="logo" src="../logo.jpg" alt="Company logo" />
-      </div>
-
-      <label class="auth-label" for="usernameInput">Username</label>
-      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" placeholder="admin or user" />
-
-      <label class="auth-label" for="passwordInput">Password</label>
-      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" placeholder="•••••••" />
-
-      <div class="auth-actions">
-        <button id="btnLogin" class="primary" type="button">Unlock</button>
-      </div>
-
-      <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
-    </div>
-  </div>
-
-  <main id="app" class="container" hidden>
-    <div class="top">
-      <div>
-        <div class="pill">HR</div>
-        <h1 style="margin:10px 0 6px;">Annual Leaves Balance</h1>
-        <p class="tagline">Track annual leave entitlement and remaining balance.</p>
-      </div>
-      <a class="back" href="../">← Back</a>
-    </div>
-
-    <section class="section">
-      <h2>Status</h2>
-      <p class="section-sub">This module will be connected to the leave tracking database.</p>
-
-      <div class="card">
-        <p style="margin:0 0 10px;">This page is under preparation.</p>
-        <p class="muted" style="margin:0;">Temporary workaround: use the leave tracker file to record leaves and calculate balances until this page is connected to the database.</p>
-      </div>
-    </section>
-
-    <footer class="footer">
-      <small>© <span id="year"></span> iEnergy. Internal use.</small>
-    </footer>
-  </main>
-
-  <script src="../auth.js?v=2"></script>
   <script>
+    // JS redirect as a fallback (some browsers ignore meta refresh in certain contexts)
     (function () {
-      'use strict';
-      document.addEventListener('DOMContentLoaded', () => {
-        const y = document.getElementById('year');
-        if (y) y.textContent = String(new Date().getFullYear());
-        IEnergyAuth.ensureAuth({ allowedRoles: ['admin', 'user'], homeHref: '../index.html' });
-      });
+      const target = 'https://ahmedm838.github.io/leave-manager/login';
+      try { window.location.replace(target); } catch (_) { window.location.href = target; }
     })();
   </script>
-
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Redirecting to Leave Manager…</h1>
+      <p>If you are not redirected automatically, open the Leave Manager using this link:</p>
+      <p><a href="https://ahmedm838.github.io/leave-manager/login">https://ahmedm838.github.io/leave-manager/login</a></p>
+      <p class="muted">You can access this page only as a legacy shortcut from the iEnergy Portal.</p>
+    </div>
+  </div>
 </body>
 </html>
