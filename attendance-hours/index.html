@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="description" content="Attendance hours - record sign-in/out and export" />
+  <title>iEnergy | Attendance Hours</title>
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="stylesheet" href="../responsive.css?v=1" />
+  <link rel="stylesheet" href="../home.css?v=3" />
+  <link rel="stylesheet" href="attendance-hours.css?v=1" />
+</head>
+<body>
+
+  <!-- Auth (session up to 15 minutes or until tab closes) -->
+  <div id="auth" class="auth">
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">← iEnergy Home</a>
+          <h1>Attendance Hours</h1>
+          <p>Please sign in to continue.</p>
+        </div>
+        <img class="logo" src="../logo.jpg" alt="iEnergy logo" />
+      </div>
+
+      <label class="auth-label" for="usernameInput">Username</label>
+      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" placeholder="admin or user" />
+
+      <label class="auth-label" for="passwordInput">Password</label>
+      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" placeholder="•••••••" />
+
+      <div class="auth-actions">
+        <button id="btnLogin" class="primary" type="button">Unlock</button>
+      </div>
+
+      <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
+    </div>
+  </div>
+
+  <main id="app" class="container" hidden>
+    <header class="hero hero-compact">
+      <div class="hero-text">
+        <div class="pill">HR Tool</div>
+        <h1>Attendance Hours</h1>
+        <p class="tagline">Record daily sign-in/out, calculate hours, and export.</p>
+        <div class="top-actions">
+          <a class="link" href="../">← iEnergy Home</a>
+        </div>
+      </div>
+      <img alt="iEnergy logo" class="hero-logo hero-logo-compact" src="../logo.jpg" />
+    </header>
+
+    <section class="section">
+      <h2>New Record</h2>
+      <p class="section-sub">Add a daily attendance record. Data is stored locally in this browser (localStorage).</p>
+
+      <div class="card">
+        <div class="form-grid">
+          <label class="field">
+            <span>Date</span>
+            <input id="attDate" type="date" />
+          </label>
+
+          <label class="field">
+            <span>Sign-in</span>
+            <input id="attIn" type="time" />
+          </label>
+
+          <label class="field">
+            <span>Sign-out</span>
+            <input id="attOut" type="time" />
+          </label>
+
+          <label class="field">
+            <span>Break (minutes)</span>
+            <input id="attBreak" inputmode="numeric" placeholder="e.g., 60" />
+          </label>
+
+          <label class="field field-wide">
+            <span>Notes (optional)</span>
+            <input id="attNote" type="text" placeholder="e.g., Training / Site visit / Late arrival" />
+          </label>
+
+          <div class="actions">
+            <button class="btn" id="btnAdd" type="button">Add Record</button>
+            <button class="btn secondary" id="btnClear" type="button">Clear Form</button>
+          </div>
+        </div>
+
+        <div id="status" class="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Records</h2>
+          <p class="section-sub">Filter by month to view totals and export.</p>
+        </div>
+        <div class="section-actions">
+          <label class="mini">
+            <span>Month</span>
+            <input id="filterMonth" type="month" />
+          </label>
+          <button class="btn" id="btnExport" type="button">Export CSV</button>
+          <button class="btn secondary" id="btnResetAll" type="button">Reset All</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="totals">
+          <div class="tot">
+            <div class="k">Total records</div>
+            <div class="v" id="tCount">0</div>
+          </div>
+          <div class="tot">
+            <div class="k">Total hours</div>
+            <div class="v" id="tHours">0.00</div>
+          </div>
+          <div class="tot">
+            <div class="k">Avg hours / day</div>
+            <div class="v" id="tAvg">0.00</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table" aria-label="Attendance records">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Sign-in</th>
+                <th>Sign-out</th>
+                <th>Break</th>
+                <th>Hours</th>
+                <th>Notes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <small>© <span id="year"></span> iEnergy. Internal use.</small>
+    </footer>
+  </main>
+
+  <script src="../auth.js?v=2"></script>
+  <script>
+    (function () {
+      'use strict';
+      document.addEventListener('DOMContentLoaded', () => {
+        IEnergyAuth.ensureAuth({ allowedRoles: ['admin', 'user'], homeHref: '../index.html' });
+      });
+    })();
+  </script>
+
+  <script src="attendance-hours.js?v=1"></script>
+  <script>document.getElementById('year').textContent = String(new Date().getFullYear());</script>
+</body>
+</html>
