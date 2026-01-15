@@ -11,18 +11,18 @@ To keep **the same login credentials as Leave Manager**, this module must point 
 Copy the folder:
 
 ```
-attendance-tracker/
+attendance-hours/
 ```
 
 Then link your portal button to:
 
-- `attendance-tracker/login.html`
+- `attendance-hours/login.html`
 
 ## 2) Create the new table (run SQL in Leave Manager project)
 
 Open Supabase (Leave Manager project) → SQL Editor → run:
 
-- `attendance-tracker/sql/supabase_schema.sql`
+- `attendance-hours/sql/supabase_schema.sql`
 
 This script:
 - Creates `public.attendance_records`
@@ -38,14 +38,26 @@ Add these GitHub repo secrets:
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 
-Then in your GitHub Actions deploy workflow, add a step **before** the deploy step:
+This repo includes a ready workflow: `.github/workflows/deploy-gh-pages.yml`.
+
+In GitHub repo settings, ensure **Pages → Build and deployment → Source = GitHub Actions**.
+
+If you maintain your own workflow, add a step **before** the deploy step:
 
 ```yaml
 - name: Inject Supabase config (Attendance Tracker)
   shell: bash
   run: |
-    sed -i "s|__SUPABASE_URL__|${SUPABASE_URL}|g" attendance-tracker/config.js
-    sed -i "s|__SUPABASE_ANON_KEY__|${SUPABASE_ANON_KEY}|g" attendance-tracker/config.js
+    python - <<'PY'
+    import os
+    from pathlib import Path
+
+    p = Path('attendance-hours/config.js')
+    s = p.read_text(encoding='utf-8')
+    s = s.replace('__SUPABASE_URL__', os.environ['SUPABASE_URL'].strip())
+    s = s.replace('__SUPABASE_ANON_KEY__', os.environ['SUPABASE_ANON_KEY'].strip())
+    p.write_text(s, encoding='utf-8')
+    PY
   env:
     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
     SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -60,6 +72,6 @@ Attendance Tracker uses the same approach as Leave Manager:
 
 The domain is configured in:
 
-- `attendance-tracker/config.js` → `AUTH_EMAIL_DOMAIN`
+- `attendance-hours/config.js` → `AUTH_EMAIL_DOMAIN`
 
 Set it to the exact domain used in Leave Manager when you created users (for example: `ie.local`).
