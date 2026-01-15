@@ -11,8 +11,7 @@ export function codeToEmail(code){
   return `${c}@${CONFIG.AUTH_EMAIL_DOMAIN}`;
 }
 
-  const c = normalizeCode(code);
-  if(c.includes("@")) return null;
+  
 }
 
 export async function getSession(){
