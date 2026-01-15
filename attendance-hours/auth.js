@@ -11,8 +11,6 @@ export function codeToEmail(code){
   return `${c}@${CONFIG.AUTH_EMAIL_DOMAIN}`;
 }
 
-  
-}
 
 export async function getSession(){
   const { data, error } = await supabase.auth.getSession();
