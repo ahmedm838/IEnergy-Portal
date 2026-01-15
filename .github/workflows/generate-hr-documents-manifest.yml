@@ -13,6 +13,16 @@ on:
 permissions:
   contents: write
 
+- name: Inject Supabase config (Attendance Tracker)
+  shell: bash
+  run: |
+    sed -i "s|__SUPABASE_URL__|${SUPABASE_URL}|g" attendance-tracker/config.js
+    sed -i "s|__SUPABASE_ANON_KEY__|${SUPABASE_ANON_KEY}|g" attendance-tracker/config.js
+  env:
+    SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+
 jobs:
   build:
     if: github.actor != 'github-actions[bot]'
