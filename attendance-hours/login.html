@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Attendance Tracker - Login</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container" style="max-width:540px">
+    <div class="topbar" style="margin-top:10px">
+      <div class="brand">
+        <h1>Attendance Tracker</h1>
+        <small>iEnergy Portal</small>
+      </div>
+      <div class="actions">
+        <a class="link" href="../index.html">Back to Portal</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 6px 0">Login</h2>
+      <p class="muted" style="margin:0 0 14px 0">Use the same credentials as Leave Manager.</p>
+
+      <div class="row" style="gap:12px">
+        <div class="field" style="flex:1">
+          <label for="code">Employee Code</label>
+          <input id="code" type="text" autocomplete="username" placeholder="e.g., 1001" />
+        </div>
+        <div class="field" style="flex:1">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:14px; justify-content:space-between; align-items:center">
+        <button id="btnLogin" class="btn primary">Login</button>
+        <span class="helper" id="loginHint"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script type="module" src="./login.js"></script>
+</body>
+</html>

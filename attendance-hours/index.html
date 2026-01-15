@@ -2,163 +2,110 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="description" content="Attendance hours - record sign-in/out and export" />
-  <title>iEnergy | Attendance Hours</title>
-  <link rel="icon" type="image/png" href="../favicon.png" />
-  <link rel="stylesheet" href="../responsive.css?v=1" />
-  <link rel="stylesheet" href="../home.css?v=3" />
-  <link rel="stylesheet" href="attendance-hours.css?v=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Attendance Tracker</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-
-  <!-- Auth (session up to 15 minutes or until tab closes) -->
-  <div id="auth" class="auth">
-    <div class="auth-card">
-      <div class="auth-top">
-        <div class="auth-title">
-          <a class="back-link" href="../index.html">← iEnergy Home</a>
-          <h1>Attendance Hours</h1>
-          <p>Please sign in to continue.</p>
-        </div>
-        <img class="logo" src="../logo.jpg" alt="iEnergy logo" />
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <h1>Attendance Tracker</h1>
+        <small>iEnergy Portal</small>
       </div>
-
-      <label class="auth-label" for="usernameInput">Username</label>
-      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" placeholder="admin or user" />
-
-      <label class="auth-label" for="passwordInput">Password</label>
-      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" placeholder="•••••••" />
-
-      <div class="auth-actions">
-        <button id="btnLogin" class="primary" type="button">Unlock</button>
+      <div class="actions">
+        <span class="pill" id="whoami">—</span>
+        <button class="btn" id="btnLogout">Logout</button>
       </div>
-
-      <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
     </div>
-  </div>
 
-  <main id="app" class="container" hidden>
-    <header class="hero hero-compact">
-      <div class="hero-text">
-        <div class="pill">HR Tool</div>
-        <h1>Attendance Hours</h1>
-        <p class="tagline">Record daily sign-in/out, calculate hours, and export.</p>
-        <div class="top-actions">
-          <a class="link" href="../">← iEnergy Home</a>
-        </div>
-      </div>
-      <img alt="iEnergy logo" class="hero-logo hero-logo-compact" src="../logo.jpg" />
-    </header>
-
-    <section class="section">
-      <h2>New Record</h2>
-      <p class="section-sub">Add a daily attendance record. Data is stored locally in this browser (localStorage).</p>
-
+    <div class="grid2">
       <div class="card">
-        <div class="form-grid">
-          <label class="field">
-            <span>Date</span>
-            <input id="attDate" type="date" />
-          </label>
+        <h2>Show Records</h2>
 
-          <label class="field">
-            <span>Sign-in</span>
-            <input id="attIn" type="time" />
-          </label>
-
-          <label class="field">
-            <span>Sign-out</span>
-            <input id="attOut" type="time" />
-          </label>
-
-          <label class="field">
-            <span>Break (minutes)</span>
-            <input id="attBreak" inputmode="numeric" placeholder="e.g., 60" />
-          </label>
-
-          <label class="field field-wide">
-            <span>Notes (optional)</span>
-            <input id="attNote" type="text" placeholder="e.g., Training / Site visit / Late arrival" />
-          </label>
-
-          <div class="actions">
-            <button class="btn" id="btnAdd" type="button">Add Record</button>
-            <button class="btn secondary" id="btnClear" type="button">Clear Form</button>
+        <div class="row" style="gap:12px; flex-wrap:wrap">
+          <div class="field" style="min-width:260px; flex:2">
+            <label for="employeeSelect">Employee</label>
+            <select id="employeeSelect"></select>
+          </div>
+          <div class="field" style="min-width:170px; flex:1">
+            <label for="fromDate">From</label>
+            <input id="fromDate" type="date" />
+          </div>
+          <div class="field" style="min-width:170px; flex:1">
+            <label for="toDate">To</label>
+            <input id="toDate" type="date" />
+          </div>
+          <div class="field" style="min-width:120px">
+            <label>&nbsp;</label>
+            <button id="btnLoad" class="btn primary" style="width:100%">Load</button>
           </div>
         </div>
 
-        <div id="status" class="status" aria-live="polite"></div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section-head">
-        <div>
-          <h2>Records</h2>
-          <p class="section-sub">Filter by month to view totals and export.</p>
-        </div>
-        <div class="section-actions">
-          <label class="mini">
-            <span>Month</span>
-            <input id="filterMonth" type="month" />
-          </label>
-          <button class="btn" id="btnExport" type="button">Export CSV</button>
-          <button class="btn secondary" id="btnResetAll" type="button">Reset All</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="totals">
-          <div class="tot">
-            <div class="k">Total records</div>
-            <div class="v" id="tCount">0</div>
-          </div>
-          <div class="tot">
-            <div class="k">Total hours</div>
-            <div class="v" id="tHours">0.00</div>
-          </div>
-          <div class="tot">
-            <div class="k">Avg hours / day</div>
-            <div class="v" id="tAvg">0.00</div>
-          </div>
+        <div class="kpis" id="kpis">
+          <div class="kpi"><div class="kpiLabel">Working Days</div><div class="kpiValue" id="kpiWorkingDays">—</div></div>
+          <div class="kpi"><div class="kpiLabel">Actual Worked Days</div><div class="kpiValue" id="kpiWorkedDays">—</div></div>
+          <div class="kpi"><div class="kpiLabel">Leave Days</div><div class="kpiValue" id="kpiLeaveDays">—</div></div>
+          <div class="kpi"><div class="kpiLabel">Shortage/Excess Days</div><div class="kpiValue" id="kpiDeltaDays">—</div></div>
+          <div class="kpi"><div class="kpiLabel">Working Hours</div><div class="kpiValue" id="kpiWorkingHours">—</div></div>
+          <div class="kpi"><div class="kpiLabel">Actual Worked Hours</div><div class="kpiValue" id="kpiActualHours">—</div></div>
+          <div class="kpi"><div class="kpiLabel">Shortage/Excess Hours</div><div class="kpiValue" id="kpiDeltaHours">—</div></div>
         </div>
 
-        <div class="table-wrap">
-          <table class="table" aria-label="Attendance records">
+        <div class="tableWrap" style="margin-top:14px">
+          <table class="table" id="recordsTable">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Sign-in</th>
-                <th>Sign-out</th>
-                <th>Break</th>
-                <th>Hours</th>
-                <th>Notes</th>
-                <th></th>
+                <th style="width:130px">Date</th>
+                <th style="width:140px">Sign In</th>
+                <th style="width:140px">Sign Out</th>
+                <th>Leave Type</th>
+                <th style="width:160px">Working Hours</th>
               </tr>
             </thead>
-            <tbody id="recordsBody"></tbody>
+            <tbody id="recordsTbody"></tbody>
           </table>
         </div>
       </div>
-    </section>
 
-    <footer class="footer">
-      <small>© <span id="year"></span> iEnergy. Internal use.</small>
-    </footer>
-  </main>
+      <div class="card" id="adminPanel" style="display:none">
+        <h2>Add Records (Admin)</h2>
+        <p class="muted" style="margin-top:-8px">If Leave Type is selected, time inputs are disabled and set to 08:00–16:00 (8 hours).</p>
 
-  <script src="../auth.js?v=2"></script>
-  <script>
-    (function () {
-      'use strict';
-      document.addEventListener('DOMContentLoaded', () => {
-        IEnergyAuth.ensureAuth({ allowedRoles: ['admin', 'user'], homeHref: '../index.html' });
-      });
-    })();
-  </script>
+        <div class="row" style="gap:12px; flex-wrap:wrap">
+          <div class="field" style="min-width:260px; flex:1">
+            <label for="adminEmployeeSelect">Employee</label>
+            <select id="adminEmployeeSelect"></select>
+          </div>
+          <div class="field" style="min-width:140px">
+            <label>&nbsp;</label>
+            <button id="btnAddRow" class="btn" style="width:100%">Add Row</button>
+          </div>
+          <div class="field" style="min-width:140px">
+            <label>&nbsp;</label>
+            <button id="btnSaveRows" class="btn primary" style="width:100%">Save</button>
+          </div>
+        </div>
 
-  <script src="attendance-hours.js?v=1"></script>
-  <script>document.getElementById('year').textContent = String(new Date().getFullYear());</script>
+        <div class="tableWrap" style="margin-top:10px">
+          <table class="table" id="entryTable">
+            <thead>
+              <tr>
+                <th style="width:130px">Date</th>
+                <th style="width:220px">Leave Type</th>
+                <th style="width:170px">Sign In (12h)</th>
+                <th style="width:170px">Sign Out (12h)</th>
+                <th style="width:60px"></th>
+              </tr>
+            </thead>
+            <tbody id="entryTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
