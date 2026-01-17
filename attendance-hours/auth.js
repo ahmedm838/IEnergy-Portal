@@ -11,6 +11,28 @@ export function codeToEmail(code){
   return `${c}@${CONFIG.AUTH_EMAIL_DOMAIN}`;
 }
 
+// Some older Leave Manager deployments used different synthetic email domains.
+// To maximize compatibility (and avoid storing extra repo secrets), we allow a
+// small ordered list of candidate domains.
+export function codeToEmails(code){
+  const c = normalizeCode(code);
+  if (!c) return [];
+  if (c.includes("@")) return [c];
+
+  const domains = Array.isArray(CONFIG.AUTH_EMAIL_DOMAINS) && CONFIG.AUTH_EMAIL_DOMAINS.length
+    ? CONFIG.AUTH_EMAIL_DOMAINS
+    : [CONFIG.AUTH_EMAIL_DOMAIN].filter(Boolean);
+
+  const uniq = [];
+  for (const d of domains) {
+    const dom = String(d || "").trim();
+    if (!dom) continue;
+    const email = `${c}@${dom}`;
+    if (!uniq.includes(email)) uniq.push(email);
+  }
+  return uniq;
+}
+
 
 export async function getSession(){
   const { data, error } = await supabase.auth.getSession();

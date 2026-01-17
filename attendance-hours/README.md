@@ -63,15 +63,18 @@ If you maintain your own workflow, add a step **before** the deploy step:
     SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 ```
 
-## 4) Email mapping must match Leave Manager
+## 4) Login credentials must match Leave Manager
 
 Attendance Tracker uses the same approach as Leave Manager:
 
 - Users sign in with **Employee Code + Password**
 - The code is mapped to an email as: `<CODE>@<DOMAIN>`
 
-The domain is configured in:
+The domain(s) are configured in:
 
-- `attendance-hours/config.js` → `AUTH_EMAIL_DOMAIN`
+- `attendance-hours/config.js` → `AUTH_EMAIL_DOMAIN` (primary)
+- `attendance-hours/config.js` → `AUTH_EMAIL_DOMAINS` (optional ordered fallbacks)
 
-Set it to the exact domain used in Leave Manager when you created users (for example: `ie.local`).
+Set them to the exact domain used in Leave Manager when you created users (for example: `ie.local`).
+
+If your Leave Manager username is a full email, you can also enter the full email in the login screen.

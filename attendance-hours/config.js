@@ -14,8 +14,12 @@ export const CONFIG = {
 
   // Login mapping (employeeCode -> email). MUST match Leave Manager.
   // Leave Manager typically creates auth users using a synthetic email like: <EMP_CODE>@ie.local
-  // Set the same domain here (hardcoded to avoid extra repo secrets).
+  // IMPORTANT:
+  // - If Leave Manager users were created as <EMP_CODE>@<domain>, set the same domain here.
+  // - If you are unsure, keep the primary domain and add fallbacks; the login will try them in order.
+  // This is hardcoded to avoid extra repo secrets.
   AUTH_EMAIL_DOMAIN: "ie.local",
+  AUTH_EMAIL_DOMAINS: ["ie.local"],
 
   DEFAULT_SIGN_IN: "08:00",
   DEFAULT_SIGN_OUT: "16:00",
