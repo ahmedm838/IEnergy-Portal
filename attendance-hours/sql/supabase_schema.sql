@@ -127,12 +127,12 @@ begin
     create or replace function public.set_updated_at()
     returns trigger
     language plpgsql
-    as $$
+    as $func$
     begin
       new.updated_at := now();
       return new;
     end;
-    $$;
+    $func$;
   $sql$;
 
   execute $sql$
@@ -157,7 +157,7 @@ begin
     create or replace function public.attendance_apply_rules()
     returns trigger
     language plpgsql
-    as $$
+    as $func$
     declare
       is_leave boolean := false;
     begin
@@ -186,7 +186,7 @@ begin
 
       return new;
     end;
-    $$;
+    $func$;
   $sql$;
 
   execute $sql$
@@ -213,7 +213,7 @@ begin
     language plpgsql
     security definer
     set search_path = public
-    as $$
+    as $func$
     declare
       is_admin boolean := false;
     begin
@@ -244,7 +244,7 @@ begin
 
       return false;
     end;
-    $$;
+    $func$;
   $sql$;
 
   -- =========================
