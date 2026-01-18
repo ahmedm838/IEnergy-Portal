@@ -151,9 +151,24 @@ async function loadLeaveTypes(){
 
 async function loadEmployees(){
   if(ADMIN){
-    const { data, error } = await supabase.from("employees").select("id, code, name").order("code");
+    const { data, error } = await supabase
+      .from("employees")
+      .select("id, code, name")
+      .order("code");
     if(error) throw error;
     EMPLOYEES = data || [];
+
+    // If employees table has strict RLS without an admin SELECT policy, PostgREST
+    // will return an empty array (not an error). Provide a helpful warning and
+    // fall back to showing the current employee so the page remains usable.
+    if(EMPLOYEES.length === 0 && PROFILE){
+      showToast(
+        "Employees list returned empty. This is usually due to RLS on the employees table. " +
+        "Run the Attendance Tracker SQL schema to add an admin SELECT policy on employees.",
+        "warn"
+      );
+      EMPLOYEES = [{ id: PROFILE.id, code: PROFILE.code, name: PROFILE.name }];
+    }
   }else{
     // Only own profile
     EMPLOYEES = PROFILE ? [{ id: PROFILE.id, code: PROFILE.code, name: PROFILE.name }] : [];

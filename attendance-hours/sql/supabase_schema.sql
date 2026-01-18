@@ -271,6 +271,45 @@ begin
     );
   $sql$;
 
+  -- =========================================================
+  -- Optional (but usually required): allow Attendance Tracker
+  -- to READ employees / leave_types / roles when those tables
+  -- have RLS enabled in the Leave Manager project.
+  --
+  -- Symptoms without these policies:
+  -- - Employee dropdown is empty for admin (employees SELECT returns 0 rows)
+  -- - Leave Types dropdown is empty
+  -- - Admin detection may fail if roles are not readable
+  --
+  -- These policies are additive (they do not disable existing rules).
+  -- They only take effect if RLS is enabled on those tables.
+  -- =========================================================
+
+  -- Employees: admin can read all, users can read their own row
+  execute 'drop policy if exists employees_admin_select_all_attendance on public.employees;';
+  execute 'create policy employees_admin_select_all_attendance on public.employees for select to authenticated using (public.is_admin_user());';
+
+  execute 'drop policy if exists employees_user_select_own_attendance on public.employees;';
+  execute $sql$
+    create policy employees_user_select_own_attendance
+    on public.employees
+    for select
+    to authenticated
+    using (user_id::text = auth.uid()::text);
+  $sql$;
+
+  -- Leave types: allow read for authenticated users
+  if has_leave_types then
+    execute 'drop policy if exists leave_types_read_all_attendance on public.leave_types;';
+    execute 'create policy leave_types_read_all_attendance on public.leave_types for select to authenticated using (true);';
+  end if;
+
+  -- Roles: allow read for authenticated users (used for admin detection)
+  if has_roles then
+    execute 'drop policy if exists roles_read_all_attendance on public.roles;';
+    execute 'create policy roles_read_all_attendance on public.roles for select to authenticated using (true);';
+  end if;
+
 end $$;
 
 -- Quick validation

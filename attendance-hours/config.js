@@ -19,7 +19,7 @@ export const CONFIG = {
   // - If you are unsure, keep the primary domain and add fallbacks; the login will try them in order.
   // This is hardcoded to avoid extra repo secrets.
   AUTH_EMAIL_DOMAIN: "ienergy.local",
-AUTH_EMAIL_DOMAINS: ["ienergy.local"],
+  AUTH_EMAIL_DOMAINS: ["ienergy.local"],
 
   DEFAULT_SIGN_IN: "08:00",
   DEFAULT_SIGN_OUT: "16:00",
