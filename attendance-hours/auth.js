@@ -60,14 +60,74 @@ export async function getCurrentEmployeeProfile(){
   if(uerr) throw uerr;
   if(!user) return null;
 
-  // Expect employees.user_id == auth.users.id
-  const { data, error } = await sb
-    .from("employees")
-    .select("id, code, name, user_id, role_id, roles(name)")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const uid = user.id;
+  const email = String(user.email || "");
+  const codeFromEmail = email.includes("@") ? email.split("@")[0] : "";
 
-  if(error) throw error;
+  // DBs may use either:
+  // - employees.auth_user_id (recommended)
+  // - employees.user_id (legacy)
+  // As a final fallback, match by employees.code derived from the auth email.
+  const SELECT_V2 = "id, code, name, auth_user_id, role_id, roles(name)";
+  const SELECT_V1 = "id, code, name, user_id, role_id, roles(name)";
+
+  let data = null;
+
+  // (1) Preferred: employees.auth_user_id == auth.users.id
+  try {
+    const res = await sb
+      .from("employees")
+      .select(SELECT_V2)
+      .eq("auth_user_id", uid)
+      .maybeSingle();
+
+    if (res.error) throw res.error;
+    data = res.data || null;
+  } catch (e) {
+    // If the column doesn't exist, continue to legacy lookup.
+    const msg = String(e?.message || "").toLowerCase();
+    if (!msg.includes("auth_user_id")) throw e;
+  }
+
+  // (2) Legacy: employees.user_id == auth.users.id
+  if (!data) {
+    try {
+      const res = await sb
+        .from("employees")
+        .select(SELECT_V1)
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (res.error) throw res.error;
+      data = res.data || null;
+    } catch (e) {
+      const msg = String(e?.message || "").toLowerCase();
+      if (!msg.includes("user_id")) throw e;
+    }
+  }
+
+  // (3) Fallback: employees.code == <email local-part>
+  if (!data && codeFromEmail) {
+    const res = await sb
+      .from("employees")
+      .select(SELECT_V2)
+      .eq("code", codeFromEmail)
+      .maybeSingle();
+
+    if (res.error) throw res.error;
+    data = res.data || null;
+
+    // Best-effort self-heal: attach this auth user to the employee row.
+    // This will only succeed if RLS allows the current user to update their row.
+    if (data && (data.auth_user_id === null || data.auth_user_id === undefined)) {
+      try {
+        await sb.from("employees").update({ auth_user_id: uid }).eq("id", data.id);
+      } catch (_) {
+        // ignore
+      }
+    }
+  }
+
   if(!data) return null;
 
   const roleName = data.roles?.name || data.roles?.[0]?.name || null;

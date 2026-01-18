@@ -37,6 +37,37 @@ let EMPLOYEES = [];
 let LEAVE_TYPES = [];
 let ADMIN = false;
 
+// Attendance table schema compatibility (the project has had multiple variants)
+// - Date column: record_date (old) OR work_date (current in your screenshot)
+// - Hours column: working_hours (old) OR absent (compute client-side)
+const ATT = {
+  dateCol: null,
+  hasWorkingHoursCol: false
+};
+
+async function ensureAttendanceSchema(){
+  if (ATT.dateCol) return ATT;
+
+  // Probe for date column
+  const probe = async (col) => {
+    const { error } = await supabase.from("attendance_records").select(col).limit(1);
+    return !error;
+  };
+
+  // Prefer the newer naming first
+  if (await probe("work_date")) ATT.dateCol = "work_date";
+  else if (await probe("record_date")) ATT.dateCol = "record_date";
+  else {
+    throw new Error(
+      "attendance_records must have either work_date or record_date. Please align the table schema with the Attendance Tracker app."
+    );
+  }
+
+  // Probe for working_hours
+  ATT.hasWorkingHoursCol = await probe("working_hours");
+  return ATT;
+}
+
 btnLogout.addEventListener("click", signOut);
 
 function optionHtml(items, getValue, getLabel, placeholder){
@@ -124,6 +155,8 @@ function renderRecords(records){
     return;
   }
 
+  // Records are expected in normalized form:
+  // { date, sign_in, sign_out, leave_type_id, working_hours }
   for(const r of records){
     const leave = LEAVE_TYPES.find(x=>String(x.id)===String(r.leave_type_id));
     const leaveName = leave ? leave.name : "";
@@ -133,7 +166,7 @@ function renderRecords(records){
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${r.record_date}</td>
+      <td>${r.date}</td>
       <td>${signIn}</td>
       <td>${signOut}</td>
       <td>${leaveName || (r.leave_type_id ? String(r.leave_type_id) : "")}</td>
@@ -215,17 +248,42 @@ async function loadRecords(){
 
   btnLoad.disabled = true;
   try{
+    const { dateCol, hasWorkingHoursCol } = await ensureAttendanceSchema();
+
+    const selectCols = [
+      dateCol,
+      "sign_in",
+      "sign_out",
+      "leave_type_id",
+      ...(hasWorkingHoursCol ? ["working_hours"] : [])
+    ].join(", ");
+
     const { data, error } = await supabase
       .from("attendance_records")
-      .select("record_date, sign_in, sign_out, leave_type_id, working_hours")
+      .select(selectCols)
       .eq("employee_id", empId)
-      .gte("record_date", f)
-      .lte("record_date", t)
-      .order("record_date", { ascending: true });
+      .gte(dateCol, f)
+      .lte(dateCol, t)
+      .order(dateCol, { ascending: true });
 
     if(error) throw error;
 
-    const records = data || [];
+    const raw = data || [];
+    const records = raw.map(r => {
+      const leaveSelected = r.leave_type_id !== null && r.leave_type_id !== undefined && String(r.leave_type_id).length > 0;
+      const wh = hasWorkingHoursCol
+        ? Number(r.working_hours || 0)
+        : (leaveSelected ? CONFIG.STANDARD_HOURS_PER_DAY : round2(hoursBetween(r.sign_in, r.sign_out)));
+
+      return {
+        date: r[dateCol],
+        sign_in: r.sign_in,
+        sign_out: r.sign_out,
+        leave_type_id: r.leave_type_id,
+        working_hours: wh
+      };
+    });
+
     renderRecords(records);
 
     // KPIs
@@ -278,7 +336,7 @@ function collectEntryRows(){
 
     const wh = isNonEmptyString(leaveTypeId) ? CONFIG.STANDARD_HOURS_PER_DAY : round2(hoursBetween(sign_in, sign_out));
     rows.push({
-      record_date: date,
+      date,
       leave_type_id: isNonEmptyString(leaveTypeId) ? Number(leaveTypeId) : null,
       sign_in,
       sign_out,
@@ -303,11 +361,20 @@ async function saveEntryRows(){
 
   btnSaveRows.disabled = true;
   try{
-    // Upsert based on unique (employee_id, record_date)
-    const payload = rows.map(r=>({ ...r, employee_id: empId }));
+    const { dateCol, hasWorkingHoursCol } = await ensureAttendanceSchema();
+
+    // Upsert based on unique (employee_id, <dateCol>)
+    const payload = rows.map(r=>({
+      employee_id: empId,
+      [dateCol]: r.date,
+      leave_type_id: r.leave_type_id,
+      sign_in: r.sign_in,
+      sign_out: r.sign_out,
+      ...(hasWorkingHoursCol ? { working_hours: r.working_hours } : {})
+    }));
     const { error } = await supabase
       .from("attendance_records")
-      .upsert(payload, { onConflict: "employee_id,record_date" });
+      .upsert(payload, { onConflict: `employee_id,${dateCol}` });
 
     if(error) throw error;
 
