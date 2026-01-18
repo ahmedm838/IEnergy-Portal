@@ -41,6 +41,8 @@ btn.addEventListener("click", async () => {
 
   try {
     const candidates = codeToEmails(code);
+    // For troubleshooting: display the exact email(s) we will try
+    hint.textContent = `Signing in as: ${candidates.join(", ")}`;
     if (!candidates.length) {
       showToast("Please enter Employee Code or Email.", "warn");
       return;
@@ -64,7 +66,11 @@ btn.addEventListener("click", async () => {
     // Provide a clearer hint to align with Leave Manager credential expectations.
     const msg = String(e?.message || "Login failed.");
     if (msg.toLowerCase().includes("invalid login credentials")) {
-      showToast("Invalid login credentials. Use the same Employee Code and Password used in Leave Manager. If your Leave Manager username is a full email, enter the full email here.", "danger");
+      showToast(`Invalid login credentials.
+
+Tried: ${codeToEmails(normalizeCode(codeEl.value)).join(", ")}
+
+Use the same credentials as Leave Manager. If Leave Manager users were created as <EMP_CODE>@<domain>, update AUTH_EMAIL_DOMAIN in attendance-hours/config.js to that same domain, then redeploy.`, "danger");
     } else {
       showToast(msg, "danger");
     }

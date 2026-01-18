@@ -1,80 +1,34 @@
-# iEnergy Portal — Attendance Tracker (GitHub Pages)
+# iEnergy Attendance Tracker (GitHub Pages)
 
-This is a **static (no-build)** Attendance Tracker module designed to be placed inside your **iEnergy Portal** repository and served via GitHub Pages.
+## Login must match Leave Manager
+This Attendance Tracker uses **Supabase Auth** (email+password) and is intended to use the **same Supabase project as Leave Manager** so the same users/passwords work.
 
-## Backend / Supabase model
+### Employee Code / Email
+Users can enter either:
+- **Full email** (if they normally login with email), or
+- **Employee Code** (e.g., `1001`) which the app converts to an email like: `1001@<domain>`.
 
-To keep **the same login credentials as Leave Manager**, this module must point to the **same Supabase project** used by Leave Manager (same Auth + same DB).
+The `<domain>` **must match** how users were created in Leave Manager.
 
-## 1) Copy into your portal repo
+## Configure the email domain
+Edit `attendance-hours/config.js`:
 
-Copy the folder:
-
+```js
+AUTH_EMAIL_DOMAIN: "ie.local",
+AUTH_EMAIL_DOMAINS: ["ie.local"],
 ```
-attendance-hours/
+
+Set it to the domain you see in **Supabase Dashboard → Authentication → Users** (for Leave Manager).
+Example: if your users are `1001@ienergy-portal.com`, then set:
+
+```js
+AUTH_EMAIL_DOMAIN: "ienergy-portal.com",
+AUTH_EMAIL_DOMAINS: ["ienergy-portal.com"],
 ```
 
-Then link your portal button to:
-
-- `attendance-hours/login.html`
-
-## 2) Create the new table (run SQL in Leave Manager project)
-
-Open Supabase (Leave Manager project) → SQL Editor → run:
-
-- `attendance-hours/sql/supabase_schema.sql`
-
-This script:
-- Creates `public.attendance_records`
-- Adds trigger logic for leave rows (forces 08:00–16:00 and 8 hours)
-- Enables RLS so:
-  - Admin can manage all records
-  - User can view only their own records
-
-## 3) GitHub Pages secrets (only URL + anon key)
-
-Add these GitHub repo secrets:
-
+## GitHub Secrets (required)
+Add repo secrets:
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 
-This repo includes a ready workflow: `.github/workflows/deploy-gh-pages.yml`.
-
-In GitHub repo settings, ensure **Pages → Build and deployment → Source = GitHub Actions**.
-
-If you maintain your own workflow, add a step **before** the deploy step:
-
-```yaml
-- name: Inject Supabase config (Attendance Tracker)
-  shell: bash
-  run: |
-    python - <<'PY'
-    import os
-    from pathlib import Path
-
-    p = Path('attendance-hours/config.js')
-    s = p.read_text(encoding='utf-8')
-    s = s.replace('__SUPABASE_URL__', os.environ['SUPABASE_URL'].strip())
-    s = s.replace('__SUPABASE_ANON_KEY__', os.environ['SUPABASE_ANON_KEY'].strip())
-    p.write_text(s, encoding='utf-8')
-    PY
-  env:
-    SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-    SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-```
-
-## 4) Login credentials must match Leave Manager
-
-Attendance Tracker uses the same approach as Leave Manager:
-
-- Users sign in with **Employee Code + Password**
-- The code is mapped to an email as: `<CODE>@<DOMAIN>`
-
-The domain(s) are configured in:
-
-- `attendance-hours/config.js` → `AUTH_EMAIL_DOMAIN` (primary)
-- `attendance-hours/config.js` → `AUTH_EMAIL_DOMAINS` (optional ordered fallbacks)
-
-Set them to the exact domain used in Leave Manager when you created users (for example: `ie.local`).
-
-If your Leave Manager username is a full email, you can also enter the full email in the login screen.
+Deploy via GitHub Actions (Pages). The workflow injects these values into `attendance-hours/config.js`.
