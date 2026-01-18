@@ -8,6 +8,7 @@ import {
 
 // UI
 const whoami = qs("#whoami");
+const btnPortal = qs("#btnPortal");
 const btnLogout = qs("#btnLogout");
 
 const employeeSelect = qs("#employeeSelect");
@@ -69,6 +70,14 @@ async function ensureAttendanceSchema(){
 }
 
 btnLogout.addEventListener("click", signOut);
+
+// Back to iEnergy Portal (main page)
+if (btnPortal) {
+  btnPortal.addEventListener("click", () => {
+    // Relative path works on GitHub Pages and local hosting
+    window.location.href = "../index.html";
+  });
+}
 
 function optionHtml(items, getValue, getLabel, placeholder){
   const parts = [];
