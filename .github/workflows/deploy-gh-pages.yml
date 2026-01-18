@@ -47,12 +47,23 @@ jobs:
           supabase_url = os.environ.get('SUPABASE_URL', '').strip()
           anon_key = os.environ.get('SUPABASE_ANON_KEY', '').strip()
 
-          p = Path('attendance-hours/config.js')
-          s = p.read_text(encoding='utf-8')
-          s = s.replace('__SUPABASE_URL__', supabase_url)
-          s = s.replace('__SUPABASE_ANON_KEY__', anon_key)
-          p.write_text(s, encoding='utf-8')
-          print('Injected Supabase config into', p)
+          # Support both repo layouts:
+          # 1) attendance-hours/... at repo root
+          # 2) IEnergy-Portal-main/attendance-hours/... (if the project folder was committed)
+          candidates = [
+            Path('attendance-hours/config.js'),
+            Path('IEnergy-Portal-main/attendance-hours/config.js'),
+          ]
+          paths = [p for p in candidates if p.exists()]
+          if not paths:
+            raise SystemExit('Could not find attendance-hours/config.js to inject secrets into.')
+
+          for p in paths:
+            s = p.read_text(encoding='utf-8')
+            s = s.replace('__SUPABASE_URL__', supabase_url)
+            s = s.replace('__SUPABASE_ANON_KEY__', anon_key)
+            p.write_text(s, encoding='utf-8')
+            print('Injected Supabase config into', p)
           PY
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

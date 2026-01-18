@@ -1,5 +1,12 @@
-import { supabase } from "./supabaseClient.js";
+import { supabase, initError } from "./supabaseClient.js";
 import { CONFIG } from "./config.js";
+
+function requireSupabase(){
+  if (initError || !supabase) {
+    throw new Error(initError || "Supabase is not initialized.");
+  }
+  return supabase;
+}
 
 export function normalizeCode(code){
   return String(code||"").trim();
@@ -35,23 +42,26 @@ export function codeToEmails(code){
 
 
 export async function getSession(){
-  const { data, error } = await supabase.auth.getSession();
+  const sb = requireSupabase();
+  const { data, error } = await sb.auth.getSession();
   if(error) throw error;
   return data.session;
 }
 
 export async function signOut(){
-  await supabase.auth.signOut();
+  const sb = requireSupabase();
+  await sb.auth.signOut();
   window.location.href = "./login.html";
 }
 
 export async function getCurrentEmployeeProfile(){
-  const { data: { user }, error: uerr } = await supabase.auth.getUser();
+  const sb = requireSupabase();
+  const { data: { user }, error: uerr } = await sb.auth.getUser();
   if(uerr) throw uerr;
   if(!user) return null;
 
   // Expect employees.user_id == auth.users.id
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("employees")
     .select("id, code, name, user_id, role_id, roles(name)")
     .eq("user_id", user.id)

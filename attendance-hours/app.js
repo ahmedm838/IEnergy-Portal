@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js";
+import { supabase, initError } from "./supabaseClient.js";
 import { CONFIG } from "./config.js";
 import { getSession, signOut, getCurrentEmployeeProfile, isAdmin } from "./auth.js";
 import {
@@ -313,6 +313,10 @@ btnAddRow.addEventListener("click", () => renderEntryRow(String(Date.now())));
 btnSaveRows.addEventListener("click", saveEntryRows);
 
 async function boot(){
+  if (initError || !supabase) {
+    showToast(initError || "Supabase is not initialized.", "danger");
+    return;
+  }
   const session = await getSession();
   if(!session){
     window.location.href = "./login.html";

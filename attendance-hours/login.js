@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js";
+import { supabase, initError } from "./supabaseClient.js";
 import { codeToEmails, normalizeCode } from "./auth.js";
 import { qs, showToast, isNonEmptyString } from "./utils.js";
 
@@ -15,7 +15,19 @@ async function tryLogin(email, password){
   return supabase.auth.signInWithPassword({ email, password });
 }
 
+// If Supabase failed to initialize (most commonly: config placeholders not injected),
+// show a clear message and disable login.
+if (initError) {
+  showToast(initError, "danger");
+  hint.textContent = initError;
+  btn.disabled = true;
+}
+
 btn.addEventListener("click", async () => {
+  if (initError || !supabase) {
+    showToast(initError || "Supabase is not initialized.", "danger");
+    return;
+  }
   const code = normalizeCode(codeEl.value);
   const password = String(passEl.value || "");
 
