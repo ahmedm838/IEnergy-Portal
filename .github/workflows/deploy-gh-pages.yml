@@ -69,13 +69,43 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
+      - name: Setup Node (for Leave Manager build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Leave Manager dependencies
+        working-directory: apps/leave-manager/frontend
+        run: npm install
+
+      - name: Build Leave Manager
+        working-directory: apps/leave-manager/frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - name: Assemble site folder
+        shell: bash
+        run: |
+          rm -rf _site
+          mkdir -p _site
+
+          # Copy portal static files (exclude dev-only folders)
+          rsync -av             --exclude '.github'             --exclude '_site'             --exclude 'apps'             ./ _site/
+
+          # Add Leave Manager build output under /leave-manager/
+          rm -rf _site/leave-manager
+          mkdir -p _site/leave-manager
+          rsync -av apps/leave-manager/frontend/dist/ _site/leave-manager/
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
