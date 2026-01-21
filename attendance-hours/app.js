@@ -186,7 +186,12 @@ function renderRecords(records){
 }
 
 async function loadLeaveTypes(){
-  const { data, error } = await supabase.from("leave_types").select("id, name").order("name");
+  // Keep the dropdown in the same order as the database (typically the PK/sequence order).
+  // Without an explicit ORDER BY, PostgREST may return rows in an arbitrary order.
+  const { data, error } = await supabase
+    .from("leave_types")
+    .select("id, name")
+    .order("id", { ascending: true });
   if(error) throw error;
   LEAVE_TYPES = data || [];
 }
