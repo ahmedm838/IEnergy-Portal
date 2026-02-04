@@ -11,6 +11,29 @@ export function fmtDateISO(d){
   return `${y}-${m}-${day}`;
 }
 
+// Attendance Tracker display format: ddd,dd-mm-yyyy (e.g. "fri,23-02-2025")
+// Accepts a Date, an ISO date string (YYYY-MM-DD), or any value Date can parse.
+export function fmtWeekDate(v){
+  if (v == null) return "";
+
+  let d;
+  if (v instanceof Date) d = v;
+  else if (typeof v === "string") {
+    // Treat pure ISO dates as local midnight to avoid timezone shifting.
+    d = /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(v + "T00:00:00") : new Date(v);
+  } else {
+    return String(v);
+  }
+
+  if (isNaN(d.getTime())) return String(v);
+
+  const ddd = ["sun","mon","tue","wed","thu","fri","sat"][d.getDay()];
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${ddd},${dd}-${mm}-${yyyy}`;
+}
+
 export function showToast(message, type="good"){
   const host = qs("#toast");
   if(!host) return;

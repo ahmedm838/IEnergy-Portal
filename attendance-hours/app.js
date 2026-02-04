@@ -3,7 +3,7 @@ import { CONFIG } from "./config.js";
 import { getSession, signOut, getCurrentEmployeeProfile, isAdmin } from "./auth.js";
 import {
   qs, qsa, showToast, fmtDateISO, countWorkingDays, hoursBetween, round2,
-  time12To24, time24To12, isNonEmptyString
+  time12To24, time24To12, isNonEmptyString, fmtWeekDate
 } from "./utils.js";
 
 // UI
@@ -182,7 +182,7 @@ function renderRecords(records){
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${r.date}</td>
+      <td>${fmtWeekDate(r.date)}</td>
       <td>${employeeLabel}</td>
       <td>${signIn}</td>
       <td>${signOut}</td>
@@ -216,7 +216,7 @@ function exportLoadedToExcel(){
 
   // Build a clean export view
   const rows = LAST_LOADED.map(r => ({
-    Date: r.date,
+    Date: fmtWeekDate(r.date),
     EmployeeCode: r.employee_code || "",
     EmployeeName: r.employee_name || "",
     SignIn: r.sign_in ? time24To12(r.sign_in) : "",
