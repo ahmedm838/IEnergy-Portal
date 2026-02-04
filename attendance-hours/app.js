@@ -15,6 +15,7 @@ const employeeSelect = qs("#employeeSelect");
 const fromDate = qs("#fromDate");
 const toDate = qs("#toDate");
 const btnLoad = qs("#btnLoad");
+const btnExport = qs("#btnExport");
 
 const recordsTbody = qs("#recordsTbody");
 
@@ -37,6 +38,9 @@ let PROFILE = null;
 let EMPLOYEES = [];
 let LEAVE_TYPES = [];
 let ADMIN = false;
+
+// Last loaded data (for export)
+let LAST_LOADED = [];
 
 // Attendance table schema compatibility (the project has had multiple variants)
 // - Date column: record_date (old) OR work_date (current in your screenshot)
@@ -155,31 +159,31 @@ function setKpis({workingDays, workedDays, leaveDays, deltaDays, workingHours, a
 
 function clearTable(){
   recordsTbody.innerHTML = "";
+  LAST_LOADED = [];
+  if (btnExport) btnExport.disabled = true;
 }
 
 function renderRecords(records){
   clearTable();
   if(!records || records.length===0){
-    recordsTbody.innerHTML = `<tr><td colspan="5" class="muted">No records.</td></tr>`;
+    recordsTbody.innerHTML = `<tr><td colspan="6" class="muted">No records.</td></tr>`;
     return;
   }
 
   // Records are expected in normalized form:
-  // { date, sign_in, sign_out, leave_type_id, working_hours }
+  // { date, employee_code, employee_name, sign_in, sign_out, leave_type_id, working_hours, leave_label }
   for(const r of records){
-    const leave = LEAVE_TYPES.find(x=>String(x.id)===String(r.leave_type_id));
-    const leaveName = leave ? leave.name : "";
     const signIn = r.sign_in ? time24To12(r.sign_in) : "";
     const signOut = r.sign_out ? time24To12(r.sign_out) : "";
     const wh = Number(r.working_hours || 0);
 
-    const hasAttendanceTime = isNonEmptyString(r.sign_in) || isNonEmptyString(r.sign_out);
-    const hasLeaveType = r.leave_type_id !== null && r.leave_type_id !== undefined && String(r.leave_type_id).length > 0;
-    const leaveLabel = leaveName || (hasAttendanceTime && !hasLeaveType ? "Attended" : (hasLeaveType ? String(r.leave_type_id) : ""));
+    const employeeLabel = [r.employee_code, r.employee_name].filter(Boolean).join(" - ");
+    const leaveLabel = r.leave_label || "";
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${r.date}</td>
+      <td>${employeeLabel}</td>
       <td>${signIn}</td>
       <td>${signOut}</td>
       <td>${leaveLabel}</td>
@@ -187,6 +191,70 @@ function renderRecords(records){
     `;
     recordsTbody.appendChild(tr);
   }
+
+  LAST_LOADED = records;
+  if (btnExport) btnExport.disabled = false;
+}
+
+function downloadBlob(content, mimeType, filename){
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportLoadedToExcel(){
+  if(!LAST_LOADED || LAST_LOADED.length === 0){
+    showToast("Load records first.", "warn");
+    return;
+  }
+
+  // Build a clean export view
+  const rows = LAST_LOADED.map(r => ({
+    Date: r.date,
+    EmployeeCode: r.employee_code || "",
+    EmployeeName: r.employee_name || "",
+    SignIn: r.sign_in ? time24To12(r.sign_in) : "",
+    SignOut: r.sign_out ? time24To12(r.sign_out) : "",
+    LeaveType: r.leave_label || "",
+    WorkingHours: round2(Number(r.working_hours || 0))
+  }));
+
+  const f = fromDate.value || "from";
+  const t = toDate.value || "to";
+  const scope = (ADMIN && !isNonEmptyString(employeeSelect.value)) ? "all-employees" : "employee";
+  const filenameBase = `attendance-${scope}-${f}-to-${t}`;
+
+  // Prefer real XLSX if library is available, otherwise fallback to CSV (Excel opens it fine).
+  try{
+    if(window.XLSX && XLSX.utils && XLSX.writeFile){
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+      XLSX.writeFile(wb, `${filenameBase}.xlsx`);
+      return;
+    }
+  }catch(e){
+    // Fall through to CSV
+    console.warn("XLSX export failed, falling back to CSV.", e);
+  }
+
+  // CSV fallback
+  const headers = Object.keys(rows[0]);
+  const esc = (v) => {
+    const s = String(v ?? "");
+    return /[\n\r,\"]/g.test(s) ? `"${s.replace(/\"/g, '""')}"` : s;
+  };
+  const lines = [headers.join(",")];
+  for(const row of rows){
+    lines.push(headers.map(h => esc(row[h])).join(","));
+  }
+  downloadBlob(lines.join("\n"), "text/csv;charset=utf-8", `${filenameBase}.csv`);
 }
 
 async function loadLeaveTypes(){
@@ -229,7 +297,7 @@ async function loadEmployees(){
     EMPLOYEES,
     e=>e.id,
     e=>`${e.code} - ${e.name}`,
-    EMPLOYEES.length ? "Select employee" : "No employees"
+    EMPLOYEES.length ? (ADMIN ? "All employees" : "Select employee") : "No employees"
   );
 
   if(EMPLOYEES.length===1){
@@ -260,7 +328,8 @@ async function loadRecords(){
   const f = fromDate.value;
   const t = toDate.value;
 
-  if(!isNonEmptyString(empId)) { showToast("Select employee.", "warn"); return; }
+  // In Admin mode: if no employee is selected, load ALL employees.
+  if(!isNonEmptyString(empId) && !ADMIN) { showToast("Select employee.", "warn"); return; }
   if(!isNonEmptyString(f) || !isNonEmptyString(t)) { showToast("Select date range.", "warn"); return; }
   if(f>t){ showToast("From date must be before To date.", "warn"); return; }
 
@@ -269,20 +338,29 @@ async function loadRecords(){
     const { dateCol, hasWorkingHoursCol } = await ensureAttendanceSchema();
 
     const selectCols = [
+      "employee_id",
       dateCol,
       "sign_in",
       "sign_out",
       "leave_type_id",
-      ...(hasWorkingHoursCol ? ["working_hours"] : [])
+      ...(hasWorkingHoursCol ? ["working_hours"] : []),
+      // Join employees to show employee name when loading all employees
+      "employees(code,name)"
     ].join(", ");
 
-    const { data, error } = await supabase
+    let q = supabase
       .from("attendance_records")
       .select(selectCols)
-      .eq("employee_id", empId)
       .gte(dateCol, f)
       .lte(dateCol, t)
+      .order("employee_id", { ascending: true })
       .order(dateCol, { ascending: true });
+
+    if(isNonEmptyString(empId)){
+      q = q.eq("employee_id", empId);
+    }
+
+    const { data, error } = await q;
 
     if(error) throw error;
 
@@ -293,19 +371,37 @@ async function loadRecords(){
         ? Number(r.working_hours || 0)
         : (leaveSelected ? CONFIG.STANDARD_HOURS_PER_DAY : round2(hoursBetween(r.sign_in, r.sign_out)));
 
+      const empRel = Array.isArray(r.employees) ? r.employees[0] : r.employees;
+      const employee_code = empRel?.code || "";
+      const employee_name = empRel?.name || "";
+
+      const leave = LEAVE_TYPES.find(x=>String(x.id)===String(r.leave_type_id));
+      const leaveName = leave ? leave.name : "";
+
+      const hasAttendanceTime = isNonEmptyString(r.sign_in) || isNonEmptyString(r.sign_out);
+      const hasLeaveType = r.leave_type_id !== null && r.leave_type_id !== undefined && String(r.leave_type_id).length > 0;
+      const leave_label = leaveName || (hasAttendanceTime && !hasLeaveType ? "Attended" : (hasLeaveType ? String(r.leave_type_id) : ""));
+
       return {
+        employee_id: r.employee_id,
+        employee_code,
+        employee_name,
         date: r[dateCol],
         sign_in: r.sign_in,
         sign_out: r.sign_out,
         leave_type_id: r.leave_type_id,
-        working_hours: wh
+        working_hours: wh,
+        leave_label
       };
     });
 
     renderRecords(records);
 
     // KPIs
-    const workingDays = countWorkingDays(f, t, CONFIG.WEEKEND_DAYS_JS);
+    const workingDaysPerEmployee = countWorkingDays(f, t, CONFIG.WEEKEND_DAYS_JS);
+    const distinctEmployees = new Set(records.map(r=>r.employee_id).filter(Boolean));
+    const employeeCount = isNonEmptyString(empId) ? 1 : (distinctEmployees.size || (EMPLOYEES.length || 1));
+    const workingDays = workingDaysPerEmployee * employeeCount;
     const leaveDays = records.filter(r=>r.leave_type_id!==null && r.leave_type_id!==undefined && String(r.leave_type_id).length>0).length;
     const workedDays = records.length - leaveDays;
 
@@ -325,6 +421,10 @@ async function loadRecords(){
 }
 
 btnLoad.addEventListener("click", loadRecords);
+
+if (btnExport) {
+  btnExport.addEventListener("click", exportLoadedToExcel);
+}
 
 function collectEntryRows(){
   const rows = [];

@@ -42,6 +42,10 @@
             <label>&nbsp;</label>
             <button id="btnLoad" class="btn primary" style="width:100%">Load</button>
           </div>
+          <div class="field" style="min-width:120px">
+            <label>&nbsp;</label>
+            <button id="btnExport" class="btn" style="width:100%" disabled>Export</button>
+          </div>
         </div>
 
         <div class="kpis" id="kpis">
@@ -59,6 +63,7 @@
             <thead>
               <tr>
                 <th style="width:130px">Date</th>
+                <th>Employee</th>
                 <th style="width:140px">Sign In</th>
                 <th style="width:140px">Sign Out</th>
                 <th>Leave Type</th>
@@ -108,6 +113,8 @@
   </div>
 
   <div id="toast"></div>
+  <!-- Export to Excel (XLSX). If this CDN is blocked, the app falls back to CSV export. -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>
