@@ -1,10 +1,132 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
-import type { Employee, LeaveRecord, LeaveType, RoleName, YearStatus } from "../types";
+import type { Employee, LeaveSegment, LeaveType, RoleName, YearStatus } from "../types";
 
 function yearNow(): number {
   return new Date().getFullYear();
+}
+
+type AttendanceLeaveRow = {
+  id: number;
+  employee_id: string;
+  work_date: string; // YYYY-MM-DD
+  leave_type_id: number | null;
+  notes: string | null;
+  leave_types?: { name: string; deduct_from: "planned" | "unplanned" | "none" } | null;
+};
+
+function toDateOnly(d: string): string {
+  // Supabase returns date columns as "YYYY-MM-DD"; this is a defensive guard.
+  return (d ?? "").slice(0, 10);
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${toDateOnly(dateStr)}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function segmentAttendance(rows: AttendanceLeaveRow[]): LeaveSegment[] {
+  const sorted = [...rows]
+    .filter(r => r.leave_type_id !== null && !!r.work_date)
+    .sort((a, b) => toDateOnly(a.work_date).localeCompare(toDateOnly(b.work_date)));
+
+  const segments: LeaveSegment[] = [];
+  let cur: {
+    start: string;
+    end: string;
+    typeId: number;
+    leaveTypes: AttendanceLeaveRow["leave_types"];
+    notes: string[];
+  } | null = null;
+
+  const pushCur = () => {
+    if (!cur) return;
+    const start = toDateOnly(cur.start);
+    const end = toDateOnly(cur.end);
+    const leave_days = Math.round(
+      (new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1;
+
+    const uniqNotes = Array.from(new Set(cur.notes.map(s => s.trim()).filter(Boolean)));
+    const remarks = uniqNotes.length ? uniqNotes.join(" | ").slice(0, 2000) : null;
+
+    segments.push({
+      key: `${start}_${end}_${cur.typeId}_${segments.length}`,
+      start_date: start,
+      end_date: end,
+      leave_days: Math.max(1, leave_days),
+      leave_type_id: cur.typeId,
+      remarks,
+      leave_types: (cur.leaveTypes as any) ?? null,
+    });
+  };
+
+  for (const r of sorted) {
+    const d = toDateOnly(r.work_date);
+    const typeId = Number(r.leave_type_id);
+    const note = (r.notes ?? "").trim();
+
+    if (!cur) {
+      cur = { start: d, end: d, typeId, leaveTypes: r.leave_types ?? null, notes: note ? [note] : [] };
+      continue;
+    }
+
+    const expectedNext = addDays(cur.end, 1);
+    const sameType = cur.typeId === typeId;
+    const consecutive = expectedNext === d;
+
+    if (sameType && consecutive) {
+      cur.end = d;
+      if (note) cur.notes.push(note);
+      // keep leaveTypes from the first row
+      continue;
+    }
+
+    pushCur();
+    cur = { start: d, end: d, typeId, leaveTypes: r.leave_types ?? null, notes: note ? [note] : [] };
+  }
+
+  pushCur();
+  return segments;
+}
+
+function computeYearStatus(params: {
+  employee: Pick<Employee, "id" | "code" | "name" | "hiring_date" | "planned_annual_balance" | "unplanned_annual_balance">;
+  year: number;
+  segments: LeaveSegment[];
+}): YearStatus {
+  const { employee, year, segments } = params;
+
+  let utilized_planned_days = 0;
+  let utilized_unplanned_days = 0;
+  let utilized_other_days = 0;
+
+  for (const s of segments) {
+    const d = s.leave_types?.deduct_from ?? "none";
+    if (d === "planned") utilized_planned_days += Number(s.leave_days ?? 0);
+    else if (d === "unplanned") utilized_unplanned_days += Number(s.leave_days ?? 0);
+    else utilized_other_days += Number(s.leave_days ?? 0);
+  }
+
+  const beginning_planned_balance = Number(employee.planned_annual_balance ?? 0);
+  const beginning_unplanned_balance = Number(employee.unplanned_annual_balance ?? 0);
+
+  return {
+    employee_id: employee.id,
+    code: employee.code,
+    name: employee.name,
+    hiring_date: employee.hiring_date,
+    year,
+    beginning_planned_balance,
+    beginning_unplanned_balance,
+    utilized_planned_days,
+    utilized_unplanned_days,
+    remaining_planned_days: Math.max(0, beginning_planned_balance - utilized_planned_days),
+    remaining_unplanned_days: Math.max(0, beginning_unplanned_balance - utilized_unplanned_days),
+    utilized_other_days,
+  };
 }
 
 async function fetchMyEmployee(): Promise<Employee> {
@@ -37,7 +159,7 @@ async function fetchMyEmployee(): Promise<Employee> {
 export default function DashboardPage() {
   const [me, setMe] = useState<Employee | null>(null);
   const [status, setStatus] = useState<YearStatus | null>(null);
-  const [records, setRecords] = useState<LeaveRecord[]>([]);
+  const [records, setRecords] = useState<LeaveSegment[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [year, setYear] = useState<number>(yearNow());
@@ -70,25 +192,23 @@ export default function DashboardPage() {
       try {
         setErr(null);
 
-        // Ensure the year row exists by selecting/creating via admin? For non-admin, it exists once admin recorded leaves.
-        const { data: st, error: stErr } = await supabase
-          .from("v_employee_year_status")
-          .select("*")
+        // Leave Manager now reads leave days from Attendance records (daily rows).
+        // We aggregate consecutive days into segments for a familiar "Start/End/Days" view.
+        const { data: att, error: aErr } = await supabase
+          .from("attendance_records")
+          .select("id, employee_id, work_date, leave_type_id, notes, leave_types(name, deduct_from)")
           .eq("employee_id", me.id)
-          .eq("year", year)
-          .maybeSingle();
-        if (stErr) throw stErr;
-        setStatus(st as any);
+          .gte("work_date", `${year}-01-01`)
+          .lte("work_date", `${year}-12-31`)
+          .not("leave_type_id", "is", null)
+          .order("work_date", { ascending: true });
+        if (aErr) throw aErr;
 
-        const { data: rec, error: recErr } = await supabase
-          .from("leave_records")
-          .select("id, employee_id, code, start_date, end_date, leave_days, leave_type_id, remarks, leave_types(name, deduct_from)")
-          .eq("employee_id", me.id)
-          .gte("start_date", `${year}-01-01`)
-          .lte("start_date", `${year}-12-31`)
-          .order("start_date", { ascending: false });
-        if (recErr) throw recErr;
-        setRecords(rec as any);
+        const segs = segmentAttendance((att ?? []) as any);
+        // Show newest first.
+        segs.sort((a, b) => b.start_date.localeCompare(a.start_date));
+        setRecords(segs);
+        setStatus(computeYearStatus({ employee: me, year, segments: segs }));
 
       } catch (e: any) {
         setErr(e?.message ?? String(e));
@@ -193,7 +313,7 @@ export default function DashboardPage() {
                 <tr><td className="py-3 text-slate-500 dark:text-slate-400" colSpan={5}>No records for this year.</td></tr>
               ) : (
                 records.map(r => (
-                  <tr key={r.id} className="border-t border-slate-200/60 dark:border-slate-800/60">
+                  <tr key={r.key} className="border-t border-slate-200/60 dark:border-slate-800/60">
                     <td className="py-2 pr-3">{r.start_date}</td>
                     <td className="py-2 pr-3">{r.end_date}</td>
                     <td className="py-2 pr-3 font-semibold">{r.leave_days}</td>
@@ -213,19 +333,17 @@ export default function DashboardPage() {
 }
 
 function AdminSection({ currentYear, leaveTypes }: { currentYear: number; leaveTypes: LeaveType[] }) {
-  const [tab, setTab] = useState<"employees" | "leaves" | "status" | "password">("employees");
+  const [tab, setTab] = useState<"employees" | "status" | "password">("employees");
   return (
     <section className="card p-5">
       <div className="flex flex-wrap gap-2">
         <button className={tab==="employees" ? "btn" : "btn-secondary"} onClick={() => setTab("employees")}>Add Employee</button>
-        <button className={tab==="leaves" ? "btn" : "btn-secondary"} onClick={() => setTab("leaves")}>Record Leave</button>
         <button className={tab==="status" ? "btn" : "btn-secondary"} onClick={() => setTab("status")}>Employee Status</button>
         <button className={tab==="password" ? "btn" : "btn-secondary"} onClick={() => setTab("password")}>Reset Password</button>
       </div>
 
       <div className="mt-6">
         {tab === "employees" && <AdminEmployees />}
-        {tab === "leaves" && <AdminBulkLeaves currentYear={currentYear} leaveTypes={leaveTypes} />}
         {tab === "status" && <AdminEmployeeStatus currentYear={currentYear} leaveTypes={leaveTypes} />}
         {tab === "password" && <AdminResetPassword />}
       </div>
@@ -661,8 +779,8 @@ function AdminBulkLeaves({ currentYear, leaveTypes }: { currentYear: number; lea
 function AdminEmployeeStatus({ currentYear, leaveTypes }: { currentYear: number; leaveTypes: LeaveType[] }) {
   const [code, setCode] = useState("");
   const [year, setYear] = useState(currentYear);
-  const [status, setStatus] = useState<any>(null);
-  const [records, setRecords] = useState<any[]>([]);
+  const [status, setStatus] = useState<YearStatus | null>(null);
+  const [records, setRecords] = useState<LeaveSegment[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -737,24 +855,25 @@ function AdminEmployeeStatus({ currentYear, leaveTypes }: { currentYear: number;
     try {
       const pageSize = 1000;
       let from = 0;
-      const all: any[] = [];
+      const daily: AttendanceLeaveRow[] = [];
 
+      // Pull all leave days from Attendance (daily rows), then aggregate to segments per employee.
       while (true) {
         const { data, error } = await supabase
-          .from("leave_records")
-          .select("id, code, start_date, end_date, leave_days, leave_type_id, remarks, created_at, updated_at, leave_types(name, deduct_from)")
-          .order("start_date", { ascending: true })
+          .from("attendance_records")
+          .select("id, employee_id, work_date, leave_type_id, notes, leave_types(name, deduct_from)")
+          .not("leave_type_id", "is", null)
+          .order("work_date", { ascending: true })
           .range(from, from + pageSize - 1);
         if (error) throw error;
-        const batch = (data ?? []) as any[];
-        all.push(...batch);
+        const batch = (data ?? []) as AttendanceLeaveRow[];
+        daily.push(...batch);
         if (batch.length < pageSize) break;
         from += pageSize;
       }
 
-      // Build a code -> employee details map (avoids FK relationship ambiguity in select).
-      const codes = Array.from(new Set(all.map((r: any) => r.code).filter(Boolean)));
-      const empByCode = new Map<string, { name: string; user_id: string }>();
+      const employeeIds = Array.from(new Set(daily.map(r => r.employee_id).filter(Boolean)));
+      const empById = new Map<string, { code: string; name: string; user_id: string }>();
 
       const chunk = <T,>(arr: T[], size: number) => {
         const out: T[][] = [];
@@ -762,37 +881,55 @@ function AdminEmployeeStatus({ currentYear, leaveTypes }: { currentYear: number;
         return out;
       };
 
-      for (const c of chunk(codes, 500)) {
+      for (const ids of chunk(employeeIds, 500)) {
         const { data: emps, error: eErr } = await supabase
           .from("employees")
-          .select("code, name, user_id")
-          .in("code", c);
-
+          .select("id, code, name, user_id")
+          .in("id", ids);
         if (eErr) throw eErr;
         for (const e of (emps ?? []) as any[]) {
-          empByCode.set(e.code, { name: e.name, user_id: e.user_id });
+          empById.set(e.id, { code: e.code, name: e.name, user_id: e.user_id });
         }
       }
 
-      const rows = all.map((r: any) => ({
-        RecordId: r.id,
-        EmployeeCode: r.code,
-        EmployeeName: (empByCode.get(r.code)?.name ?? ""),
-        UserId: (empByCode.get(r.code)?.user_id ?? ""),
-        StartDate: r.start_date,
-        EndDate: r.end_date,
-        LeaveDays: r.leave_days,
-        LeaveType: r.leave_types?.name ?? r.leave_type_id,
-        DeductFrom: r.leave_types?.deduct_from ?? "",
-        Remarks: r.remarks ?? "",
-        CreatedAt: r.created_at,
-        UpdatedAt: r.updated_at,
-      }));
+      const byEmployee = new Map<string, AttendanceLeaveRow[]>();
+      for (const r of daily) {
+        if (!r.employee_id) continue;
+        const arr = byEmployee.get(r.employee_id) ?? [];
+        arr.push(r);
+        byEmployee.set(r.employee_id, arr);
+      }
+
+      const rows: any[] = [];
+      for (const [empId, drows] of byEmployee.entries()) {
+        const emp = empById.get(empId);
+        const segs = segmentAttendance(drows);
+        for (const s of segs) {
+          rows.push({
+            EmployeeCode: emp?.code ?? "",
+            EmployeeName: emp?.name ?? "",
+            UserId: emp?.user_id ?? "",
+            Year: new Date(`${s.start_date}T00:00:00`).getFullYear(),
+            StartDate: s.start_date,
+            EndDate: s.end_date,
+            LeaveDays: s.leave_days,
+            LeaveType: s.leave_types?.name ?? s.leave_type_id,
+            DeductFrom: s.leave_types?.deduct_from ?? "",
+            Remarks: s.remarks ?? "",
+          });
+        }
+      }
+
+      rows.sort((a, b) => {
+        const c = String(a.EmployeeCode || "").localeCompare(String(b.EmployeeCode || ""));
+        if (c !== 0) return c;
+        return String(a.StartDate || "").localeCompare(String(b.StartDate || ""));
+      });
 
       const today = new Date().toISOString().slice(0, 10);
       const fname = `leave-records-all-${today}.csv`;
       downloadCsv(rows, fname);
-      setInfo(`Exported ${rows.length} record(s) (all records).`);
+      setInfo(`Exported ${rows.length} segment(s) (all employees).`);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     } finally {
@@ -805,11 +942,7 @@ function AdminEmployeeStatus({ currentYear, leaveTypes }: { currentYear: number;
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
 
-  const [edit, setEdit] = useState<any | null>(null);
-  const [editBusy, setEditBusy] = useState(false);
-
-  const [pendingDelete, setPendingDelete] = useState<{ id: string; start_date: string; end_date: string; leave_type: string } | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
+  // Editing/deleting leave is handled in Attendance Tracker.
 
 
   async function loadEmployees() {
@@ -845,137 +978,33 @@ function AdminEmployeeStatus({ currentYear, leaveTypes }: { currentYear: number;
     setInfo(null);
     try {
       if (!code) throw new Error("Please select an employee.");
-      const { data: emp, error: empErr } = await supabase.from("employees").select("id, code, name, hiring_date").eq("code", code).single();
+      const { data: emp, error: empErr } = await supabase
+        .from("employees")
+        .select("id, code, name, hiring_date, planned_annual_balance, unplanned_annual_balance")
+        .eq("code", code)
+        .single();
       if (empErr) throw empErr;
 
       setSelectedEmployee({ id: emp.id, code: emp.code, name: emp.name });
 
-      const { data: st, error: stErr } = await supabase
-        .from("v_employee_year_status")
-        .select("*")
+      const { data: att, error: aErr } = await supabase
+        .from("attendance_records")
+        .select("id, employee_id, work_date, leave_type_id, notes, leave_types(name, deduct_from)")
         .eq("employee_id", emp.id)
-        .eq("year", year)
-        .maybeSingle();
-      if (stErr) throw stErr;
-      setStatus(st);
+        .gte("work_date", `${year}-01-01`)
+        .lte("work_date", `${year}-12-31`)
+        .not("leave_type_id", "is", null)
+        .order("work_date", { ascending: true });
+      if (aErr) throw aErr;
 
-      const { data: rec, error: recErr } = await supabase
-        .from("leave_records")
-        .select("id, start_date, end_date, leave_days, leave_type_id, leave_types(name, deduct_from), remarks")
-        .eq("employee_id", emp.id)
-        .gte("start_date", `${year}-01-01`)
-        .lte("start_date", `${year}-12-31`)
-        .order("start_date", { ascending: false });
-      if (recErr) throw recErr;
-      setRecords(rec as any);
+      const segs = segmentAttendance((att ?? []) as any);
+      segs.sort((a, b) => b.start_date.localeCompare(a.start_date));
+      setRecords(segs);
+      setStatus(computeYearStatus({ employee: emp as any, year, segments: segs }));
     } catch (e:any) {
       setErr(e?.message ?? String(e));
       setStatus(null);
       setRecords([]);
-    }
-  }
-
-  async function saveEdit() {
-    if (!edit) return;
-    setEditBusy(true);
-    setErr(null);
-    setInfo(null);
-    try {
-      // Client-side balance guard for Planned / Un-Planned (DB trigger enforces this too).
-      const daysInclusive = (start: string, end: string): number => {
-        const s = new Date(start);
-        const e = new Date(end);
-        if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return 0;
-        const diff = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
-        return diff + 1;
-      };
-
-      const typeById = new Map<number, LeaveType>();
-      for (const t of leaveTypes) typeById.set(Number(t.id), t);
-      const getDeductFrom = (typeId: number): "planned" | "unplanned" | "none" => {
-        const t = typeById.get(Number(typeId));
-        const d = (t?.deduct_from ?? "none") as any;
-        return (d === "planned" || d === "unplanned" || d === "none") ? d : "none";
-      };
-
-      const y1 = new Date(edit.start_date).getFullYear();
-      const y2 = new Date(edit.end_date).getFullYear();
-      if (y1 !== y2) throw new Error("Cross-year record is not allowed.");
-      if (y1 !== year) throw new Error(`Dates must be inside year ${year}.`);
-
-      const newDays = daysInclusive(edit.start_date, edit.end_date);
-      if (newDays <= 0) throw new Error("Invalid dates.");
-
-      // Reconstruct what the remaining would be if we remove the old record, then apply the edited record.
-      if (status) {
-        const original = records.find((r: any) => r.id === edit.id);
-        const oldDays = Number(original?.leave_days ?? 0);
-        const oldTypeId = Number(original?.leave_type_id ?? edit.leave_type_id);
-
-        const oldDeduct = (original?.leave_types?.deduct_from as any) ?? getDeductFrom(oldTypeId);
-        const newDeduct = getDeductFrom(Number(edit.leave_type_id));
-
-        const basePlannedRemaining = Number(status.remaining_planned_days ?? 0);
-        const baseUnplannedRemaining = Number(status.remaining_unplanned_days ?? 0);
-
-        // Add back the old record (since it is already included in remaining), then validate the new one.
-        const plannedAvail = basePlannedRemaining + (oldDeduct === "planned" ? oldDays : 0);
-        const unplannedAvail = baseUnplannedRemaining + (oldDeduct === "unplanned" ? oldDays : 0);
-
-        if (newDeduct === "planned" && newDays > plannedAvail) {
-          throw new Error(`Insufficient planned balance. Requested ${newDays} day(s), remaining ${plannedAvail}.`);
-        }
-        if (newDeduct === "unplanned" && newDays > unplannedAvail) {
-          throw new Error(`Insufficient un-planned balance. Requested ${newDays} day(s), remaining ${unplannedAvail}.`);
-        }
-      }
-
-      const { error } = await supabase.from("leave_records").update({
-        start_date: edit.start_date,
-        end_date: edit.end_date,
-        leave_type_id: edit.leave_type_id,
-        remarks: edit.remarks || null,
-      }).eq("id", edit.id);
-      if (error) throw error;
-
-      setInfo("Leave record updated.");
-      setEdit(null);
-      await load();
-    } catch (e:any) {
-      setErr(e?.message ?? String(e));
-    } finally {
-      setEditBusy(false);
-    }
-  }
-
-  async function deleteRecord(id: string) {
-    setErr(null);
-    setInfo(null);
-    const { error } = await supabase.from("leave_records").delete().eq("id", id);
-    if (error) throw error;
-    setInfo("Leave record deleted.");
-    await load();
-  }
-
-  function askDelete(r: any) {
-    setPendingDelete({
-      id: r.id,
-      start_date: r.start_date,
-      end_date: r.end_date,
-      leave_type: r.leave_types?.name ?? "",
-    });
-  }
-
-  async function confirmDelete() {
-    if (!pendingDelete) return;
-    setDeleteBusy(true);
-    try {
-      await deleteRecord(pendingDelete.id);
-      setPendingDelete(null);
-    } catch (e: any) {
-      setErr(e?.message ?? String(e));
-    } finally {
-      setDeleteBusy(false);
     }
   }
 
@@ -1064,26 +1093,19 @@ function AdminEmployeeStatus({ currentYear, leaveTypes }: { currentYear: number;
                 <th className="py-2 pr-3">Days</th>
                 <th className="py-2 pr-3">Type</th>
                 <th className="py-2 pr-3">Remarks</th>
-                <th className="py-2 pr-3"></th>
               </tr>
             </thead>
             <tbody>
               {records.length === 0 ? (
-                <tr><td className="py-3 text-slate-500 dark:text-slate-400" colSpan={6}>No records.</td></tr>
+                <tr><td className="py-3 text-slate-500 dark:text-slate-400" colSpan={5}>No records.</td></tr>
               ) : (
-                records.map((r:any) => (
-                  <tr key={r.id} className="border-t border-slate-200/60 dark:border-slate-800/60">
+                records.map((r) => (
+                  <tr key={r.key} className="border-t border-slate-200/60 dark:border-slate-800/60">
                     <td className="py-2 pr-3">{r.start_date}</td>
                     <td className="py-2 pr-3">{r.end_date}</td>
                     <td className="py-2 pr-3 font-semibold">{r.leave_days}</td>
-                    <td className="py-2 pr-3">{r.leave_types?.name}</td>
+                    <td className="py-2 pr-3">{r.leave_types?.name ?? r.leave_type_id}</td>
                     <td className="py-2 pr-3">{r.remarks ?? ""}</td>
-                    <td className="py-2 pr-3">
-                      <div className="flex gap-2">
-                        <button className="btn-secondary" onClick={() => setEdit({ ...r })}>Edit</button>
-                        <button className="btn-secondary" onClick={() => askDelete(r)}>Delete</button>
-                      </div>
-                    </td>
                   </tr>
                 ))
               )}
@@ -1091,78 +1113,6 @@ function AdminEmployeeStatus({ currentYear, leaveTypes }: { currentYear: number;
           </table>
         </div>
       </div>
-
-      {pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="card p-5 w-full max-w-md">
-            <div className="text-lg font-bold">Confirm deletion</div>
-            <div className="mt-2 text-sm">Are you sure you want to delete this leave</div>
-
-            <div className="mt-4 rounded-xl border border-slate-200/60 dark:border-slate-800/60 p-3 text-sm">
-              <div><span className="font-semibold">Start:</span> {pendingDelete.start_date}</div>
-              <div className="mt-1"><span className="font-semibold">End:</span> {pendingDelete.end_date}</div>
-              <div className="mt-1"><span className="font-semibold">Type:</span> {pendingDelete.leave_type || "—"}</div>
-            </div>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button className="btn-secondary" onClick={() => setPendingDelete(null)} disabled={deleteBusy}>No</button>
-              <button className="btn" onClick={confirmDelete} disabled={deleteBusy}>{deleteBusy ? "Deleting…" : "Yes"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
-      {edit && (
-        <div className="card p-5">
-          <div className="flex items-center justify-between">
-            <h4 className="font-bold">Edit leave</h4>
-            <button className="btn-secondary" onClick={() => setEdit(null)}>Close</button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
-            <div>
-              <div className="label mb-1">Start</div>
-              <input className="input" type="date" value={edit.start_date} onChange={(e)=>setEdit({ ...edit, start_date: e.target.value })} />
-            </div>
-            <div>
-              <div className="label mb-1">End</div>
-              <input className="input" type="date" value={edit.end_date} onChange={(e)=>setEdit({ ...edit, end_date: e.target.value })} />
-            </div>
-            <div>
-              <div className="label mb-1">Leave type</div>
-              {leaveTypes.length > 0 ? (
-                <select
-                  className="input"
-                  value={String(edit.leave_type_id ?? "")}
-                  onChange={(e) => setEdit({ ...edit, leave_type_id: parseInt(e.target.value, 10) })}
-                >
-                  {leaveTypes.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  className="input"
-                  type="number"
-                  value={edit.leave_type_id}
-                  onChange={(e) => setEdit({ ...edit, leave_type_id: parseInt(e.target.value || "0", 10) })}
-                />
-              )}
-            </div>
-            <div>
-              <div className="label mb-1">Remarks</div>
-              <input className="input" value={edit.remarks ?? ""} onChange={(e)=>setEdit({ ...edit, remarks: e.target.value })} />
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <button className="btn" disabled={editBusy} onClick={saveEdit}>{editBusy ? "Saving…" : "Save changes"}</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

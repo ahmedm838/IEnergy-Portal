@@ -15,12 +15,12 @@ export type Employee = {
 
 export type LeaveType = { id: number; name: string; deduct_from: "planned" | "unplanned" | "none" };
 
-export type LeaveRecord = {
-  id: string;
-  employee_id: string;
-  code: string;
-  start_date: string;
-  end_date: string;
+// Leave Manager now reads leave days from the Attendance module table `attendance_records`.
+// We aggregate daily leave rows into contiguous segments for display/export.
+export type LeaveSegment = {
+  key: string; // stable UI key (not a DB id)
+  start_date: string; // YYYY-MM-DD
+  end_date: string;   // YYYY-MM-DD
   leave_days: number;
   leave_type_id: number;
   remarks: string | null;
