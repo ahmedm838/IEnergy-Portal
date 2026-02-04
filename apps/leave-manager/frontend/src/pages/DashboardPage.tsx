@@ -7,14 +7,23 @@ function yearNow(): number {
   return new Date().getFullYear();
 }
 
+type JoinedLeaveType = { name: string; deduct_from: "planned" | "unplanned" | "none" };
+
 type AttendanceLeaveRow = {
   id: number;
   employee_id: string;
   work_date: string; // YYYY-MM-DD
   leave_type_id: number | null;
   notes: string | null;
-  leave_types?: { name: string; deduct_from: "planned" | "unplanned" | "none" } | null;
+  // Supabase joins can come back as an object (1:1) or an array (some generated types mark it as 1:n).
+  // We normalize it via pickLeaveType() everywhere we consume it.
+  leave_types?: JoinedLeaveType | JoinedLeaveType[] | null;
 };
+
+function pickLeaveType(x: AttendanceLeaveRow["leave_types"]): JoinedLeaveType | null {
+  if (!x) return null;
+  return Array.isArray(x) ? (x[0] ?? null) : x;
+}
 
 function toDateOnly(d: string): string {
   // Supabase returns date columns as "YYYY-MM-DD"; this is a defensive guard.
@@ -37,7 +46,7 @@ function segmentAttendance(rows: AttendanceLeaveRow[]): LeaveSegment[] {
     start: string;
     end: string;
     typeId: number;
-    leaveTypes: AttendanceLeaveRow["leave_types"];
+    leaveTypes: JoinedLeaveType | null;
     notes: string[];
   } | null = null;
 
@@ -59,7 +68,7 @@ function segmentAttendance(rows: AttendanceLeaveRow[]): LeaveSegment[] {
       leave_days: Math.max(1, leave_days),
       leave_type_id: cur.typeId,
       remarks,
-      leave_types: (cur.leaveTypes as any) ?? null,
+      leave_types: cur.leaveTypes,
     });
   };
 
@@ -69,7 +78,7 @@ function segmentAttendance(rows: AttendanceLeaveRow[]): LeaveSegment[] {
     const note = (r.notes ?? "").trim();
 
     if (!cur) {
-      cur = { start: d, end: d, typeId, leaveTypes: r.leave_types ?? null, notes: note ? [note] : [] };
+      cur = { start: d, end: d, typeId, leaveTypes: pickLeaveType(r.leave_types), notes: note ? [note] : [] };
       continue;
     }
 
@@ -85,7 +94,7 @@ function segmentAttendance(rows: AttendanceLeaveRow[]): LeaveSegment[] {
     }
 
     pushCur();
-    cur = { start: d, end: d, typeId, leaveTypes: r.leave_types ?? null, notes: note ? [note] : [] };
+    cur = { start: d, end: d, typeId, leaveTypes: pickLeaveType(r.leave_types), notes: note ? [note] : [] };
   }
 
   pushCur();
