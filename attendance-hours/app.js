@@ -234,6 +234,16 @@ function exportLoadedToExcel(){
   try{
     if(window.XLSX && XLSX.utils && XLSX.writeFile){
       const ws = XLSX.utils.json_to_sheet(rows);
+      // Set sensible column widths (prevents wrapping, especially the Date column).
+      ws["!cols"] = [
+        { wch: 18 }, // Date: "Fri,23-02-2025"
+        { wch: 14 }, // EmployeeCode
+        { wch: 28 }, // EmployeeName
+        { wch: 12 }, // SignIn
+        { wch: 12 }, // SignOut
+        { wch: 18 }, // LeaveType
+        { wch: 14 }  // WorkingHours
+      ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Attendance");
       XLSX.writeFile(wb, `${filenameBase}.xlsx`);

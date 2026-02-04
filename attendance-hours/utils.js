@@ -27,7 +27,8 @@ export function fmtWeekDate(v){
 
   if (isNaN(d.getTime())) return String(v);
 
-  const ddd = ["sun","mon","tue","wed","thu","fri","sat"][d.getDay()];
+  // Use capitalized weekday abbreviations (e.g. "Fri", "Sat")
+  const ddd = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();

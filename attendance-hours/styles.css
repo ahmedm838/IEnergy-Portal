@@ -92,6 +92,12 @@ select{cursor:pointer}
 .table th{color:var(--muted);font-size:12px;background:rgba(11,20,39,.65);position:sticky;top:0}
 .table tr:hover td{background:rgba(58,130,246,.06)}
 
+/* Keep date column on one line (e.g. "Fri,23-02-2025") */
+.table th:first-child,
+.table td:first-child{
+  white-space:nowrap;
+}
+
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
 @media (max-width: 980px){ .kpis{grid-template-columns:repeat(2,1fr)} }
 .kpi{border:1px solid var(--border);border-radius:14px;padding:10px;background:rgba(11,20,39,.6)}
