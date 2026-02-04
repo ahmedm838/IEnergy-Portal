@@ -173,12 +173,16 @@ function renderRecords(records){
     const signOut = r.sign_out ? time24To12(r.sign_out) : "";
     const wh = Number(r.working_hours || 0);
 
+    const hasAttendanceTime = isNonEmptyString(r.sign_in) || isNonEmptyString(r.sign_out);
+    const hasLeaveType = r.leave_type_id !== null && r.leave_type_id !== undefined && String(r.leave_type_id).length > 0;
+    const leaveLabel = leaveName || (hasAttendanceTime && !hasLeaveType ? "Attended" : (hasLeaveType ? String(r.leave_type_id) : ""));
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${r.date}</td>
       <td>${signIn}</td>
       <td>${signOut}</td>
-      <td>${leaveName || (r.leave_type_id ? String(r.leave_type_id) : "")}</td>
+      <td>${leaveLabel}</td>
       <td>${round2(wh)}</td>
     `;
     recordsTbody.appendChild(tr);
