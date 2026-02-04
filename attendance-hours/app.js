@@ -236,7 +236,7 @@ function exportLoadedToExcel(){
       const ws = XLSX.utils.json_to_sheet(rows);
       // Set sensible column widths (prevents wrapping, especially the Date column).
       ws["!cols"] = [
-        { wch: 18 }, // Date: "Fri,23-02-2025"
+        { wch: 26 }, // Date: "04-02-2026,Wednesday"
         { wch: 14 }, // EmployeeCode
         { wch: 28 }, // EmployeeName
         { wch: 12 }, // SignIn

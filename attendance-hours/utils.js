@@ -11,7 +11,7 @@ export function fmtDateISO(d){
   return `${y}-${m}-${day}`;
 }
 
-// Attendance Tracker display format: ddd,dd-mm-yyyy (e.g. "fri,23-02-2025")
+// Attendance Tracker display format: dd-mm-yyyy,dddddd (e.g. "04-02-2026,Wednesday")
 // Accepts a Date, an ISO date string (YYYY-MM-DD), or any value Date can parse.
 export function fmtWeekDate(v){
   if (v == null) return "";
@@ -27,12 +27,12 @@ export function fmtWeekDate(v){
 
   if (isNaN(d.getTime())) return String(v);
 
-  // Use capitalized weekday abbreviations (e.g. "Fri", "Sat")
-  const ddd = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+  // Use full weekday name with standard capitalization (e.g. "Wednesday")
+  const ddddd = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
-  return `${ddd},${dd}-${mm}-${yyyy}`;
+  return `${dd}-${mm}-${yyyy},${ddddd}`;
 }
 
 export function showToast(message, type="good"){

@@ -92,10 +92,11 @@ select{cursor:pointer}
 .table th{color:var(--muted);font-size:12px;background:rgba(11,20,39,.65);position:sticky;top:0}
 .table tr:hover td{background:rgba(58,130,246,.06)}
 
-/* Keep date column on one line (e.g. "Fri,23-02-2025") */
+/* Keep date column on one line (e.g. "04-02-2026,Wednesday") */
 .table th:first-child,
 .table td:first-child{
   white-space:nowrap;
+  min-width: 220px;
 }
 
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
