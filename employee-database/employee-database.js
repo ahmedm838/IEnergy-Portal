@@ -24,16 +24,7 @@
   const DEFAULT_XLSX_PATH = './employees.xlsm';
   const FALLBACK_XLSX_PATHS = [
     DEFAULT_XLSX_PATH,
-    './employees.xlsx',
-    './IEnergy Employees Database.xlsm',
-    './IEnergy%20Employees%20Database.xlsm',
-    './IEnergy Employees Database.xlsx',
-    './IEnergy%20Employees%20Database.xlsx',
-    './employees-database.xlsm',
-    './employees-database.xlsx',
-    './employees-database.xls',
-    '../data/employees.xlsm',
-    '../data/employees.xlsx'
+    './employees.xlsx'
   ];
 
   let rows = [];
