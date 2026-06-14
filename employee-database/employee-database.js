@@ -1,6 +1,6 @@
 /* Employee Database
    - Role protected (Admin only)
-   - Reads an Excel file in the browser (default: ./IEnergy Employees Database.xlsx)
+   - Reads an Excel file in the browser (default: ./employees.xlsm)
    - Search by Employee Code (exact) or Employee Name (contains)
    - Displays all columns for the selected employee row
 */
@@ -21,14 +21,19 @@
   // Excel loading + search
   // -----------------------------
   const EXCEL_PASSWORD = 'iEnergy25'; // Excel workbook open password
-  const DEFAULT_XLSX_PATH = './IEnergy Employees Database.xlsx';
+  const DEFAULT_XLSX_PATH = './employees.xlsm';
   const FALLBACK_XLSX_PATHS = [
     DEFAULT_XLSX_PATH,
+    './employees.xlsx',
+    './IEnergy Employees Database.xlsm',
+    './IEnergy%20Employees%20Database.xlsm',
+    './IEnergy Employees Database.xlsx',
     './IEnergy%20Employees%20Database.xlsx',
+    './employees-database.xlsm',
     './employees-database.xlsx',
     './employees-database.xls',
-    '../data/employees.xlsx',
-    './employees.xlsx'
+    '../data/employees.xlsm',
+    '../data/employees.xlsx'
   ];
 
   let rows = [];
@@ -417,6 +422,7 @@
       'Expected file path: ' + DEFAULT_XLSX_PATH + '\n' +
       'Ensure the file exists and is published to GitHub Pages.\n\n' +
       'If the workbook is password-protected, the portal must load XlsxPopulate with encryption support.\n\n' +
+      'Tried paths: ' + FALLBACK_XLSX_PATHS.join(', ') + '\n\n' +
       'Details: ' + (lastErr ? lastErr.message : 'Unknown error');
     throw new Error(msg);
   }
