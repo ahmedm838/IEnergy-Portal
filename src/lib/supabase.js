@@ -1,7 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+/**
+ * Strip a byte-order mark and surrounding whitespace.
+ *
+ * CI secrets are easy to set with an invisible BOM or trailing newline —
+ * piping a value into `gh secret set` from Windows PowerShell does exactly
+ * that. The build then succeeds and the app dies at runtime on
+ * `new URL(...)`, which is a miserable thing to debug from a stack trace in
+ * minified code. Normalising here costs nothing.
+ */
+const clean = (value) => (value ?? '').replace(/^﻿/, '').trim()
+
+const url = clean(import.meta.env.VITE_SUPABASE_URL)
+const anonKey = clean(import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 // Fail loudly at startup rather than with a confusing network error later.
 export const isConfigured = Boolean(url && anonKey)
