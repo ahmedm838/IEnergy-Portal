@@ -1,0 +1,81 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', 'Noto Sans Arabic', ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-50: oklch(0.97 0.02 250);
+  --color-brand-100: oklch(0.93 0.04 250);
+  --color-brand-200: oklch(0.87 0.07 250);
+  --color-brand-500: oklch(0.58 0.16 250);
+  --color-brand-600: oklch(0.51 0.16 250);
+  --color-brand-700: oklch(0.44 0.14 250);
+  --color-brand-900: oklch(0.29 0.09 250);
+}
+
+:root {
+  --surface: oklch(0.99 0.002 250);
+  --surface-raised: oklch(1 0 0);
+  --border-subtle: oklch(0.91 0.005 250);
+  --text-strong: oklch(0.22 0.01 250);
+  --text-muted: oklch(0.52 0.01 250);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--surface);
+  color: var(--text-strong);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Arabic labels sit next to English ones throughout the attendance grid. */
+.arabic {
+  font-family: 'Noto Sans Arabic', sans-serif;
+  direction: rtl;
+  unicode-bidi: isolate;
+}
+
+/* Keep long report tables readable: sticky header + first column. */
+.sticky-head thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-raised);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Native date/time pickers render tiny in some browsers; normalise them. */
+input[type='date'],
+input[type='time'] {
+  min-height: 2.25rem;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .print-full {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  table {
+    font-size: 10px;
+  }
+}
