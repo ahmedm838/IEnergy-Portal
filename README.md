@@ -69,16 +69,25 @@ holidays and weekly rest are excluded by construction.
 
 ### 1. Supabase
 
-Create a project, then run the four SQL files **in order** in the SQL Editor:
+The schema lives in `supabase/migrations/`, applied in filename order:
 
 ```
-supabase/01_schema.sql     tables, enums, indexes, triggers
-supabase/02_functions.sql  reports and the calculation layer
-supabase/03_rls.sql        row level security policies and grants
-supabase/04_seed.sql       sites, sectors, departments, statuses, attendance types
+20261014120001_schema.sql     tables, enums, indexes, triggers
+20261014120002_functions.sql  reports and the calculation layer
+20261014120003_rls.sql        row level security policies and grants
+20261014120004_seed.sql       sites, sectors, departments, statuses, attendance types
 ```
 
-Each is idempotent, so re-running one is safe.
+With the Supabase CLI:
+
+```bash
+npx supabase login
+npx supabase link --project-ref <your-project-ref>
+npx supabase db push
+```
+
+Or paste each file into the dashboard SQL Editor in that order. Each is
+idempotent, so re-running one is safe.
 
 ### 2. Create the first administrator
 
@@ -133,7 +142,7 @@ by this workflow; it bypasses every policy.
 
 ```
 .github/workflows/deploy.yml   build + publish to Pages
-supabase/                      SQL: schema, functions, RLS, seed
+supabase/migrations/           SQL: schema, functions, RLS, seed
 src/
   lib/
     supabase.js                client + error unwrapping

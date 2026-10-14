@@ -104,7 +104,10 @@ create table if not exists employees (
   name                       text not null,
   si_no                      text,                       -- Social Insurance No.
   title                      text,
-  email                      citext,
+  -- Plain text rather than citext: the extension lives outside the default
+  -- search_path on Supabase, and the lower(email) unique index below already
+  -- enforces case-insensitive uniqueness without the dependency.
+  email                      text,
   site_id                    smallint references sites(id) on update cascade,
   department_id              smallint references departments(id) on update cascade,
 
@@ -128,13 +131,8 @@ create table if not exists employees (
   updated_at                 timestamptz not null default now()
 );
 
--- citext may not exist on older projects; fall back to a lower() unique index
-do $$ begin
-  create extension if not exists citext;
-exception when others then null; end $$;
-
 create unique index if not exists employees_email_lower_idx
-  on employees (lower(email::text)) where email is not null;
+  on employees (lower(email)) where email is not null;
 create index if not exists employees_department_idx on employees (department_id);
 create index if not exists employees_site_idx       on employees (site_id);
 create index if not exists employees_auth_idx       on employees (auth_user_id);
@@ -243,7 +241,7 @@ begin
      set auth_user_id = new.id
    where auth_user_id is null
      and email is not null
-     and lower(email::text) = lower(new.email);
+     and lower(email) = lower(new.email);
   return new;
 end $$;
 
