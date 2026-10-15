@@ -219,7 +219,7 @@ export default function MonthlyReport() {
       {error && <Alert tone="error">{error}</Alert>}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat label="Employees" value={num(totals.employees, 0)} />
+        <Stat label="Employees" value={num(totals.employees, 0)} sub="with activity in range" />
         <Stat label="Total allowances" value={`${num(totals.total_allowances)} ${currency}`} />
         <Stat label="Total overtime" value={`${num(totals.overtime)} h`} />
         <Stat
@@ -248,9 +248,9 @@ export default function MonthlyReport() {
         {loading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <EmptyState title="No payable employees in this period">
-            Check that employees have a status marked as payable under Settings, and that they are
-            marked active.
+          <EmptyState title="Nobody has activity in this period">
+            Only employees with attendance or adjustments in the selected dates appear here. Check
+            the date range, and that attendance has been recorded on the Attendance page.
           </EmptyState>
         ) : (
           <div className="max-h-[70vh] overflow-auto">
