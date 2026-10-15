@@ -318,11 +318,14 @@ function EmployeeForm({ value, lookups, onCancel, onSave }) {
             ))}
           </Select>
         </Field>
-        <Field label="Role">
+        <Field
+          label="Role"
+          hint={form.role === 'admin' ? 'Full access to every employee and all payroll data.' : undefined}
+        >
           <Select value={form.role} onChange={(e) => set({ role: e.target.value })}>
+            <option value="user">User — read own department (default)</option>
             <option value="admin">Admin — edit everything</option>
-            <option value="user">User — read own department</option>
-            <option value="no_access">No access</option>
+            <option value="no_access">No access — blocked entirely</option>
           </Select>
         </Field>
         <Field label="Annual leave balance">
