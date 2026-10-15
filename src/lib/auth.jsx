@@ -142,6 +142,8 @@ export function AuthProvider({ children }) {
       role,
       // Super admins are admins with extra rights, so every existing
       // admin-gated screen keeps working for them unchanged.
+      // Set when an account was invited and has not chosen a password yet.
+      mustSetPassword: session?.user?.user_metadata?.must_set_password === true,
       isSuperAdmin: role === 'super_admin',
       isAdmin: role === 'admin' || role === 'super_admin',
       canRead: role === 'admin' || role === 'super_admin' || role === 'user',

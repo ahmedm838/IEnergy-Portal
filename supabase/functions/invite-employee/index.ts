@@ -90,7 +90,16 @@ Deno.serve(async (req) => {
     const { data: invited, error: inviteError } =
       await admin.auth.admin.inviteUserByEmail(employee.email, {
         redirectTo: redirect_to || undefined,
-        data: { employee_code: employee.code, full_name: employee.name },
+        // must_set_password is the durable signal that this account has
+        // never chosen a password. Routing on the redirect URL alone is
+        // fragile -- the query marker does not always survive Supabase's
+        // redirect, and the invitee then lands signed in with a password
+        // they never set. The flag lives on the user until it is cleared.
+        data: {
+          employee_code: employee.code,
+          full_name: employee.name,
+          must_set_password: true,
+        },
       })
 
     if (inviteError) {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import ThemeToggle from '../components/ThemeToggle'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import { Alert, Button, Card, Field, Input } from '../components/ui'
 
 /**
@@ -11,6 +12,7 @@ import { Alert, Button, Card, Field, Input } from '../components/ui'
  */
 export default function ResetPassword() {
   const navigate = useNavigate()
+  const { mustSetPassword, refreshProfile } = useAuth()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -31,7 +33,13 @@ export default function ResetPassword() {
     }
 
     setBusy(true)
-    const { error: updateError } = await supabase.auth.updateUser({ password })
+    // Clear the invite flag in the same call that sets the password, so the
+    // two cannot disagree: the account is never left able to sign in while
+    // still being bounced back here.
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+      data: { must_set_password: false },
+    })
     setBusy(false)
 
     if (updateError) {
@@ -41,6 +49,7 @@ export default function ResetPassword() {
       return
     }
     setDone(true)
+    await refreshProfile()
     setTimeout(() => navigate('/', { replace: true }), 1500)
   }
 
@@ -48,12 +57,17 @@ export default function ResetPassword() {
     <div className="relative flex min-h-full items-center justify-center px-4 py-12">
       <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-sm">
-        <h1 className="mb-6 text-center text-xl font-semibold text-ink">
-          Choose a new password
+        <h1 className="mb-2 text-center text-xl font-semibold text-ink">
+          {mustSetPassword ? 'Set your password' : 'Choose a new password'}
         </h1>
+        {mustSetPassword && (
+          <p className="mb-6 text-center text-sm text-ink-3">
+            Your account is ready. Choose a password to finish signing in.
+          </p>
+        )}
         <Card className="p-6">
           {done ? (
-            <Alert tone="success" title="Password updated">
+            <Alert tone="success" title={mustSetPassword ? 'Password set' : 'Password updated'}>
               Taking you to the dashboard…
             </Alert>
           ) : (

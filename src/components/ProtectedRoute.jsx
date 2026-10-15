@@ -10,13 +10,20 @@ import { Alert, Button, Card, Spinner } from './ui'
  * just means they get a clear message instead of a page full of empty tables.
  */
 export default function ProtectedRoute({ children, requireAdmin = false, requireSuperAdmin = false }) {
-  const { session, profile, profileError, loading, role, signOut } = useAuth()
+  const { session, profile, profileError, loading, role, signOut, mustSetPassword } = useAuth()
   const location = useLocation()
 
   if (loading) return <Spinner label="Checking your session…" />
 
   if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // An invited account reaches the app before choosing a password. Send it
+  // to the password screen wherever it tries to go, so nobody is left with
+  // an account they cannot sign back into.
+  if (mustSetPassword) {
+    return <Navigate to="/reset-password" replace />
   }
 
   if (profileError) {
