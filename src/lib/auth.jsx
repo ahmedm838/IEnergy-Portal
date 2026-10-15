@@ -51,7 +51,8 @@ export function AuthProvider({ children }) {
       setProfile(null)
       return
     }
-    const { data, error } = await supabase
+    try {
+      const { data, error } = await supabase
       .from('employees')
       .select(
         `id, code, name, title, email, username, role, is_active,
@@ -64,13 +65,19 @@ export function AuthProvider({ children }) {
       .eq('auth_user_id', activeSession.user.id)
       .maybeSingle()
 
-    if (error) {
-      setProfileError(error.message)
+      if (error) {
+        setProfileError(error.message)
+        setProfile(null)
+        return
+      }
+      setProfileError(null)
+      setProfile(data)
+    } catch (err) {
+      // A rejected fetch (offline, DNS, blocked request) would otherwise
+      // propagate and skip the code that clears the loading flag.
+      setProfileError(err?.message ?? 'Could not load your profile.')
       setProfile(null)
-      return
     }
-    setProfileError(null)
-    setProfile(data)
   }, [])
 
   useEffect(() => {
@@ -81,22 +88,45 @@ export function AuthProvider({ children }) {
 
     let cancelled = false
 
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (cancelled) return
-      setSession(data.session)
-      await loadProfile(data.session)
+    const finish = () => {
       if (!cancelled) setLoading(false)
-    })
+    }
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return undefined
+        setSession(data.session)
+        return loadProfile(data.session)
+      })
+      .catch((err) => {
+        if (!cancelled) setProfileError(err?.message ?? 'Could not read your session.')
+      })
+      .finally(finish)
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (cancelled) return
       setSession(nextSession)
-      await loadProfile(nextSession)
-      setLoading(false)
+
+      // Deliberately not awaited. supabase-js holds an internal auth lock for
+      // the duration of this callback, and any Supabase query made inside it
+      // waits on that same lock -- a deadlock that leaves the app stuck on
+      // "Checking your session…" forever on any visit that already has a
+      // stored session. Deferring to a macrotask runs the fetch after the
+      // lock is released.
+      setTimeout(() => {
+        if (cancelled) return
+        loadProfile(nextSession).finally(finish)
+      }, 0)
     })
+
+    // Last resort: never strand someone on a spinner. If auth has not settled
+    // by now, render the UI and let the normal error paths explain themselves.
+    const watchdog = setTimeout(finish, 8000)
 
     return () => {
       cancelled = true
+      clearTimeout(watchdog)
       sub.subscription.unsubscribe()
     }
   }, [loadProfile])
