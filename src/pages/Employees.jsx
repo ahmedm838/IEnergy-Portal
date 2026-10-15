@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
+import { inviteEmployee, sendPasswordReset } from '../lib/invites'
 import {
   Alert,
   Badge,
@@ -45,6 +46,36 @@ export default function Employees() {
   const [editing, setEditing] = useState(null)
   const [formError, setFormError] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [busyId, setBusyId] = useState(null)
+
+  async function handleInvite(employee) {
+    setFormError(null)
+    setNotice(null)
+    setBusyId(employee.id)
+    try {
+      const result = await inviteEmployee(employee.id)
+      setNotice(result?.message ?? `Invitation sent to ${employee.email}.`)
+      reload()
+    } catch (err) {
+      setFormError(err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleReset(employee) {
+    setFormError(null)
+    setNotice(null)
+    setBusyId(employee.id)
+    try {
+      const result = await sendPasswordReset(employee.email)
+      setNotice(result.message)
+    } catch (err) {
+      setFormError(err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -171,6 +202,7 @@ export default function Employees() {
                   <Th>Email</Th>
                   <Th>Role</Th>
                   <Th>Status</Th>
+                  <Th>Login</Th>
                   <Th>Switches</Th>
                   <Th>Leaves</Th>
                   <Th />
@@ -198,6 +230,15 @@ export default function Employees() {
                         {e.employee_statuses?.name ?? '—'}
                       </Badge>
                     </Td>
+                    <Td>
+                      {e.auth_user_id ? (
+                        <Badge tone="green">Active</Badge>
+                      ) : e.email ? (
+                        <Badge tone="amber">Not invited</Badge>
+                      ) : (
+                        <Badge tone="slate">No email</Badge>
+                      )}
+                    </Td>
                     <Td className="text-xs text-slate-500">
                       {[
                         e.has_meal && 'Meal',
@@ -217,6 +258,26 @@ export default function Employees() {
                         <Button variant="ghost" size="sm" onClick={() => setEditing({ ...e })}>
                           Edit
                         </Button>
+                        {e.email && !e.auth_user_id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={busyId === e.id}
+                            onClick={() => handleInvite(e)}
+                          >
+                            {busyId === e.id ? 'Sending…' : 'Invite'}
+                          </Button>
+                        )}
+                        {e.email && e.auth_user_id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={busyId === e.id}
+                            onClick={() => handleReset(e)}
+                          >
+                            {busyId === e.id ? 'Sending…' : 'Send reset'}
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => toggleActive(e)}>
                           {e.is_active ? 'Deactivate' : 'Restore'}
                         </Button>

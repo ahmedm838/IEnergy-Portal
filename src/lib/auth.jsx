@@ -121,7 +121,7 @@ export function AuthProvider({ children }) {
       signOut: () => supabase.auth.signOut(),
       resetPassword: async (identifier) =>
         supabase.auth.resetPasswordForEmail(await resolveEmail(identifier), {
-          redirectTo: `${window.location.origin}${window.location.pathname}#/reset-password`,
+          redirectTo: `${window.location.origin}${window.location.pathname}?mode=set-password`,
         }),
     }
   }, [session, profile, profileError, loading, loadProfile])
