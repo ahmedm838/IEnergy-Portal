@@ -205,7 +205,7 @@ export default function Employees() {
                   <Th>Login</Th>
                   <Th>Switches</Th>
                   <Th>Leaves</Th>
-                  <Th />
+                  <Th className="sticky right-0 bg-panel text-right">Actions</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -253,7 +253,7 @@ export default function Employees() {
                     <Td className="tabular text-xs text-ink-3">
                       {e.annual_leave_balance} / {e.unplanned_leave_balance}
                     </Td>
-                    <Td className="text-right">
+                    <Td className="sticky right-0 z-[1] bg-panel text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]">
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => setEditing({ ...e })}>
                           Edit

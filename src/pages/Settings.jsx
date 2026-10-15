@@ -182,8 +182,10 @@ export default function Settings() {
                 <Th className="text-right">Added</Th>
                 <Th className="text-right">Overtime</Th>
                 <Th>Balance effect</Th>
-                <Th className="text-center">Counts toward required hours</Th>
-                <Th />
+                <Th className="text-center" title="Counts toward required hours">
+                  Required hrs
+                </Th>
+                <Th className="sticky right-0 bg-panel text-right">Edit</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -228,7 +230,7 @@ export default function Settings() {
                       label=""
                     />
                   </Td>
-                  <Td className="text-right">
+                  <Td className="sticky right-0 z-[1] bg-panel text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]">
                     <Button variant="ghost" size="sm" onClick={() => setEditingType({ ...t })}>
                       Edit
                     </Button>
@@ -410,7 +412,7 @@ function TypeEditRow({ value, onChange, onCancel, onSave }) {
       </Td>
       <Td className="text-xs text-ink-4">code: {value.code}</Td>
       <Td />
-      <Td className="text-right">
+      <Td className="sticky right-0 z-[1] bg-tint-warning text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]">
         <div className="flex justify-end gap-1">
           <Button size="sm" onClick={onSave}>
             Save
