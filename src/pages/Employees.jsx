@@ -150,7 +150,7 @@ export default function Employees() {
   if (lookups.loading || loading) return <Spinner />
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-ink">Employees</h1>

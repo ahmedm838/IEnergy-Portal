@@ -29,7 +29,7 @@ export default function Layout() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="no-print sticky top-0 z-30 border-b border-line bg-panel/90 backdrop-blur">
-        <div className="mx-auto flex max-w-[1600px] items-center gap-4 px-4 py-3">
+        <div className="flex w-full items-center gap-4 px-3 py-3 sm:px-5">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
               iE
@@ -104,7 +104,7 @@ export default function Layout() {
         )}
       </header>
 
-      <main className="print-full mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">
+      <main className="print-full w-full min-w-0 flex-1 px-3 py-6 sm:px-5">
         <Outlet />
       </main>
 

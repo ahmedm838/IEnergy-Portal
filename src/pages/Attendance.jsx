@@ -207,7 +207,7 @@ export default function Attendance() {
   if (lookups.error) return <Alert tone="error">{lookups.error}</Alert>
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       <div>
         <h1 className="text-xl font-semibold text-ink">Attendance</h1>
         <p className="mt-0.5 text-sm text-ink-3">

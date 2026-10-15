@@ -142,7 +142,7 @@ export default function MonthlyReport() {
   if (lookups.loading) return <Spinner />
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       <div className="no-print">
         <h1 className="text-xl font-semibold text-ink">Monthly report</h1>
         <p className="mt-0.5 text-sm text-ink-3">

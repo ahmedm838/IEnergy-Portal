@@ -83,7 +83,7 @@ export default function Dashboard() {
   if (loading || lookups.loading) return <Spinner />
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       <div>
         <h1 className="text-xl font-semibold text-ink">
           Welcome back, {profile?.name?.split(' ')[0]}
