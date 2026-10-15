@@ -4,6 +4,35 @@ import { supabase, isConfigured } from './supabase'
 const AuthContext = createContext(null)
 
 /**
+ * Usernames are the part of an email before the "@", so someone can sign in
+ * as either "ahmed.moustafa" or "ahmed.moustafa@ienergyegypt.com".
+ *
+ * The domain is read from the database through a function the anon role may
+ * call, because this has to work before anyone is authenticated. It is
+ * cached for the page's lifetime and falls back to passing the input
+ * through untouched, so a misconfigured domain degrades to email-only
+ * sign-in rather than locking everyone out.
+ */
+let domainPromise = null
+
+function defaultEmailDomain() {
+  if (!domainPromise) {
+    domainPromise = supabase
+      .rpc('default_email_domain')
+      .then(({ data, error }) => (error ? '' : (data ?? '')))
+      .catch(() => '')
+  }
+  return domainPromise
+}
+
+export async function resolveEmail(identifier) {
+  const input = (identifier ?? '').trim()
+  if (!input || input.includes('@')) return input
+  const domain = await defaultEmailDomain()
+  return domain ? `${input}@${domain}` : input
+}
+
+/**
  * Holds the Supabase session plus the matching `employees` row, which is
  * where role, department and the Y/N payroll switches live.
  *
@@ -25,7 +54,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase
       .from('employees')
       .select(
-        `id, code, name, title, email, role, is_active,
+        `id, code, name, title, email, username, role, is_active,
          site_id, department_id,
          has_meal, has_allowance, has_overtime, has_incentive, has_deductions,
          annual_leave_balance, unplanned_leave_balance,
@@ -84,11 +113,14 @@ export function AuthProvider({ children }) {
       isAdmin: role === 'admin',
       canRead: role === 'admin' || role === 'user',
       refreshProfile: () => loadProfile(session),
-      signIn: (email, password) =>
-        supabase.auth.signInWithPassword({ email: email.trim(), password }),
+      signIn: async (identifier, password) =>
+        supabase.auth.signInWithPassword({
+          email: await resolveEmail(identifier),
+          password,
+        }),
       signOut: () => supabase.auth.signOut(),
-      resetPassword: (email) =>
-        supabase.auth.resetPasswordForEmail(email.trim(), {
+      resetPassword: async (identifier) =>
+        supabase.auth.resetPasswordForEmail(await resolveEmail(identifier), {
           redirectTo: `${window.location.origin}${window.location.pathname}#/reset-password`,
         }),
     }

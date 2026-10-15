@@ -54,6 +54,7 @@ export default function Employees() {
         e.name.toLowerCase().includes(needle) ||
         String(e.code).includes(needle) ||
         (e.email ?? '').toLowerCase().includes(needle) ||
+        (e.username ?? '').toLowerCase().includes(needle) ||
         (e.departments?.name ?? '').toLowerCase().includes(needle),
     )
   }, [employees, search])
@@ -163,6 +164,7 @@ export default function Employees() {
                 <tr>
                   <Th>Code</Th>
                   <Th>Name</Th>
+                  <Th>Username</Th>
                   <Th>Title</Th>
                   <Th>Site</Th>
                   <Th>Department</Th>
@@ -179,6 +181,7 @@ export default function Employees() {
                   <tr key={e.id} className={e.is_active ? 'hover:bg-slate-50' : 'bg-slate-50/60 opacity-70'}>
                     <Td className="tabular font-medium">{e.code}</Td>
                     <Td className="font-medium text-slate-900">{e.name}</Td>
+                    <Td className="text-slate-500">{e.username ?? '—'}</Td>
                     <Td>{e.title}</Td>
                     <Td>{e.sites?.name}</Td>
                     <Td>{e.departments?.name}</Td>
@@ -265,7 +268,14 @@ function EmployeeForm({ value, lookups, onCancel, onSave }) {
         <Field label="Title">
           <Input value={form.title ?? ''} onChange={(e) => set({ title: e.target.value })} />
         </Field>
-        <Field label="Email" hint="Used to sign in; must match their Supabase account.">
+        <Field
+          label="Email"
+          hint={
+            form.email?.includes('@')
+              ? `Username will be "${form.email.split('@')[0].toLowerCase()}" — derived automatically.`
+              : 'Used to sign in; must match their Supabase account.'
+          }
+        >
           <Input
             type="email"
             value={form.email ?? ''}

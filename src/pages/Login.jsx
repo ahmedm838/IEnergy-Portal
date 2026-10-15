@@ -7,7 +7,7 @@ export default function Login() {
   const { session, loading, signIn, resetPassword } = useAuth()
   const location = useLocation()
 
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -21,13 +21,13 @@ export default function Login() {
     setBusy(true)
     setError(null)
     setNotice(null)
-    const { error: signInError } = await signIn(email, password)
+    const { error: signInError } = await signIn(identifier, password)
     if (signInError) {
-      // Supabase returns the same message for unknown email and wrong
+      // Supabase returns the same message for unknown account and wrong
       // password, which is the behaviour we want — don't leak which it was.
       setError(
         signInError.message === 'Invalid login credentials'
-          ? 'That email and password do not match an account.'
+          ? 'Those sign-in details do not match an account.'
           : signInError.message,
       )
     }
@@ -35,16 +35,16 @@ export default function Login() {
   }
 
   async function handleReset() {
-    if (!email.trim()) {
-      setError('Enter your email address first, then choose “Forgot password”.')
+    if (!identifier.trim()) {
+      setError('Enter your username or email first, then choose “Forgot password”.')
       return
     }
     setBusy(true)
     setError(null)
-    const { error: resetError } = await resetPassword(email)
+    const { error: resetError } = await resetPassword(identifier)
     setBusy(false)
     if (resetError) setError(resetError.message)
-    else setNotice(`If an account exists for ${email.trim()}, a reset link is on its way.`)
+    else setNotice(`If that account exists, a reset link is on its way.`)
   }
 
   return (
@@ -63,14 +63,14 @@ export default function Login() {
             {error && <Alert tone="error">{error}</Alert>}
             {notice && <Alert tone="success">{notice}</Alert>}
 
-            <Field label="Email">
+            <Field label="Username or email" hint="Your username is the part before the @.">
               <Input
-                type="email"
+                type="text"
                 autoComplete="username"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@ienergy.com"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="ahmed.moustafa"
               />
             </Field>
 
