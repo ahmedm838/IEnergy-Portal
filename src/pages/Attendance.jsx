@@ -278,23 +278,39 @@ export default function Attendance() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Stat label="Days recorded" value={`${totals.recordedDays} / ${days.length}`} />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            <Stat dense label="Days recorded" value={`${totals.recordedDays} / ${days.length}`} />
             <Stat
+              dense
               label="Working days"
               value={num(totals.workingDays, 0)}
               sub={`${num(totals.requiredHours)} h required`}
             />
-            <Stat label="Worked hours" value={num(totals.workedHours)} />
+            <Stat dense label="Worked hours" value={num(totals.workedHours)} />
             <Stat
+              dense
               label="Variance"
               value={`${totals.hoursVariance >= 0 ? '+' : ''}${num(totals.hoursVariance)} h`}
               tone={totals.hoursVariance >= 0 ? 'good' : 'bad'}
             />
             <Stat
+              dense
               label="Overtime"
               value={`${num(totals.overtime)} h`}
               sub={`${num(totals.mealUnits)} meal units`}
+            />
+            <Stat
+              dense
+              label="Total late"
+              value={minutesToHHMM(totals.lateMinutes)}
+              sub={`${num(totals.lateMinutes / 60)} h`}
+              tone={totals.lateMinutes > 0 ? 'bad' : 'neutral'}
+            />
+            <Stat
+              dense
+              label="Total transport"
+              value={num(totals.transport)}
+              sub={lookups.currency}
             />
           </div>
 

@@ -159,19 +159,49 @@ export function EmptyState({ title, children }) {
   )
 }
 
-export function Stat({ label, value, sub, tone }) {
+/**
+ * A single figure with a caption.
+ *
+ * `dense` trades the roomy default for something that fits a row of seven
+ * across a laptop screen, which is what the attendance summary needs once
+ * late hours and transport are included.
+ */
+export function Stat({ label, value, sub, tone, dense = false }) {
   const tones = {
     good: 'text-on-success',
     bad: 'text-on-danger',
     neutral: 'text-ink',
   }
   return (
-    <div className="rounded-xl border border-line bg-panel px-4 py-3 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-ink-3">{label}</p>
-      <p className={cx('tabular mt-1 text-xl font-semibold', tones[tone] || tones.neutral)}>
+    <div
+      className={cx(
+        'rounded-lg border border-line bg-panel shadow-sm',
+        dense ? 'px-3 py-2' : 'rounded-xl px-4 py-3',
+      )}
+    >
+      <p
+        className={cx(
+          'font-medium uppercase tracking-wide text-ink-3',
+          dense ? 'truncate text-[10px] leading-tight' : 'text-xs',
+        )}
+        title={label}
+      >
+        {label}
+      </p>
+      <p
+        className={cx(
+          'tabular font-semibold',
+          dense ? 'mt-0.5 text-base leading-snug' : 'mt-1 text-xl',
+          tones[tone] || tones.neutral,
+        )}
+      >
         {value}
       </p>
-      {sub && <p className="mt-0.5 text-xs text-ink-4">{sub}</p>}
+      {sub && (
+        <p className={cx('truncate text-ink-4', dense ? 'text-[10px] leading-tight' : 'mt-0.5 text-xs')} title={sub}>
+          {sub}
+        </p>
+      )}
     </div>
   )
 }
