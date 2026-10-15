@@ -126,7 +126,16 @@ export default function Attendance() {
   /** Apply a type to every day matching `predicate` that has no type yet. */
   function bulkFill(typeCode, predicate) {
     const type = lookups.types?.find((t) => t.code === typeCode)
-    if (!type) return
+    if (!type) {
+      // Say so rather than appearing to work. These buttons match on the
+      // attendance type's code, so if one is renamed in the database the
+      // button would otherwise do nothing at all, with no clue why.
+      setError(
+        `No attendance type with code "${typeCode}" exists, so this bulk fill did nothing. ` +
+          'Check Settings — the code is an internal identifier and must not be renamed.',
+      )
+      return
+    }
     setRows((current) => {
       const next = { ...current }
       const touched = new Set(dirty)

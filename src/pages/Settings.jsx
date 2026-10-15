@@ -22,6 +22,35 @@ export default function Settings() {
   const [hoursPerDay, setHoursPerDay] = useState('')
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [editingType, setEditingType] = useState(null)
+
+  async function saveType(form) {
+    setError(null)
+    setNotice(null)
+    try {
+      // code is deliberately not updatable here: it is the identifier the
+      // app matches on (the Attendance page's bulk fills look it up), and
+      // renaming it silently breaks those buttons. Labels are what people
+      // actually want to change.
+      await run(
+        supabase
+          .from('attendance_types')
+          .update({
+            name_en: form.name_en.trim(),
+            name_ar: form.name_ar.trim(),
+            meal_multiplier: Number(form.meal_multiplier) || 0,
+            extra_hours: Number(form.extra_hours) || 0,
+            added_hours: Number(form.added_hours) || 0,
+          })
+          .eq('id', form.id),
+      )
+      setEditingType(null)
+      setNotice(`Saved "${form.name_en.trim()}". Reports use the new values immediately.`)
+      lookups.reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
 
   useEffect(() => {
     if (lookups.loading) return
@@ -140,7 +169,7 @@ export default function Settings() {
       <Card>
         <CardHeader
           title="Attendance types"
-          subtitle="Overtime is calculated as Extra × 1.5 + Added, exactly as in the workbook."
+          subtitle="Edit labels and values here rather than in the database. Overtime is calculated as Extra × 1.5 + Added, exactly as in the workbook, so it cannot be set directly."
         />
         <div className="max-h-[60vh] overflow-auto">
           <table className="sticky-head w-full border-collapse">
@@ -154,12 +183,22 @@ export default function Settings() {
                 <Th className="text-right">Overtime</Th>
                 <Th>Balance effect</Th>
                 <Th className="text-center">Counts toward required hours</Th>
+                <Th />
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {lookups.types?.map((t) => (
+              {lookups.types?.map((t) =>
+                editingType?.id === t.id ? (
+                  <TypeEditRow
+                    key={t.id}
+                    value={editingType}
+                    onChange={setEditingType}
+                    onCancel={() => setEditingType(null)}
+                    onSave={() => saveType(editingType)}
+                  />
+                ) : (
                 <tr key={t.id} className="hover:bg-hover">
-                  <Td className="font-medium text-ink">{t.name_en}</Td>
+                  <Td className="font-medium text-ink" title={`code: ${t.code}`}>{t.name_en}</Td>
                   <Td className="arabic">{t.name_ar}</Td>
                   <Td className="tabular text-right">{t.meal_multiplier}</Td>
                   <Td className="tabular text-right">{t.extra_hours}</Td>
@@ -189,8 +228,14 @@ export default function Settings() {
                       label=""
                     />
                   </Td>
+                  <Td className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setEditingType({ ...t })}>
+                      Edit
+                    </Button>
+                  </Td>
                 </tr>
-              ))}
+                ),
+              )}
             </tbody>
           </table>
         </div>
@@ -309,5 +354,72 @@ export default function Settings() {
         </div>
       </Card>
     </div>
+  )
+}
+
+/**
+ * Inline editor for one attendance type.
+ *
+ * Overtime is shown but never editable: it is a generated column
+ * (extra * 1.5 + added), so the database would reject a write to it. The
+ * live preview makes the relationship obvious while you type.
+ *
+ * `code` is not editable either. It is the stable identifier the app
+ * matches on -- the Attendance page's "Fill workdays" button looks up
+ * code = 'paid_day' -- so renaming it breaks features silently while the
+ * screen still looks correct.
+ */
+function TypeEditRow({ value, onChange, onCancel, onSave }) {
+  const set = (patch) => onChange({ ...value, ...patch })
+  const previewOvertime =
+    (Number(value.extra_hours) || 0) * 1.5 + (Number(value.added_hours) || 0)
+
+  return (
+    <tr className="bg-tint-warning/60">
+      <Td>
+        <Input
+          value={value.name_en}
+          onChange={(e) => set({ name_en: e.target.value })}
+          className="min-w-40 py-1.5 text-sm"
+          aria-label="English name"
+        />
+      </Td>
+      <Td>
+        <Input
+          value={value.name_ar}
+          onChange={(e) => set({ name_ar: e.target.value })}
+          className="arabic min-w-32 py-1.5 text-sm"
+          aria-label="Arabic name"
+        />
+      </Td>
+      {['meal_multiplier', 'extra_hours', 'added_hours'].map((field) => (
+        <Td key={field} className="text-right">
+          <Input
+            type="number"
+            step="0.25"
+            min="0"
+            value={value[field]}
+            onChange={(e) => set({ [field]: e.target.value })}
+            className="w-20 py-1.5 text-right text-sm"
+            aria-label={field}
+          />
+        </Td>
+      ))}
+      <Td className="tabular text-right font-semibold" title="Calculated: Extra × 1.5 + Added">
+        {previewOvertime.toFixed(2)}
+      </Td>
+      <Td className="text-xs text-ink-4">code: {value.code}</Td>
+      <Td />
+      <Td className="text-right">
+        <div className="flex justify-end gap-1">
+          <Button size="sm" onClick={onSave}>
+            Save
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </Td>
+    </tr>
   )
 }
