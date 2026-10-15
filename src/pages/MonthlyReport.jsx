@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import PeriodLabel from '../components/PeriodLabel'
 import { supabase, run } from '../lib/supabase'
 import { useLookups } from '../lib/useLookups'
 import { exportSheet, prefetchExcel } from '../lib/exportXlsx'
-import { monthBounds, num } from '../lib/format'
+import { payrollPeriod, payrollPeriodLabel, shiftPayrollPeriod, num } from '../lib/format'
 import {
   Alert,
   Button,
@@ -22,7 +23,7 @@ import {
 export default function MonthlyReport() {
   const lookups = useLookups()
 
-  const [range, setRange] = useState(() => monthBounds())
+  const [range, setRange] = useState(() => payrollPeriod())
   const [mealRate, setMealRate] = useState('')
   const [siteId, setSiteId] = useState('')
   const [rows, setRows] = useState([])
@@ -151,9 +152,8 @@ export default function MonthlyReport() {
     }
   }
 
-  function shiftMonth(delta) {
-    const [y, m] = range.from.split('-').map(Number)
-    setRange(monthBounds(new Date(y, m - 1 + delta, 1)))
+  function shiftPeriod(delta) {
+    setRange(shiftPayrollPeriod(range.to, delta))
   }
 
   if (lookups.loading) return <Spinner />
@@ -165,6 +165,7 @@ export default function MonthlyReport() {
         <p className="mt-0.5 text-sm text-ink-3">
           Payroll input for every employee whose status is marked payable.
         </p>
+        <PeriodLabel from={range.from} to={range.to} className="mt-2" />
       </div>
 
       <Card className="no-print">
@@ -203,13 +204,13 @@ export default function MonthlyReport() {
             </Select>
           </Field>
           <div className="flex items-end gap-2">
-            <Button variant="secondary" onClick={() => shiftMonth(-1)}>
+            <Button variant="secondary" onClick={() => shiftPeriod(-1)}>
               ‹
             </Button>
-            <Button variant="secondary" onClick={() => setRange(monthBounds())}>
-              This month
+            <Button variant="secondary" onClick={() => setRange(payrollPeriod())}>
+              This period
             </Button>
-            <Button variant="secondary" onClick={() => shiftMonth(1)}>
+            <Button variant="secondary" onClick={() => shiftPeriod(1)}>
               ›
             </Button>
           </div>

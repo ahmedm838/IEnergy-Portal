@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
-import { hhmmToMinutes, minutesToHHMM, monthBounds, num, toISODate } from '../lib/format'
+import { hhmmToMinutes, minutesToHHMM, payrollPeriod, num, toISODate } from '../lib/format'
 import {
   Alert,
   Button,
@@ -21,7 +21,7 @@ export default function Adjustments() {
   const lookups = useLookups()
   const { employees } = useEmployees()
 
-  const [range, setRange] = useState(() => monthBounds())
+  const [range, setRange] = useState(() => payrollPeriod())
   const [employeeFilter, setEmployeeFilter] = useState('')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)

@@ -26,11 +26,55 @@ export function dateRange(fromISO, toISO) {
   return out
 }
 
-/** First and last day of the month containing `date`, as ISO strings. */
+/** First and last day of the calendar month containing `date`, as ISO strings. */
 export function monthBounds(date = new Date()) {
   const from = new Date(date.getFullYear(), date.getMonth(), 1)
   const to = new Date(date.getFullYear(), date.getMonth() + 1, 0)
   return { from: toISODate(from), to: toISODate(to) }
+}
+
+/**
+ * Day of the month a payroll period opens on.
+ *
+ * 21 means a period runs from the 21st to the 20th of the next month.
+ * Set it to 1 to go back to plain calendar months.
+ */
+export const PAYROLL_CYCLE_START_DAY = 21
+
+/**
+ * The payroll period containing `date`.
+ *
+ * A period is named after the month it ENDS in, which is how payroll talks
+ * about it: 21 September to 20 October is "October". So a date on or after
+ * the 21st already belongs to next month's period.
+ */
+export function payrollPeriod(date = new Date()) {
+  const start = PAYROLL_CYCLE_START_DAY
+  if (start <= 1) return monthBounds(date)
+
+  const year = date.getFullYear()
+  // Past the cycle start, we are already in the period that ends next month.
+  const month = date.getMonth() + (date.getDate() >= start ? 1 : 0)
+
+  // Date normalises month overflow, so December rolls into the next year.
+  return {
+    from: toISODate(new Date(year, month - 1, start)),
+    to: toISODate(new Date(year, month, start - 1)),
+  }
+}
+
+/** The payroll period `delta` periods away from the one ending on `toISO`. */
+export function shiftPayrollPeriod(toISO, delta) {
+  const end = fromISODate(toISO)
+  // Day 1 is always before the cycle start, so the shifted date names the
+  // period we want rather than spilling into the following one.
+  return payrollPeriod(new Date(end.getFullYear(), end.getMonth() + delta, 1))
+}
+
+/** 'October 2026' for the period ending on `toISO`. */
+export function payrollPeriodLabel(toISO) {
+  const end = fromISODate(toISO)
+  return end.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 }
 
 /** 'Tue, 14-10-26' — the workbook's "ddd, dd-mm-yy" day label. */

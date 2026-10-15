@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase, run } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useLookups } from '../lib/useLookups'
-import { dayLabel, monthBounds, num, toISODate } from '../lib/format'
+import { dayLabel, payrollPeriod, payrollPeriodLabel, num, toISODate } from '../lib/format'
 import {
   Alert,
   Button,
@@ -26,7 +26,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const range = monthBounds()
+  const range = payrollPeriod()
   const today = toISODate(new Date())
 
   const load = useCallback(async () => {
@@ -108,9 +108,13 @@ export default function Dashboard() {
             stats?.employees && stats.recordedToday === stats.employees ? 'good' : 'neutral'
           }
         />
-        <Stat label="Entries this month" value={num(stats?.recordsThisMonth ?? 0, 0)} />
         <Stat
-          label="Your hours this month"
+          label="Entries this period"
+          value={num(stats?.recordsThisMonth ?? 0, 0)}
+          sub={payrollPeriodLabel(range.to)}
+        />
+        <Stat
+          label="Your hours this period"
           value={mySummary ? num(mySummary.worked_hours) : '—'}
           sub={mySummary ? `${num(mySummary.required_hours)} h required` : ''}
           tone={

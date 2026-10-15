@@ -5,7 +5,8 @@ import { exportEmployeeReport, prefetchExcel } from '../lib/exportXlsx'
 import {
   dayLabel,
   minutesToHHMM,
-  monthBounds,
+  payrollPeriod,
+  payrollPeriodLabel,
   num,
   trimTime,
   hoursToHHMM,
@@ -32,7 +33,7 @@ export default function EmployeeReport() {
   const { employees, loading: employeesLoading } = useEmployees()
 
   const [employeeId, setEmployeeId] = useState('')
-  const [range, setRange] = useState(() => monthBounds())
+  const [range, setRange] = useState(() => payrollPeriod())
   const [summary, setSummary] = useState(null)
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(false)

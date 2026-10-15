@@ -160,6 +160,21 @@ src/
   pages/                       one file per screen
 ```
 
+## Payroll periods
+
+A payroll month runs from the **21st to the 20th**, and is named after the
+month it ends in: 21 September to 20 October is "October". Every date picker
+defaults to the current period, and Prev / Next / This period step by whole
+periods. Pages show the period name beside the dates, and mark a hand-edited
+range as "Custom range" so a non-standard window is never quietly reported
+under a month name it does not match.
+
+The cycle start is `PAYROLL_CYCLE_START_DAY` in `src/lib/format.js`. Set it
+to 1 to go back to plain calendar months.
+
+Leave balances and the absence-penalty counter still reset on 1 January:
+those are statutory annual entitlements, not payroll cycles.
+
 ## Notes and assumptions
 
 A few things the workbook left open, resolved as follows. Each is a one-line

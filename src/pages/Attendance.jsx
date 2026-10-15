@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import PeriodLabel from '../components/PeriodLabel'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { summarise } from '../lib/calc'
@@ -9,7 +10,9 @@ import {
   hoursToHHMM,
   isWeekend,
   minutesToHHMM,
-  monthBounds,
+  payrollPeriod,
+  payrollPeriodLabel,
+  shiftPayrollPeriod,
   num,
   trimTime,
 } from '../lib/format'
@@ -44,7 +47,7 @@ export default function Attendance() {
   const { employees, loading: employeesLoading } = useEmployees()
 
   const [employeeId, setEmployeeId] = useState('')
-  const [range, setRange] = useState(() => monthBounds())
+  const [range, setRange] = useState(() => payrollPeriod())
   const [rows, setRows] = useState({})
   const [dirty, setDirty] = useState(() => new Set())
   const [loading, setLoading] = useState(false)
@@ -198,9 +201,8 @@ export default function Attendance() {
     }
   }
 
-  function shiftMonth(delta) {
-    const [y, m] = range.from.split('-').map(Number)
-    setRange(monthBounds(new Date(y, m - 1 + delta, 1)))
+  function shiftPeriod(delta) {
+    setRange(shiftPayrollPeriod(range.to, delta))
   }
 
   const gridRows = useMemo(
@@ -222,6 +224,7 @@ export default function Attendance() {
         <p className="mt-0.5 text-sm text-ink-3">
           One row per calendar day, as in the workbook&rsquo;s employee report sheet.
         </p>
+        <PeriodLabel from={range.from} to={range.to} className="mt-2" />
       </div>
 
       <Card>
@@ -254,13 +257,13 @@ export default function Attendance() {
           </Field>
 
           <div className="flex items-end gap-2">
-            <Button variant="secondary" onClick={() => shiftMonth(-1)}>
+            <Button variant="secondary" onClick={() => shiftPeriod(-1)}>
               ‹ Prev
             </Button>
-            <Button variant="secondary" onClick={() => setRange(monthBounds())}>
-              This month
+            <Button variant="secondary" onClick={() => setRange(payrollPeriod())}>
+              This period
             </Button>
-            <Button variant="secondary" onClick={() => shiftMonth(1)}>
+            <Button variant="secondary" onClick={() => shiftPeriod(1)}>
               Next ›
             </Button>
           </div>
