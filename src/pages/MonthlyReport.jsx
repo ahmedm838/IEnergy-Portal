@@ -285,7 +285,7 @@ export default function MonthlyReport() {
                     <Td className="tabular text-right">{num(r.overtime)}</Td>
                     <Td
                       className="tabular text-right"
-                      title={`${num(r.late_hours)} h late; the first ${lookups.lateGraceHours} h are not deducted`}
+                      title={`${num(r.late_hours)} h late; the first ${lookups.lateGraceHours} h are ignored, the excess is subtracted from Deducted Hours`}
                     >
                       {num(r.late_hours)}
                     </Td>
@@ -316,9 +316,9 @@ export default function MonthlyReport() {
 
       <p className="no-print text-xs text-ink-4">
         Deducted Hours = (Penalties × {lookups.requiredHoursPerDay}) − (Adjusted Days ×{' '}
-        {lookups.requiredHoursPerDay}) − Adjusted Hours + any late hours beyond{' '}
-        {lookups.lateGraceHours} h for the period. Adjusted days and hours reduce the deduction, so
-        this can be negative. Total Deductions = (Deducted Leaves + Absence Penalties) ×{' '}
+        {lookups.requiredHoursPerDay}) − Adjusted Hours − any late hours beyond{' '}
+        {lookups.lateGraceHours} h for the period. Adjusted days, adjusted hours and late hours all
+        reduce the deduction, so this can be negative. Total Deductions = (Deducted Leaves + Absence Penalties) ×{' '}
         {lookups.requiredHoursPerDay} + Deducted Hours.
       </p>
     </div>

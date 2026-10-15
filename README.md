@@ -44,12 +44,12 @@ in Settings). A day counts as a working day when its attendance type has
 default so taking leave does not register as an hours shortage. Change this per
 type in **Settings → Attendance types** if your policy differs.
 
-**Deducted hours** — `(Penalties × 8) − (Adjusted Days × 8) − Adjusted Hours + max(0, late hours − grace)`.
-Adjusted days and adjusted hours *reduce* the deduction, so this figure can be
+**Deducted hours** — `(Penalties × 8) − (Adjusted Days × 8) − Adjusted Hours − max(0, late hours − grace)`.
+Every term after the penalties *reduces* the deduction, so this figure can be
 negative, which credits the employee through Total Deductions. Lateness is
 summed across the whole report period and the first `late_grace_hours`
-(default 2) are forgiven; only the excess is deducted. The grace is editable
-in **Settings → Payroll constants**.
+(default 2) are ignored; only the excess is applied. The grace is editable in
+**Settings → Payroll constants**.
 
 **Total deductions** — `(Deducted Leaves + Absence Penalties) × 8 + Deducted Hours`.
 
