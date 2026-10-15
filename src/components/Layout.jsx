@@ -17,7 +17,7 @@ const NAV = [
 ]
 
 export default function Layout() {
-  const { profile, isAdmin, signOut } = useAuth()
+  const { profile, isAdmin, isSuperAdmin, signOut } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -65,7 +65,9 @@ export default function Layout() {
                 #{profile?.code} · {profile?.departments?.name ?? '—'}
               </p>
             </div>
-            <Badge tone={isAdmin ? 'blue' : 'slate'}>{isAdmin ? 'Admin' : 'User'}</Badge>
+            <Badge tone={isSuperAdmin ? 'green' : isAdmin ? 'blue' : 'slate'}>
+              {isSuperAdmin ? 'Super admin' : isAdmin ? 'Admin' : 'User'}
+            </Badge>
             <ThemeToggle />
             <Button variant="secondary" size="sm" onClick={handleSignOut}>
               Sign out

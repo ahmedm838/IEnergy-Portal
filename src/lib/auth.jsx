@@ -140,8 +140,11 @@ export function AuthProvider({ children }) {
       profileError,
       loading,
       role,
-      isAdmin: role === 'admin',
-      canRead: role === 'admin' || role === 'user',
+      // Super admins are admins with extra rights, so every existing
+      // admin-gated screen keeps working for them unchanged.
+      isSuperAdmin: role === 'super_admin',
+      isAdmin: role === 'admin' || role === 'super_admin',
+      canRead: role === 'admin' || role === 'super_admin' || role === 'user',
       refreshProfile: () => loadProfile(session),
       signIn: async (identifier, password) =>
         supabase.auth.signInWithPassword({

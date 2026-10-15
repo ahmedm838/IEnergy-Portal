@@ -9,7 +9,7 @@ import { Alert, Button, Card, Spinner } from './ui'
  * is what actually stops a 'no_access' account reading data. Blocking here
  * just means they get a clear message instead of a page full of empty tables.
  */
-export default function ProtectedRoute({ children, requireAdmin = false }) {
+export default function ProtectedRoute({ children, requireAdmin = false, requireSuperAdmin = false }) {
   const { session, profile, profileError, loading, role, signOut } = useAuth()
   const location = useLocation()
 
@@ -63,7 +63,17 @@ export default function ProtectedRoute({ children, requireAdmin = false }) {
     )
   }
 
-  if (requireAdmin && role !== 'admin') {
+  if (requireSuperAdmin && role !== 'super_admin') {
+    return (
+      <Shell>
+        <Alert tone="warning" title="Super administrators only">
+          This page changes company-wide reference data that every report depends on.
+        </Alert>
+      </Shell>
+    )
+  }
+
+  if (requireAdmin && role !== 'admin' && role !== 'super_admin') {
     return (
       <Shell>
         <Alert tone="warning" title="Administrators only">

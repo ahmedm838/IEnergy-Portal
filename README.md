@@ -20,13 +20,25 @@ deployed to GitHub Pages by GitHub Actions.
 
 ## Access model
 
-Three roles, enforced by PostgreSQL Row Level Security — **not** by the UI.
+Four roles, enforced by PostgreSQL Row Level Security — **not** by the UI.
 The browser holds only the Supabase anon key, so client-side checks are a
-convenience; the policies in `supabase/03_rls.sql` are the real boundary.
+convenience; the policies are the real boundary.
 
-- **Admin** — read and write every employee, record and lookup.
+- **Super admin** — everything an admin can do, plus editing Settings
+  (reference data: attendance types, sites, statuses, payroll constants).
+- **Admin** — employees, attendance and adjustments. Settings are visible
+  but read-only.
 - **User** — read-only, limited to their own department (and themself).
+  Settings is not reachable at all.
 - **No access** — nothing. Signing in succeeds but returns no rows.
+
+Two guards back this up at the database level, because admins can write the
+employees table and could otherwise simply promote themselves:
+
+- A trigger refuses to grant or remove `super_admin` unless the caller is
+  already one. Direct database access (SQL editor, service role) is exempt,
+  which is also the recovery path if the last super admin is ever lost.
+- A trigger refuses any change that would leave zero active super admins.
 
 ## The calculations
 

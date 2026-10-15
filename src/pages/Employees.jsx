@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
+import { useAuth } from '../lib/auth'
 import { inviteEmployee, sendPasswordReset } from '../lib/invites'
 import {
   Alert,
@@ -40,6 +41,7 @@ const BLANK = {
 
 export default function Employees() {
   const lookups = useLookups()
+  const { isSuperAdmin } = useAuth()
   const { employees, loading, error, reload } = useEmployees({ activeOnly: false })
 
   const [search, setSearch] = useState('')
@@ -130,7 +132,9 @@ export default function Employees() {
       setFormError(
         err.message.includes('duplicate key')
           ? 'That employee code or email is already in use.'
-          : err.message,
+          : err.message.includes('super admin')
+            ? 'Only a super admin can grant or remove the super admin role.'
+            : err.message,
       )
     }
   }
@@ -169,6 +173,7 @@ export default function Employees() {
         <EmployeeForm
           value={editing}
           lookups={lookups}
+          canGrantSuperAdmin={isSuperAdmin}
           onCancel={() => setEditing(null)}
           onSave={handleSave}
         />
@@ -220,9 +225,17 @@ export default function Employees() {
                     <Td className="text-ink-3">{e.email}</Td>
                     <Td>
                       <Badge
-                        tone={e.role === 'admin' ? 'blue' : e.role === 'user' ? 'slate' : 'red'}
+                        tone={
+                          e.role === 'super_admin'
+                            ? 'green'
+                            : e.role === 'admin'
+                              ? 'blue'
+                              : e.role === 'user'
+                                ? 'slate'
+                                : 'red'
+                        }
                       >
-                        {e.role === 'no_access' ? 'No access' : e.role}
+                        {{ super_admin: 'Super admin', no_access: 'No access' }[e.role] ?? e.role}
                       </Badge>
                     </Td>
                     <Td>
@@ -294,7 +307,7 @@ export default function Employees() {
   )
 }
 
-function EmployeeForm({ value, lookups, onCancel, onSave }) {
+function EmployeeForm({ value, lookups, canGrantSuperAdmin, onCancel, onSave }) {
   const [form, setForm] = useState(value)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
@@ -381,11 +394,21 @@ function EmployeeForm({ value, lookups, onCancel, onSave }) {
         </Field>
         <Field
           label="Role"
-          hint={form.role === 'admin' ? 'Full access to every employee and all payroll data.' : undefined}
+          hint={
+            form.role === 'super_admin'
+              ? 'Everything an admin can do, plus editing Settings.'
+              : form.role === 'admin'
+                ? 'Manages employees, attendance and adjustments. Settings are read-only.'
+                : undefined
+          }
         >
           <Select value={form.role} onChange={(e) => set({ role: e.target.value })}>
             <option value="user">User — read own department (default)</option>
-            <option value="admin">Admin — edit everything</option>
+            <option value="admin">Admin — manage staff and attendance</option>
+            <option value="super_admin" disabled={!canGrantSuperAdmin && form.role !== 'super_admin'}>
+              Super admin — also edits Settings
+              {!canGrantSuperAdmin && form.role !== 'super_admin' ? ' (super admin only)' : ''}
+            </option>
             <option value="no_access">No access — blocked entirely</option>
           </Select>
         </Field>

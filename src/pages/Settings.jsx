@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups } from '../lib/useLookups'
+import { useAuth } from '../lib/auth'
 import { absenceDeduction } from '../lib/calc'
 import {
   Alert,
@@ -18,6 +19,11 @@ import {
 
 export default function Settings() {
   const lookups = useLookups()
+  // Admins may read this page; only a super admin may change it. The RLS
+  // policies enforce that regardless, so this is about showing people a
+  // disabled control rather than a confusing failure after they click.
+  const { isSuperAdmin } = useAuth()
+  const readOnly = !isSuperAdmin
   const [mealRate, setMealRate] = useState('')
   const [hoursPerDay, setHoursPerDay] = useState('')
   const [lateGrace, setLateGrace] = useState('')
@@ -133,6 +139,13 @@ export default function Settings() {
         </p>
       </div>
 
+      {readOnly && (
+        <Alert tone="info" title="Read-only">
+          These values drive every report, so only a super admin can change them. Ask one to make
+          an edit on your behalf.
+        </Alert>
+      )}
+
       {error && <Alert tone="error" onDismiss={() => setError(null)}>{error}</Alert>}
       {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
 
@@ -148,6 +161,7 @@ export default function Settings() {
               step="0.01"
               min="0"
               value={mealRate}
+              disabled={readOnly}
               onChange={(e) => setMealRate(e.target.value)}
             />
           </Field>
@@ -160,6 +174,7 @@ export default function Settings() {
               step="0.5"
               min="1"
               value={hoursPerDay}
+              disabled={readOnly}
               onChange={(e) => setHoursPerDay(e.target.value)}
             />
           </Field>
@@ -172,11 +187,12 @@ export default function Settings() {
               step="0.25"
               min="0"
               value={lateGrace}
+              disabled={readOnly}
               onChange={(e) => setLateGrace(e.target.value)}
             />
           </Field>
           <div className="flex items-end">
-            <Button type="submit">Save</Button>
+            <Button type="submit" disabled={readOnly}>Save</Button>
           </div>
         </form>
       </Card>
@@ -241,14 +257,19 @@ export default function Settings() {
                   <Td className="text-center">
                     <Checkbox
                       checked={t.is_working_day}
+                      disabled={readOnly}
                       onChange={() => toggleWorkingDay(t)}
                       label=""
                     />
                   </Td>
                   <Td className="sticky right-0 z-[1] bg-panel text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingType({ ...t })}>
-                      Edit
-                    </Button>
+                    {readOnly ? (
+                      <span className="text-xs text-ink-4">—</span>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={() => setEditingType({ ...t })}>
+                        Edit
+                      </Button>
+                    )}
                   </Td>
                 </tr>
                 ),
@@ -270,6 +291,7 @@ export default function Settings() {
                     <Checkbox
                       label={s.available ? 'Available' : 'Unavailable'}
                       checked={s.available}
+                      disabled={readOnly}
                       onChange={() => toggleSiteAvailable(s)}
                     />
                   </Td>
@@ -293,6 +315,7 @@ export default function Settings() {
                     <Checkbox
                       label={s.in_payroll ? 'In payroll' : 'Excluded'}
                       checked={s.in_payroll}
+                      disabled={readOnly}
                       onChange={() => togglePayroll(s)}
                     />
                   </Td>
