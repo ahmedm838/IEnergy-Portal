@@ -24,6 +24,8 @@ const BLANK = {
   name: '',
   si_no: '',
   title: '',
+  company_mobile: '',
+  office_number: '',
   email: '',
   site_id: '',
   department_id: '',
@@ -88,6 +90,8 @@ export default function Employees() {
         String(e.code).includes(needle) ||
         (e.email ?? '').toLowerCase().includes(needle) ||
         (e.username ?? '').toLowerCase().includes(needle) ||
+        (e.company_mobile ?? '').toLowerCase().includes(needle) ||
+        (e.office_number ?? '').toLowerCase().includes(needle) ||
         (e.departments?.name ?? '').toLowerCase().includes(needle),
     )
   }, [employees, search])
@@ -100,6 +104,8 @@ export default function Employees() {
         name: form.name.trim(),
         si_no: form.si_no?.trim() || null,
         title: form.title?.trim() || null,
+        company_mobile: form.company_mobile?.trim() || null,
+        office_number: form.office_number?.trim() || null,
         email: form.email?.trim() || null,
         site_id: form.site_id === '' ? null : Number(form.site_id),
         department_id: form.department_id === '' ? null : Number(form.department_id),
@@ -129,13 +135,7 @@ export default function Employees() {
       setEditing(null)
       reload()
     } catch (err) {
-      setFormError(
-        err.message.includes('duplicate key')
-          ? 'That employee code or email is already in use.'
-          : err.message.includes('super admin')
-            ? 'Only a super admin can grant or remove the super admin role.'
-            : err.message,
-      )
+      setFormError(duplicateMessage(err.message) ?? err.message)
     }
   }
 
@@ -205,6 +205,8 @@ export default function Employees() {
                   <Th>Site</Th>
                   <Th>Department</Th>
                   <Th>Email</Th>
+                  <Th>Mobile</Th>
+                  <Th>Office</Th>
                   <Th>Role</Th>
                   <Th>Status</Th>
                   <Th>Login</Th>
@@ -223,6 +225,8 @@ export default function Employees() {
                     <Td>{e.sites?.name}</Td>
                     <Td>{e.departments?.name}</Td>
                     <Td className="text-ink-3">{e.email}</Td>
+                    <Td className="tabular text-ink-3">{e.company_mobile ?? '—'}</Td>
+                    <Td className="tabular text-ink-3">{e.office_number ?? '—'}</Td>
                     <Td>
                       <Badge
                         tone={
@@ -335,12 +339,30 @@ function EmployeeForm({ value, lookups, canGrantSuperAdmin, onCancel, onSave }) 
         <Field label="Name" className="sm:col-span-2">
           <Input required value={form.name} onChange={(e) => set({ name: e.target.value })} />
         </Field>
-        <Field label="S.I. No.">
+        <Field label="S.I. No." hint="Must be unique across all employees.">
           <Input value={form.si_no ?? ''} onChange={(e) => set({ si_no: e.target.value })} />
         </Field>
 
         <Field label="Title">
           <Input value={form.title ?? ''} onChange={(e) => set({ title: e.target.value })} />
+        </Field>
+        <Field label="Company mobile">
+          <Input
+            type="tel"
+            inputMode="tel"
+            placeholder="0100 000 0000"
+            value={form.company_mobile ?? ''}
+            onChange={(e) => set({ company_mobile: e.target.value })}
+          />
+        </Field>
+        <Field label="Office number">
+          <Input
+            type="tel"
+            inputMode="tel"
+            placeholder="Extension or direct line"
+            value={form.office_number ?? ''}
+            onChange={(e) => set({ office_number: e.target.value })}
+          />
         </Field>
         <Field
           label="Email"
@@ -476,4 +498,32 @@ function EmployeeForm({ value, lookups, canGrantSuperAdmin, onCancel, onSave }) 
       </form>
     </Card>
   )
+}
+
+/**
+ * Turn a Postgres unique-violation into something actionable.
+ *
+ * A duplicate email trips employees_username_idx first, because username is
+ * generated from the local part of the address -- so that index name has to
+ * map back to "email" or the message would point at a field the form does
+ * not even show.
+ */
+function duplicateMessage(message) {
+  if (!message) return null
+  if (message.includes('super admin')) {
+    return 'Only a super admin can grant or remove the super admin role.'
+  }
+  if (!message.includes('duplicate key') && !message.includes('unique constraint')) return null
+
+  const byIndex = [
+    ['employees_code_key', 'That employee code is already used. Codes must be unique.'],
+    ['employees_name_unique_idx', 'An employee with this name already exists. Names must be unique.'],
+    ['employees_si_no_unique_idx', 'That S.I. No. is already used by another employee.'],
+    ['employees_username_idx', 'That email is already used by another employee.'],
+    ['employees_email_lower_idx', 'That email is already used by another employee.'],
+  ]
+  for (const [index, text] of byIndex) {
+    if (message.includes(index)) return text
+  }
+  return 'One of these values is already used by another employee.'
 }
