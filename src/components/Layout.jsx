@@ -3,6 +3,8 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { Badge, Button, cx } from './ui'
 import ThemeToggle from './ThemeToggle'
+import Logo from './Logo'
+import IdleTimeout from './IdleTimeout'
 
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },
@@ -28,12 +30,11 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-full flex-col">
+      <IdleTimeout />
       <header className="no-print sticky top-0 z-30 border-b border-line bg-panel/90 backdrop-blur">
         <div className="flex w-full items-center gap-4 px-3 py-3 sm:px-5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
-              iE
-            </div>
+          <div className="flex items-center gap-2.5">
+            <Logo className="h-8" />
             <span className="text-sm font-semibold text-ink">Attendance Tracker</span>
           </div>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ThemeToggle from '../components/ThemeToggle'
+import Logo from '../components/Logo'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { Alert, Button, Card, Field, Input, Spinner } from '../components/ui'
@@ -12,7 +13,11 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [notice, setNotice] = useState(null)
+  const [notice, setNotice] = useState(
+    location.state?.reason === 'idle'
+      ? 'You were signed out after 10 minutes of inactivity.'
+      : null,
+  )
 
   if (loading) return <Spinner label="Checking your session…" />
   if (session) return <Navigate to={location.state?.from?.pathname || '/'} replace />
@@ -53,9 +58,7 @@ export default function Login() {
       <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white">
-            iE
-          </div>
+          <Logo className="mx-auto mb-4 h-14" />
           <h1 className="text-xl font-semibold text-ink">Attendance Tracker</h1>
           <p className="mt-1 text-sm text-ink-3">Sign in to continue</p>
         </div>

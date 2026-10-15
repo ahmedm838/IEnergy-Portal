@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups } from '../lib/useLookups'
-import { exportSheet } from '../lib/exportXlsx'
+import { exportSheet, prefetchExcel } from '../lib/exportXlsx'
 import { monthBounds, num } from '../lib/format'
 import {
   Alert,
@@ -28,6 +28,13 @@ export default function MonthlyReport() {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [exporting, setExporting] = useState(false)
+
+  // Warm the Excel library so the click-to-download gap stays inside the
+  // browser's user-activation window.
+  useEffect(() => {
+    prefetchExcel()
+  }, [])
 
   // Seed the meal rate from settings once lookups arrive, but let the user
   // override it per run — the workbook treats it as a cell on the report.
@@ -101,6 +108,9 @@ export default function MonthlyReport() {
 
   async function handleExport() {
     const site = lookups.sites?.find((s) => String(s.id) === siteId)
+    setExporting(true)
+    setError(null)
+    try {
     await exportSheet(
       {
         title: 'Monthly report',
@@ -132,6 +142,11 @@ export default function MonthlyReport() {
       },
       `monthly-report-${range.from}_${range.to}.xlsx`,
     )
+    } catch (err) {
+      setError(`Could not build the Excel file: ${err.message}`)
+    } finally {
+      setExporting(false)
+    }
   }
 
   function shiftMonth(delta) {
@@ -222,8 +237,8 @@ export default function MonthlyReport() {
               <Button variant="secondary" size="sm" onClick={() => window.print()}>
                 Print
               </Button>
-              <Button size="sm" onClick={handleExport} disabled={rows.length === 0}>
-                Export Excel
+              <Button size="sm" onClick={handleExport} disabled={rows.length === 0 || exporting}>
+                {exporting ? 'Preparing…' : 'Export Excel'}
               </Button>
             </>
           }

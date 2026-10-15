@@ -14,6 +14,31 @@ function loadExcelJS() {
   return excelPromise
 }
 
+/**
+ * Start fetching ExcelJS before anyone clicks Export.
+ *
+ * The chunk is ~940 kB. Loading it inside the click handler puts a long
+ * await between the click and the download, which outlives the browser's
+ * user-activation window: Chrome then stops attributing the download to
+ * the click, treats it as site-initiated, and shows the "wants to
+ * download multiple files" permission prompt instead of saving the file.
+ *
+ * Warming it on page load keeps the click-to-download gap down to
+ * building the workbook, which is milliseconds.
+ */
+export function prefetchExcel() {
+  if (excelPromise) return
+  const warm = () => {
+    loadExcelJS().catch(() => {
+      // Let the real export surface the failure; a failed prefetch should
+      // not put an error in front of someone who never clicked Export.
+      excelPromise = null
+    })
+  }
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(warm, { timeout: 2000 })
+  else setTimeout(warm, 300)
+}
+
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
 const TITLE_FONT = { bold: true, size: 14, color: { argb: 'FF1E3A5F' } }
 

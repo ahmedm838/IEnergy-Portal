@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
-import { exportEmployeeReport } from '../lib/exportXlsx'
+import { exportEmployeeReport, prefetchExcel } from '../lib/exportXlsx'
 import {
   dayLabel,
   minutesToHHMM,
@@ -37,6 +37,11 @@ export default function EmployeeReport() {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [exporting, setExporting] = useState(false)
+
+  useEffect(() => {
+    prefetchExcel()
+  }, [])
 
   // Default to the signed-in user's own record so a read-only user lands
   // on something useful instead of an empty picker.
@@ -103,6 +108,9 @@ export default function EmployeeReport() {
 
   async function handleExport() {
     if (!summary || !employee) return
+    setExporting(true)
+    setError(null)
+    try {
     await exportEmployeeReport({
       employee,
       from: range.from,
@@ -142,6 +150,11 @@ export default function EmployeeReport() {
         note: r.note ?? '',
       })),
     })
+    } catch (err) {
+      setError(`Could not build the Excel file: ${err.message}`)
+    } finally {
+      setExporting(false)
+    }
   }
 
   if (lookups.loading || employeesLoading) return <Spinner />
@@ -185,8 +198,8 @@ export default function EmployeeReport() {
             <Button variant="secondary" onClick={() => window.print()} disabled={!summary}>
               Print
             </Button>
-            <Button onClick={handleExport} disabled={!summary}>
-              Export Excel
+            <Button onClick={handleExport} disabled={!summary || exporting}>
+              {exporting ? 'Preparing…' : 'Export Excel'}
             </Button>
           </div>
         </div>
