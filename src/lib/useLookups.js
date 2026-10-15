@@ -61,6 +61,7 @@ export function useLookups() {
 
   const requiredHoursPerDay = Number(data?.settings?.required_hours_per_day ?? 8)
   const mealRate = Number(data?.settings?.meal_allowance_rate ?? 0)
+  const lateGraceHours = Number(data?.settings?.late_grace_hours ?? 2)
   const currency = String(data?.settings?.currency ?? 'EGP')
 
   return {
@@ -69,6 +70,7 @@ export function useLookups() {
     defaultTypeId,
     requiredHoursPerDay,
     mealRate,
+    lateGraceHours,
     currency,
     loading,
     error,

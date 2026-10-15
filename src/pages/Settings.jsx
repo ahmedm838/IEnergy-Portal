@@ -20,6 +20,7 @@ export default function Settings() {
   const lookups = useLookups()
   const [mealRate, setMealRate] = useState('')
   const [hoursPerDay, setHoursPerDay] = useState('')
+  const [lateGrace, setLateGrace] = useState('')
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [editingType, setEditingType] = useState(null)
@@ -56,7 +57,8 @@ export default function Settings() {
     if (lookups.loading) return
     setMealRate(String(lookups.mealRate ?? 0))
     setHoursPerDay(String(lookups.requiredHoursPerDay ?? 8))
-  }, [lookups.loading, lookups.mealRate, lookups.requiredHoursPerDay])
+    setLateGrace(String(lookups.lateGraceHours ?? 2))
+  }, [lookups.loading, lookups.mealRate, lookups.requiredHoursPerDay, lookups.lateGraceHours])
 
   async function saveSettings(event) {
     event.preventDefault()
@@ -68,6 +70,7 @@ export default function Settings() {
           [
             { key: 'meal_allowance_rate', value: Number(mealRate) || 0 },
             { key: 'required_hours_per_day', value: Number(hoursPerDay) || 8 },
+            { key: 'late_grace_hours', value: Number(lateGrace) || 0 },
           ],
           { onConflict: 'key' },
         ),
@@ -135,7 +138,7 @@ export default function Settings() {
 
       <Card>
         <CardHeader title="Payroll constants" />
-        <form className="grid gap-4 p-5 sm:grid-cols-3" onSubmit={saveSettings}>
+        <form className="grid gap-4 p-5 sm:grid-cols-4" onSubmit={saveSettings}>
           <Field
             label={`Meal allowance (${lookups.currency} per meal unit)`}
             hint="Default for the monthly report; can be overridden per run."
@@ -158,6 +161,18 @@ export default function Settings() {
               min="1"
               value={hoursPerDay}
               onChange={(e) => setHoursPerDay(e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Late hours forgiven per period"
+            hint="Lateness beyond this is added to Deducted Hours on the monthly report."
+          >
+            <Input
+              type="number"
+              step="0.25"
+              min="0"
+              value={lateGrace}
+              onChange={(e) => setLateGrace(e.target.value)}
             />
           </Field>
           <div className="flex items-end">

@@ -97,6 +97,7 @@ export default function MonthlyReport() {
       { header: `Bonus (${currency})`, key: 'bonus', numFmt: '#,##0.00' },
       { header: `Adjustments (${currency})`, key: 'adjustments', numFmt: '#,##0.00' },
       { header: 'Overtime (hrs)', key: 'overtime', numFmt: '#,##0.00' },
+      { header: 'Late (hrs)', key: 'late_hours', numFmt: '#,##0.00' },
       { header: 'Deducted Hours', key: 'deducted_hours', numFmt: '#,##0.00' },
       { header: 'Deducted Leaves', key: 'deducted_leaves', numFmt: '#,##0.00' },
       { header: 'Absence Penalties (days)', key: 'absence_penalties', numFmt: '#,##0.00' },
@@ -133,6 +134,7 @@ export default function MonthlyReport() {
           bonus: Number(r.bonus),
           adjustments: Number(r.adjustments),
           overtime: Number(r.overtime),
+          late_hours: Number(r.late_hours),
           deducted_hours: Number(r.deducted_hours),
           deducted_leaves: Number(r.deducted_leaves),
           absence_penalties: Number(r.absence_penalties),
@@ -281,7 +283,19 @@ export default function MonthlyReport() {
                     <Td className="tabular text-right">{num(r.bonus)}</Td>
                     <Td className="tabular text-right">{num(r.adjustments)}</Td>
                     <Td className="tabular text-right">{num(r.overtime)}</Td>
-                    <Td className="tabular text-right">{num(r.deducted_hours)}</Td>
+                    <Td
+                      className="tabular text-right"
+                      title={`${num(r.late_hours)} h late; the first ${lookups.lateGraceHours} h are not deducted`}
+                    >
+                      {num(r.late_hours)}
+                    </Td>
+                    <Td
+                      className={`tabular text-right ${
+                        Number(r.deducted_hours) < 0 ? 'text-on-success' : ''
+                      }`}
+                    >
+                      {num(r.deducted_hours)}
+                    </Td>
                     <Td className="tabular text-right">{num(r.deducted_leaves, 0)}</Td>
                     <Td
                       className={`tabular text-right ${
@@ -301,8 +315,10 @@ export default function MonthlyReport() {
       </Card>
 
       <p className="no-print text-xs text-ink-4">
-        Deducted Hours = (Penalties + Adjusted Days) × {lookups.requiredHoursPerDay} + Adjusted
-        Hours. Total Deductions = (Deducted Leaves + Absence Penalties) ×{' '}
+        Deducted Hours = (Penalties × {lookups.requiredHoursPerDay}) − (Adjusted Days ×{' '}
+        {lookups.requiredHoursPerDay}) − Adjusted Hours + any late hours beyond{' '}
+        {lookups.lateGraceHours} h for the period. Adjusted days and hours reduce the deduction, so
+        this can be negative. Total Deductions = (Deducted Leaves + Absence Penalties) ×{' '}
         {lookups.requiredHoursPerDay} + Deducted Hours.
       </p>
     </div>
