@@ -119,8 +119,8 @@ export default function Adjustments() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Adjustments</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <h1 className="text-xl font-semibold text-ink">Adjustments</h1>
+          <p className="mt-0.5 text-sm text-ink-3">
             Incentives, bonuses, penalties and salary advances that feed the monthly report.
           </p>
         </div>
@@ -201,10 +201,10 @@ export default function Adjustments() {
                   <Th />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <Td className="font-medium text-slate-900">{r.adj_date}</Td>
+                  <tr key={r.id} className="hover:bg-hover">
+                    <Td className="font-medium text-ink">{r.adj_date}</Td>
                     <Td>
                       #{r.employees?.code} — {r.employees?.name}
                     </Td>
@@ -215,7 +215,7 @@ export default function Adjustments() {
                     <Td className="tabular text-right">{minutesToHHMM(r.adjusted_minutes)}</Td>
                     <Td className="tabular text-right">{num(r.salary_adjust)}</Td>
                     <Td className="tabular text-right">{num(r.salary_advance)}</Td>
-                    <Td className="text-slate-500">{r.note}</Td>
+                    <Td className="text-ink-3">{r.note}</Td>
                     <Td className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button

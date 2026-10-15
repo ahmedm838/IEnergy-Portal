@@ -1,23 +1,125 @@
 @import 'tailwindcss';
 
+/*
+ * Dark mode is driven by a `dark` class on <html>, not by
+ * prefers-color-scheme alone, because the header toggle has to be able to
+ * override the OS setting. The "system" option re-reads the OS preference.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Inter', 'Noto Sans Arabic', ui-sans-serif, system-ui, sans-serif;
 
-  --color-brand-50: oklch(0.97 0.02 250);
-  --color-brand-100: oklch(0.93 0.04 250);
-  --color-brand-200: oklch(0.87 0.07 250);
-  --color-brand-500: oklch(0.58 0.16 250);
-  --color-brand-600: oklch(0.51 0.16 250);
-  --color-brand-700: oklch(0.44 0.14 250);
-  --color-brand-900: oklch(0.29 0.09 250);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-900: var(--brand-900);
+
+  /*
+   * Semantic neutrals. Components reference these rather than a fixed
+   * slate ramp, so the whole app re-themes from one block below and new
+   * components inherit dark mode without needing dark: on every class.
+   */
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-subtle: var(--subtle);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+
+  /* Accent tints, flipped for dark so tinted panels stay readable. */
+  --color-tint-info: var(--tint-info);
+  --color-tint-success: var(--tint-success);
+  --color-tint-warning: var(--tint-warning);
+  --color-tint-danger: var(--tint-danger);
+  --color-on-info: var(--on-info);
+  --color-on-success: var(--on-success);
+  --color-on-warning: var(--on-warning);
+  --color-on-danger: var(--on-danger);
+  --color-edge-info: var(--edge-info);
+  --color-edge-success: var(--edge-success);
+  --color-edge-warning: var(--edge-warning);
+  --color-edge-danger: var(--edge-danger);
 }
 
 :root {
-  --surface: oklch(0.99 0.002 250);
-  --surface-raised: oklch(1 0 0);
-  --border-subtle: oklch(0.91 0.005 250);
-  --text-strong: oklch(0.22 0.01 250);
-  --text-muted: oklch(0.52 0.01 250);
+  color-scheme: light;
+
+  --brand-50: oklch(0.97 0.02 250);
+  --brand-100: oklch(0.93 0.04 250);
+  --brand-200: oklch(0.87 0.07 250);
+  --brand-500: oklch(0.58 0.16 250);
+  --brand-600: oklch(0.51 0.16 250);
+  --brand-700: oklch(0.44 0.14 250);
+  --brand-900: oklch(0.29 0.09 250);
+
+  --canvas: oklch(0.985 0.002 250);
+  --panel: oklch(1 0 0);
+  --subtle: oklch(0.97 0.004 250);
+  --hover: oklch(0.96 0.005 250);
+  --line: oklch(0.92 0.005 250);
+  --line-strong: oklch(0.86 0.008 250);
+  --ink: oklch(0.22 0.012 250);
+  --ink-2: oklch(0.38 0.012 250);
+  --ink-3: oklch(0.54 0.012 250);
+  --ink-4: oklch(0.66 0.01 250);
+
+  --tint-info: oklch(0.96 0.03 250);
+  --tint-success: oklch(0.96 0.04 160);
+  --tint-warning: oklch(0.96 0.05 85);
+  --tint-danger: oklch(0.96 0.04 25);
+  --on-info: oklch(0.38 0.11 250);
+  --on-success: oklch(0.40 0.10 160);
+  --on-warning: oklch(0.42 0.10 70);
+  --on-danger: oklch(0.45 0.16 25);
+  --edge-info: oklch(0.88 0.06 250);
+  --edge-success: oklch(0.88 0.07 160);
+  --edge-warning: oklch(0.88 0.08 85);
+  --edge-danger: oklch(0.88 0.07 25);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Lifted and desaturated: the same hue reads heavier on a dark field. */
+  --brand-50: oklch(0.28 0.05 250);
+  --brand-100: oklch(0.33 0.07 250);
+  --brand-200: oklch(0.40 0.09 250);
+  --brand-500: oklch(0.68 0.14 250);
+  --brand-600: oklch(0.62 0.15 250);
+  --brand-700: oklch(0.55 0.14 250);
+  --brand-900: oklch(0.85 0.06 250);
+
+  --canvas: oklch(0.17 0.008 250);
+  --panel: oklch(0.21 0.010 250);
+  --subtle: oklch(0.24 0.010 250);
+  --hover: oklch(0.26 0.012 250);
+  --line: oklch(0.30 0.012 250);
+  --line-strong: oklch(0.38 0.014 250);
+  --ink: oklch(0.96 0.004 250);
+  --ink-2: oklch(0.84 0.008 250);
+  --ink-3: oklch(0.68 0.010 250);
+  --ink-4: oklch(0.56 0.010 250);
+
+  --tint-info: oklch(0.28 0.05 250);
+  --tint-success: oklch(0.28 0.05 160);
+  --tint-warning: oklch(0.30 0.06 85);
+  --tint-danger: oklch(0.29 0.06 25);
+  --on-info: oklch(0.86 0.07 250);
+  --on-success: oklch(0.86 0.09 160);
+  --on-warning: oklch(0.88 0.10 85);
+  --on-danger: oklch(0.86 0.09 25);
+  --edge-info: oklch(0.38 0.07 250);
+  --edge-success: oklch(0.38 0.08 160);
+  --edge-warning: oklch(0.40 0.09 85);
+  --edge-danger: oklch(0.39 0.08 25);
 }
 
 html,
@@ -27,8 +129,8 @@ body,
 }
 
 body {
-  background: var(--surface);
-  color: var(--text-strong);
+  background: var(--canvas);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -39,13 +141,13 @@ body {
   unicode-bidi: isolate;
 }
 
-/* Keep long report tables readable: sticky header + first column. */
+/* Keep long report tables readable: sticky header. */
 .sticky-head thead th {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--surface-raised);
-  box-shadow: inset 0 -1px 0 var(--border-subtle);
+  background: var(--panel);
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 
 .tabular {
@@ -58,18 +160,29 @@ textarea {
   font: inherit;
 }
 
-/* Native date/time pickers render tiny in some browsers; normalise them. */
+/* The native date/time pickers render tiny, and their icons default to a
+   dark glyph that disappears against a dark field. */
 input[type='date'],
 input[type='time'] {
   min-height: 2.25rem;
 }
 
+.dark input[type='date']::-webkit-calendar-picker-indicator,
+.dark input[type='time']::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.7);
+}
+
+/* Printing is always on white paper, whatever the screen is showing. */
 @media print {
   .no-print {
     display: none !important;
   }
+  html.dark {
+    color-scheme: light;
+  }
   body {
-    background: #fff;
+    background: #fff !important;
+    color: #000 !important;
   }
   .print-full {
     max-width: none !important;

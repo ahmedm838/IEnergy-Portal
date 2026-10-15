@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ThemeToggle from '../components/ThemeToggle'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { Alert, Button, Card, Field, Input, Spinner } from '../components/ui'
@@ -48,14 +49,15 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center px-4 py-12">
+    <div className="relative flex min-h-full items-center justify-center px-4 py-12">
+      <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-lg font-bold text-white">
             iE
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">Attendance Tracker</h1>
-          <p className="mt-1 text-sm text-slate-500">Sign in to continue</p>
+          <h1 className="text-xl font-semibold text-ink">Attendance Tracker</h1>
+          <p className="mt-1 text-sm text-ink-3">Sign in to continue</p>
         </div>
 
         <Card className="p-6">
@@ -92,7 +94,7 @@ export default function Login() {
               type="button"
               onClick={handleReset}
               disabled={busy}
-              className="text-center text-xs text-slate-500 underline-offset-2 hover:text-brand-700 hover:underline"
+              className="text-center text-xs text-ink-3 underline-offset-2 hover:text-brand-700 hover:underline"
             >
               Forgot password?
             </button>

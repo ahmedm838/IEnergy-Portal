@@ -153,8 +153,8 @@ export default function Employees() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Employees</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <h1 className="text-xl font-semibold text-ink">Employees</h1>
+          <p className="mt-0.5 text-sm text-ink-3">
             {employees.length} records. Role and the Y/N switches drive access and payroll.
           </p>
         </div>
@@ -208,16 +208,16 @@ export default function Employees() {
                   <Th />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {filtered.map((e) => (
-                  <tr key={e.id} className={e.is_active ? 'hover:bg-slate-50' : 'bg-slate-50/60 opacity-70'}>
+                  <tr key={e.id} className={e.is_active ? 'hover:bg-hover' : 'bg-subtle/60 opacity-70'}>
                     <Td className="tabular font-medium">{e.code}</Td>
-                    <Td className="font-medium text-slate-900">{e.name}</Td>
-                    <Td className="text-slate-500">{e.username ?? '—'}</Td>
+                    <Td className="font-medium text-ink">{e.name}</Td>
+                    <Td className="text-ink-3">{e.username ?? '—'}</Td>
                     <Td>{e.title}</Td>
                     <Td>{e.sites?.name}</Td>
                     <Td>{e.departments?.name}</Td>
-                    <Td className="text-slate-500">{e.email}</Td>
+                    <Td className="text-ink-3">{e.email}</Td>
                     <Td>
                       <Badge
                         tone={e.role === 'admin' ? 'blue' : e.role === 'user' ? 'slate' : 'red'}
@@ -239,7 +239,7 @@ export default function Employees() {
                         <Badge tone="slate">No email</Badge>
                       )}
                     </Td>
-                    <Td className="text-xs text-slate-500">
+                    <Td className="text-xs text-ink-3">
                       {[
                         e.has_meal && 'Meal',
                         e.has_allowance && 'Allow',
@@ -250,7 +250,7 @@ export default function Employees() {
                         .filter(Boolean)
                         .join(' · ') || '—'}
                     </Td>
-                    <Td className="tabular text-xs text-slate-500">
+                    <Td className="tabular text-xs text-ink-3">
                       {e.annual_leave_balance} / {e.unplanned_leave_balance}
                     </Td>
                     <Td className="text-right">
@@ -407,7 +407,7 @@ function EmployeeForm({ value, lookups, onCancel, onSave }) {
         </Field>
 
         <div className="sm:col-span-2 lg:col-span-4">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-3">
             Payroll switches
           </p>
           <div className="flex flex-wrap gap-5">

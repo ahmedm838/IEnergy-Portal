@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ThemeToggle from '../components/ThemeToggle'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Alert, Button, Card, Field, Input } from '../components/ui'
@@ -44,9 +45,10 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center px-4 py-12">
+    <div className="relative flex min-h-full items-center justify-center px-4 py-12">
+      <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-sm">
-        <h1 className="mb-6 text-center text-xl font-semibold text-slate-900">
+        <h1 className="mb-6 text-center text-xl font-semibold text-ink">
           Choose a new password
         </h1>
         <Card className="p-6">

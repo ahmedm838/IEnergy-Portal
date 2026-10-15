@@ -144,8 +144,8 @@ export default function MonthlyReport() {
   return (
     <div className="grid gap-5">
       <div className="no-print">
-        <h1 className="text-xl font-semibold text-slate-900">Monthly report</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+        <h1 className="text-xl font-semibold text-ink">Monthly report</h1>
+        <p className="mt-0.5 text-sm text-ink-3">
           Payroll input for every employee whose status is marked payable.
         </p>
       </div>
@@ -250,10 +250,10 @@ export default function MonthlyReport() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {rows.map((r) => (
-                  <tr key={r.employee_id} className="hover:bg-slate-50">
-                    <Td className="font-medium text-slate-900">{r.name}</Td>
+                  <tr key={r.employee_id} className="hover:bg-hover">
+                    <Td className="font-medium text-ink">{r.name}</Td>
                     <Td className="tabular text-right">{r.code}</Td>
                     <Td>{r.si_no}</Td>
                     <Td>{r.title}</Td>
@@ -270,7 +270,7 @@ export default function MonthlyReport() {
                     <Td className="tabular text-right">{num(r.deducted_leaves, 0)}</Td>
                     <Td
                       className={`tabular text-right ${
-                        Number(r.absence_penalties) > 0 ? 'text-red-600' : ''
+                        Number(r.absence_penalties) > 0 ? 'text-on-danger' : ''
                       }`}
                     >
                       {num(r.absence_penalties)}
@@ -285,7 +285,7 @@ export default function MonthlyReport() {
         )}
       </Card>
 
-      <p className="no-print text-xs text-slate-400">
+      <p className="no-print text-xs text-ink-4">
         Deducted Hours = (Penalties + Adjusted Days) × {lookups.requiredHoursPerDay} + Adjusted
         Hours. Total Deductions = (Deducted Leaves + Absence Penalties) ×{' '}
         {lookups.requiredHoursPerDay} + Deducted Hours.

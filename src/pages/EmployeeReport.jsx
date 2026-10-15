@@ -149,8 +149,8 @@ export default function EmployeeReport() {
   return (
     <div className="grid gap-5">
       <div className="no-print">
-        <h1 className="text-xl font-semibold text-slate-900">Employee report</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+        <h1 className="text-xl font-semibold text-ink">Employee report</h1>
+        <p className="mt-0.5 text-sm text-ink-3">
           Day-by-day attendance with leave balances for a chosen period.
         </p>
       </div>
@@ -205,16 +205,16 @@ export default function EmployeeReport() {
 
       {summary && !loading && (
         <>
-          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-            <h2 className="text-lg font-semibold text-slate-900">
+          <div className="rounded-xl border border-line bg-panel px-5 py-4">
+            <h2 className="text-lg font-semibold text-ink">
               {summary.employee.name}{' '}
-              <span className="font-normal text-slate-500">#{summary.employee.code}</span>
+              <span className="font-normal text-ink-3">#{summary.employee.code}</span>
             </h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-ink-3">
               {employee?.title} · {employee?.sites?.name ?? '—'} ·{' '}
               {employee?.departments?.name ?? '—'}
             </p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-ink-3">
               {range.from} to {range.to}
             </p>
           </div>
@@ -261,11 +261,11 @@ export default function EmployeeReport() {
                 <EmptyState title="No attendance recorded in this period" />
               ) : (
                 <table className="w-full">
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-line">
                     {summary.day_counts.map((entry) => (
                       <tr key={entry.type_code}>
-                        <Td className="font-medium text-slate-900">{entry.name_en}</Td>
-                        <Td className="arabic text-slate-500">{entry.name_ar}</Td>
+                        <Td className="font-medium text-ink">{entry.name_en}</Td>
+                        <Td className="arabic text-ink-3">{entry.name_ar}</Td>
                         <Td className="tabular w-20 text-right font-semibold">{entry.days}</Td>
                       </tr>
                     ))}
@@ -281,22 +281,22 @@ export default function EmployeeReport() {
               />
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-200">
+                  <tr className="border-b border-line">
                     <Th />
                     <Th className="text-right">Balance</Th>
                     <Th className="text-right">Consumed</Th>
                     <Th className="text-right">Remaining</Th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-line">
                   {summary.balances.map((b) => (
                     <tr key={b.label}>
-                      <Td className="font-medium text-slate-900">{b.label}</Td>
+                      <Td className="font-medium text-ink">{b.label}</Td>
                       <Td className="tabular text-right">{num(b.balance, 1)}</Td>
                       <Td className="tabular text-right">{num(b.consumed, 1)}</Td>
                       <Td
                         className={`tabular text-right font-semibold ${
-                          Number(b.remaining) < 0 ? 'text-red-600' : 'text-emerald-700'
+                          Number(b.remaining) < 0 ? 'text-on-danger' : 'text-on-success'
                         }`}
                       >
                         {num(b.remaining, 1)}
@@ -328,13 +328,13 @@ export default function EmployeeReport() {
                       <Th>Note</Th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-line">
                     {records.map((r) => (
-                      <tr key={r.id} className="hover:bg-slate-50">
-                        <Td className="font-medium text-slate-900">{dayLabel(r.work_date)}</Td>
+                      <tr key={r.id} className="hover:bg-hover">
+                        <Td className="font-medium text-ink">{dayLabel(r.work_date)}</Td>
                         <Td>
                           {r.attendance_types?.name_en}{' '}
-                          <span className="arabic text-slate-400">{r.attendance_types?.name_ar}</span>
+                          <span className="arabic text-ink-4">{r.attendance_types?.name_ar}</span>
                         </Td>
                         <Td className="tabular">{minutesToHHMM(r.late_minutes)}</Td>
                         <Td className="tabular text-right">{num(r.transport)}</Td>
@@ -344,7 +344,7 @@ export default function EmployeeReport() {
                         <Td className="tabular text-right">
                           {hoursToHHMM(workedHours(trimTime(r.clock_in), trimTime(r.clock_out)))}
                         </Td>
-                        <Td className="text-slate-500">{r.note}</Td>
+                        <Td className="text-ink-3">{r.note}</Td>
                       </tr>
                     ))}
                   </tbody>

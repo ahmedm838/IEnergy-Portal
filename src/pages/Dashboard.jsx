@@ -85,10 +85,10 @@ export default function Dashboard() {
   return (
     <div className="grid gap-5">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">
+        <h1 className="text-xl font-semibold text-ink">
           Welcome back, {profile?.name?.split(' ')[0]}
         </h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+        <p className="mt-0.5 text-sm text-ink-3">
           {dayLabel(today)} · {isAdmin ? 'Administrator' : profile?.departments?.name ?? 'Employee'}
         </p>
       </div>
@@ -134,22 +134,22 @@ export default function Dashboard() {
           />
           <table className="w-full">
             <thead>
-              <tr className="border-b border-slate-200">
+              <tr className="border-b border-line">
                 <Th />
                 <Th className="text-right">Balance</Th>
                 <Th className="text-right">Consumed</Th>
                 <Th className="text-right">Remaining</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {mySummary.balances.map((b) => (
                 <tr key={b.label}>
-                  <Td className="font-medium text-slate-900">{b.label}</Td>
+                  <Td className="font-medium text-ink">{b.label}</Td>
                   <Td className="tabular text-right">{num(b.balance, 1)}</Td>
                   <Td className="tabular text-right">{num(b.consumed, 1)}</Td>
                   <Td
                     className={`tabular text-right font-semibold ${
-                      Number(b.remaining) < 0 ? 'text-red-600' : 'text-emerald-700'
+                      Number(b.remaining) < 0 ? 'text-on-danger' : 'text-on-success'
                     }`}
                   >
                     {num(b.remaining, 1)}
@@ -176,11 +176,11 @@ export default function Dashboard() {
             <EmptyState title="Everyone is accounted for today" />
           ) : (
             <table className="w-full">
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {missing.map((e) => (
-                  <tr key={e.id} className="hover:bg-slate-50">
-                    <Td className="tabular w-20 text-slate-500">#{e.code}</Td>
-                    <Td className="font-medium text-slate-900">{e.name}</Td>
+                  <tr key={e.id} className="hover:bg-hover">
+                    <Td className="tabular w-20 text-ink-3">#{e.code}</Td>
+                    <Td className="font-medium text-ink">{e.name}</Td>
                   </tr>
                 ))}
               </tbody>

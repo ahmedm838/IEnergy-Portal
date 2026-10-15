@@ -209,8 +209,8 @@ export default function Attendance() {
   return (
     <div className="grid gap-5">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Attendance</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+        <h1 className="text-xl font-semibold text-ink">Attendance</h1>
+        <p className="mt-0.5 text-sm text-ink-3">
           One row per calendar day, as in the workbook&rsquo;s employee report sheet.
         </p>
       </div>
@@ -263,7 +263,7 @@ export default function Attendance() {
 
       {!employeeId ? (
         <Card>
-          <div className="px-5 py-14 text-center text-sm text-slate-500">
+          <div className="px-5 py-14 text-center text-sm text-ink-3">
             Choose an employee to start recording attendance.
           </div>
         </Card>
@@ -335,7 +335,7 @@ export default function Attendance() {
                       <Th className="min-w-[160px]">Note</Th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-line">
                     {days.map((iso) => (
                       <DayRow
                         key={iso}
@@ -377,10 +377,10 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
     <tr
       className={cx(
         'transition',
-        isDirty ? 'bg-amber-50/60' : weekend ? 'bg-slate-50/70' : 'hover:bg-slate-50',
+        isDirty ? 'bg-tint-warning/60' : weekend ? 'bg-subtle/70' : 'hover:bg-hover',
       )}
     >
-      <Td className="font-medium text-slate-900">
+      <Td className="font-medium text-ink">
         <div className="flex items-center gap-2">
           {dayLabel(iso)}
           {isDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" title="Unsaved" />}
@@ -456,7 +456,7 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
         />
       </Td>
 
-      <Td className="tabular text-slate-500">
+      <Td className="tabular text-ink-3">
         {type ? hoursToHHMM(Number(type.overtime_hours || 0)) : '—'}
       </Td>
 

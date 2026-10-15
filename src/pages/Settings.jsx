@@ -95,8 +95,8 @@ export default function Settings() {
   return (
     <div className="grid gap-5">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+        <h1 className="text-xl font-semibold text-ink">Settings</h1>
+        <p className="mt-0.5 text-sm text-ink-3">
           Reference data from the workbook. Changes take effect on the next report run.
         </p>
       </div>
@@ -156,10 +156,10 @@ export default function Settings() {
                 <Th className="text-center">Counts toward required hours</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {lookups.types?.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50">
-                  <Td className="font-medium text-slate-900">{t.name_en}</Td>
+                <tr key={t.id} className="hover:bg-hover">
+                  <Td className="font-medium text-ink">{t.name_en}</Td>
                   <Td className="arabic">{t.name_ar}</Td>
                   <Td className="tabular text-right">{t.meal_multiplier}</Td>
                   <Td className="tabular text-right">{t.extra_hours}</Td>
@@ -167,7 +167,7 @@ export default function Settings() {
                   <Td className="tabular text-right font-semibold">{t.overtime_hours}</Td>
                   <Td>
                     {t.effect === 'none' ? (
-                      <span className="text-slate-400">—</span>
+                      <span className="text-ink-4">—</span>
                     ) : (
                       <Badge tone={t.effect === 'absence' ? 'red' : 'amber'}>
                         {
@@ -200,10 +200,10 @@ export default function Settings() {
         <Card>
           <CardHeader title="Sites" subtitle="Unavailable sites cannot be assigned to new employees." />
           <table className="w-full">
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {lookups.sites?.map((s) => (
                 <tr key={s.id}>
-                  <Td className="font-medium text-slate-900">{s.name}</Td>
+                  <Td className="font-medium text-ink">{s.name}</Td>
                   <Td className="text-right">
                     <Checkbox
                       label={s.available ? 'Available' : 'Unavailable'}
@@ -223,10 +223,10 @@ export default function Settings() {
             subtitle="Only payable statuses appear in the monthly report."
           />
           <table className="w-full">
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {lookups.statuses?.map((s) => (
                 <tr key={s.id}>
-                  <Td className="font-medium text-slate-900">{s.name}</Td>
+                  <Td className="font-medium text-ink">{s.name}</Td>
                   <Td className="text-right">
                     <Checkbox
                       label={s.in_payroll ? 'In payroll' : 'Excluded'}
@@ -249,29 +249,29 @@ export default function Settings() {
         <div className="grid gap-4 p-5 sm:grid-cols-2">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200">
+              <tr className="border-b border-line">
                 <Th>Absences in the year</Th>
                 <Th className="text-right">Total deduction</Th>
                 <Th className="text-right">This absence costs</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <tr key={n}>
                   <Td>{n}</Td>
                   <Td className="tabular text-right font-semibold">
                     {absenceDeduction(n).toFixed(2)} days
                   </Td>
-                  <Td className="tabular text-right text-slate-500">
+                  <Td className="tabular text-right text-ink-3">
                     +{(absenceDeduction(n) - absenceDeduction(n - 1)).toFixed(2)}
                   </Td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="text-sm text-slate-600">
-            <p className="font-medium text-slate-900">How it is applied</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-600">
+          <div className="text-sm text-ink-2">
+            <p className="font-medium text-ink">How it is applied</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-2">
               <li>Only the Absent Day (غياب) type counts.</li>
               <li>
                 Approved leave, holidays and weekly rest are excluded, because they carry a
@@ -297,11 +297,11 @@ export default function Settings() {
                 <Th>Sector</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {lookups.departments?.map((d) => (
                 <tr key={d.id}>
-                  <Td className="font-medium text-slate-900">{d.name}</Td>
-                  <Td className="text-slate-500">{d.sectors?.name}</Td>
+                  <Td className="font-medium text-ink">{d.name}</Td>
+                  <Td className="text-ink-3">{d.sectors?.name}</Td>
                 </tr>
               ))}
             </tbody>
