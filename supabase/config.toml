@@ -223,8 +223,11 @@ web3 = 30
 # secret = ""
 
 [auth.email]
-# Invite-only; see the note under [auth].
-enable_signup = false
+# This key controls the email PROVIDER, not just signups: setting it false
+# returns "Email logins are disabled" to everyone, including existing
+# users. Invite-only comes from [auth] enable_signup above, which is the
+# switch that actually blocks self-registration. Leave this true.
+enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
