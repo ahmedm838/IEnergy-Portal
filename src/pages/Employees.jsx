@@ -31,10 +31,12 @@ const BLANK = {
   department_id: '',
   status_id: '',
   role: 'user',
+  // Every payroll component is on for a new employee; HR turns off the
+  // ones that do not apply. Matches the column defaults in the database.
   has_meal: true,
   has_allowance: true,
   has_overtime: true,
-  has_incentive: false,
+  has_incentive: true,
   has_deductions: true,
   annual_leave_balance: 21,
   unplanned_leave_balance: 7,
