@@ -1,7 +1,61 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase, isConfigured } from './supabase'
+import { authLink, hasAuthLink, wantsPasswordScreen } from './authLink'
 
 const AuthContext = createContext(null)
+
+/**
+ * Turn the credentials from an email link into a session.
+ *
+ * Any session already in this browser is discarded first. An admin who
+ * sends a colleague a reset link and then opens it is otherwise left
+ * signed in as themselves, on a screen offering to change "their"
+ * password -- which would change the admin's own. Starting from no
+ * session means a link that fails to redeem lands on sign-in rather than
+ * inside the wrong account.
+ */
+async function redeemAuthLink() {
+  if (!hasAuthLink) return { redeemed: false, error: null }
+
+  if (authLink.error) {
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    return { redeemed: false, error: authLink.error }
+  }
+
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+
+  try {
+    if (authLink.accessToken && authLink.refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: authLink.accessToken,
+        refresh_token: authLink.refreshToken,
+      })
+      if (error) throw error
+      return { redeemed: true, error: null }
+    }
+
+    if (authLink.tokenHash) {
+      // Works in a browser that never requested the link, which is the
+      // normal case for one an administrator sent.
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: authLink.tokenHash,
+        type: authLink.type || 'recovery',
+      })
+      if (error) throw error
+      return { redeemed: true, error: null }
+    }
+
+    if (authLink.code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(authLink.code)
+      if (error) throw error
+      return { redeemed: true, error: null }
+    }
+  } catch (err) {
+    return { redeemed: false, error: err?.message ?? 'That link could not be used.' }
+  }
+
+  return { redeemed: false, error: null }
+}
 
 /**
  * Usernames are the part of an email before the "@", so someone can sign in
@@ -45,6 +99,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [profileError, setProfileError] = useState(null)
+  const [linkError, setLinkError] = useState(null)
 
   const loadProfile = useCallback(async (activeSession) => {
     if (!activeSession?.user) {
@@ -92,12 +147,16 @@ export function AuthProvider({ children }) {
       if (!cancelled) setLoading(false)
     }
 
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
+    redeemAuthLink()
+      .then((result) => {
         if (cancelled) return undefined
-        setSession(data.session)
-        return loadProfile(data.session)
+        if (result.error) setLinkError(result.error)
+        return supabase.auth.getSession()
+      })
+      .then((res) => {
+        if (cancelled || !res) return undefined
+        setSession(res.data.session)
+        return loadProfile(res.data.session)
       })
       .catch((err) => {
         if (!cancelled) setProfileError(err?.message ?? 'Could not read your session.')
@@ -144,6 +203,10 @@ export function AuthProvider({ children }) {
       // admin-gated screen keeps working for them unchanged.
       // Set when an account was invited and has not chosen a password yet.
       mustSetPassword: session?.user?.user_metadata?.must_set_password === true,
+      // True for this page load only: the session came from an email link,
+      // so the password screen should own the user until they finish.
+      fromAuthLink: wantsPasswordScreen,
+      linkError,
       isSuperAdmin: role === 'super_admin',
       isAdmin: role === 'admin' || role === 'super_admin',
       canRead: role === 'admin' || role === 'super_admin' || role === 'user',
@@ -159,7 +222,7 @@ export function AuthProvider({ children }) {
           redirectTo: `${window.location.origin}${window.location.pathname}?mode=set-password`,
         }),
     }
-  }, [session, profile, profileError, loading, loadProfile])
+  }, [session, profile, profileError, linkError, loading, loadProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

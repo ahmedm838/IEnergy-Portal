@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { isConfigured } from './lib/supabase'
+import { wantsPasswordScreen } from './lib/authLink'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { Alert, Card } from './components/ui'
@@ -15,35 +15,10 @@ import Adjustments from './pages/Adjustments'
 import Employees from './pages/Employees'
 import Settings from './pages/Settings'
 
-/**
- * Invite and password-reset links come back as
- * `.../?mode=set-password#access_token=...`. supabase-js consumes the
- * fragment to establish the session, which leaves HashRouter sitting at
- * "/" -- the dashboard -- with the person never asked to choose a
- * password. This spots the surviving query marker and sends them on.
- */
-function AuthLinkHandler() {
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('mode') !== 'set-password') return
-
-    // Drop the marker so a later refresh does not loop back here.
-    const clean = window.location.pathname
-    window.history.replaceState({}, '', clean)
-    navigate('/reset-password', { replace: true })
-  }, [navigate])
-
-  return null
-}
-
 export default function App() {
   if (!isConfigured) return <MissingConfig />
 
   return (
-    <>
-      <AuthLinkHandler />
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
@@ -93,9 +68,13 @@ export default function App() {
         />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* An email link owns this load: everything else redirects to the
+          password screen until the password has been set. */}
+      <Route
+        path="*"
+        element={<Navigate to={wantsPasswordScreen ? '/reset-password' : '/'} replace />}
+      />
     </Routes>
-    </>
   )
 }
 

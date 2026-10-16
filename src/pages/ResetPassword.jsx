@@ -12,7 +12,7 @@ import { Alert, Button, Card, Field, Input } from '../components/ui'
  */
 export default function ResetPassword() {
   const navigate = useNavigate()
-  const { mustSetPassword, refreshProfile } = useAuth()
+  const { mustSetPassword, refreshProfile, user, session, loading, linkError } = useAuth()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -66,12 +66,32 @@ export default function ResetPassword() {
           </p>
         )}
         <Card className="p-6">
+          {linkError && (
+            <Alert tone="error" title="That link could not be used">
+              {linkError} Ask for a new one from the sign-in page.
+            </Alert>
+          )}
+
+          {!loading && !session && !linkError && (
+            <Alert tone="warning" title="This link is no longer valid">
+              Password links expire and can only be used once. Request a new one from the sign-in
+              page.
+            </Alert>
+          )}
+
+          {!loading && session && !done && (
+            <Alert tone="info" title="Check this is the right account">
+              You are about to set the password for <strong>{user?.email}</strong>. If that is not
+              the account you expected, sign out and open the link again.
+            </Alert>
+          )}
+
           {done ? (
             <Alert tone="success" title={mustSetPassword ? 'Password set' : 'Password updated'}>
               Taking you to the dashboard…
             </Alert>
-          ) : (
-            <form onSubmit={handleSubmit} className="grid gap-4">
+          ) : !session ? null : (
+            <form onSubmit={handleSubmit} className="mt-4 grid gap-4">
               {error && <Alert tone="error">{error}</Alert>}
               <Field label="New password" hint="At least 8 characters.">
                 <Input

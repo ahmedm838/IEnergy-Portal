@@ -1,3 +1,6 @@
+// First import on purpose: this reads the email-link credentials out of the
+// URL before HashRouter or the Supabase client can touch them.
+import './lib/authLink'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
