@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { isConfigured } from './lib/supabase'
-import { wantsPasswordScreen } from './lib/authLink'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { Alert, Card } from './components/ui'
@@ -68,12 +67,7 @@ export default function App() {
         />
       </Route>
 
-      {/* An email link owns this load: everything else redirects to the
-          password screen until the password has been set. */}
-      <Route
-        path="*"
-        element={<Navigate to={wantsPasswordScreen ? '/reset-password' : '/'} replace />}
-      />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

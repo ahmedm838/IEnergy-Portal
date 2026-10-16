@@ -12,7 +12,8 @@ import { Alert, Button, Card, Field, Input } from '../components/ui'
  */
 export default function ResetPassword() {
   const navigate = useNavigate()
-  const { mustSetPassword, refreshProfile, user, session, loading, linkError } = useAuth()
+  const { mustSetPassword, refreshProfile, user, session, loading, linkError, clearPasswordLink } =
+    useAuth()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -49,6 +50,7 @@ export default function ResetPassword() {
       return
     }
     setDone(true)
+    clearPasswordLink()
     await refreshProfile()
     setTimeout(() => navigate('/', { replace: true }), 1500)
   }

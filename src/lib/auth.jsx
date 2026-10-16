@@ -14,15 +14,37 @@ const AuthContext = createContext(null)
  * session means a link that fails to redeem lands on sign-in rather than
  * inside the wrong account.
  */
+/**
+ * Remove any stored Supabase session.
+ *
+ * signOut() alone is not enough: it does its own work through the stored
+ * session, so when that session is stale or malformed it can fail and leave
+ * the entry behind. Deleting the key directly is unconditional, and the
+ * whole point here is that the previous user's session must not survive
+ * into someone else's password link.
+ */
+function purgeStoredSession() {
+  try {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i)
+      if (key && /^sb-.*-auth-token$/.test(key)) keys.push(key)
+    }
+    keys.forEach((key) => localStorage.removeItem(key))
+  } catch {
+    // Storage can be unavailable in private mode; signOut below still runs.
+  }
+}
+
 async function redeemAuthLink() {
   if (!hasAuthLink) return { redeemed: false, error: null }
 
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+  purgeStoredSession()
+
   if (authLink.error) {
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
     return { redeemed: false, error: authLink.error }
   }
-
-  await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
 
   try {
     if (authLink.accessToken && authLink.refreshToken) {
@@ -100,6 +122,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [profileError, setProfileError] = useState(null)
   const [linkError, setLinkError] = useState(null)
+  // Starts true when this load came from a recovery or invite link, and is
+  // cleared once the password is set. A module constant cannot be used
+  // directly: it would still be true after saving and bounce the user
+  // straight back to the password screen.
+  const [passwordLinkPending, setPasswordLinkPending] = useState(wantsPasswordScreen)
 
   const loadProfile = useCallback(async (activeSession) => {
     if (!activeSession?.user) {
@@ -203,9 +230,8 @@ export function AuthProvider({ children }) {
       // admin-gated screen keeps working for them unchanged.
       // Set when an account was invited and has not chosen a password yet.
       mustSetPassword: session?.user?.user_metadata?.must_set_password === true,
-      // True for this page load only: the session came from an email link,
-      // so the password screen should own the user until they finish.
-      fromAuthLink: wantsPasswordScreen,
+      passwordLinkPending,
+      clearPasswordLink: () => setPasswordLinkPending(false),
       linkError,
       isSuperAdmin: role === 'super_admin',
       isAdmin: role === 'admin' || role === 'super_admin',
@@ -222,7 +248,7 @@ export function AuthProvider({ children }) {
           redirectTo: `${window.location.origin}${window.location.pathname}?mode=set-password`,
         }),
     }
-  }, [session, profile, profileError, linkError, loading, loadProfile])
+  }, [session, profile, profileError, linkError, passwordLinkPending, loading, loadProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
