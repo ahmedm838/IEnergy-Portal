@@ -2,7 +2,12 @@ import { useMemo, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
-import { inviteEmployee, sendPasswordReset } from '../lib/invites'
+import {
+  inviteEmployee,
+  sendPasswordReset,
+  setTemporaryPassword,
+  generateTemporaryPassword,
+} from '../lib/invites'
 import {
   Alert,
   Badge,
@@ -53,6 +58,23 @@ export default function Employees() {
   const [formError, setFormError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  const [passwordFor, setPasswordFor] = useState(null)
+
+  async function handleSetPassword(employee, password) {
+    setFormError(null)
+    setNotice(null)
+    setBusyId(employee.id)
+    try {
+      const result = await setTemporaryPassword(employee.id, password)
+      setNotice(result.message)
+      setPasswordFor(null)
+      reload()
+    } catch (err) {
+      setFormError(err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   async function handleInvite(employee) {
     setFormError(null)
@@ -181,6 +203,15 @@ export default function Employees() {
         />
       )}
 
+      {passwordFor && (
+        <TemporaryPasswordForm
+          employee={passwordFor}
+          busy={busyId === passwordFor.id}
+          onCancel={() => setPasswordFor(null)}
+          onSave={(password) => handleSetPassword(passwordFor, password)}
+        />
+      )}
+
       <Card>
         <CardHeader
           title="All employees"
@@ -295,6 +326,16 @@ export default function Employees() {
                             onClick={() => handleReset(e)}
                           >
                             {busyId === e.id ? 'Sending…' : 'Send reset'}
+                          </Button>
+                        )}
+                        {e.email && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={busyId === e.id}
+                            onClick={() => setPasswordFor(e)}
+                          >
+                            Set password
                           </Button>
                         )}
                         <Button variant="ghost" size="sm" onClick={() => toggleActive(e)}>
@@ -528,4 +569,69 @@ function duplicateMessage(message) {
     if (message.includes(index)) return text
   }
   return 'One of these values is already used by another employee.'
+}
+
+/**
+ * Hands an administrator a temporary password to pass on in person.
+ *
+ * It is shown in plain text on purpose -- the whole point is that it has to
+ * be read out -- and it is useless after first sign-in, because the account
+ * is flagged to force the employee to choose their own.
+ */
+function TemporaryPasswordForm({ employee, busy, onCancel, onSave }) {
+  const [password, setPassword] = useState(() => generateTemporaryPassword())
+  const [copied, setCopied] = useState(false)
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(password)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard access can be refused; the password is on screen anyway.
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={`Temporary password for ${employee.name}`}
+        subtitle={`They sign in as ${employee.username ?? employee.email} and must choose their own password immediately.`}
+      />
+      <form
+        className="grid gap-4 p-5 sm:grid-cols-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          onSave(password)
+        }}
+      >
+        <Field label="Temporary password" className="sm:col-span-2" hint="At least 8 characters. Write it down before saving — it is not shown again.">
+          <Input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </Field>
+        <div className="flex items-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => setPassword(generateTemporaryPassword())}>
+            Regenerate
+          </Button>
+          <Button type="button" variant="secondary" onClick={copy}>
+            {copied ? 'Copied' : 'Copy'}
+          </Button>
+        </div>
+
+        <div className="flex gap-2 sm:col-span-3">
+          <Button type="submit" disabled={busy || password.length < 8}>
+            {busy ? 'Saving…' : 'Set password'}
+          </Button>
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </Card>
+  )
 }
