@@ -14,7 +14,14 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
     useAuth()
   const location = useLocation()
 
-  if (loading || profileLoading) return <Spinner label="Checking your session…" />
+  // Only blank the page when there is nothing to show yet. Returning a
+  // spinner once a profile exists UNMOUNTS the page behind it, and Chrome
+  // refreshes the token every time the tab regains focus -- which would
+  // throw away the open employee, the date range, and any unsaved edits in
+  // the attendance grid.
+  if ((loading || profileLoading) && !profile) {
+    return <Spinner label="Checking your session…" />
+  }
 
   // Two ways to arrive here owing a password: an invited account that has
   // never set one, and a recovery link just redeemed. Checked before the

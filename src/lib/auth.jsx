@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { supabase, isConfigured } from './supabase'
 import { authLink, hasAuthLink, wantsPasswordScreen } from './authLink'
 
@@ -126,6 +126,9 @@ export function AuthProvider({ children }) {
   // no employee record". Without it the gap between setting the session and
   // the deferred fetch returning renders the not-linked warning for a frame.
   const [profileLoading, setProfileLoading] = useState(false)
+  // Which user the loaded profile belongs to, so a token refresh for the
+  // same person does not re-query and churn the context for no reason.
+  const loadedForUser = useRef(null)
   // Starts true when this load came from a recovery or invite link, and is
   // cleared once the password is set. A module constant cannot be used
   // directly: it would still be true after saving and bounce the user
@@ -136,6 +139,7 @@ export function AuthProvider({ children }) {
     if (!activeSession?.user) {
       setProfile(null)
       setProfileLoading(false)
+      loadedForUser.current = null
       return
     }
     setProfileLoading(true)
@@ -160,6 +164,7 @@ export function AuthProvider({ children }) {
       }
       setProfileError(null)
       setProfile(data)
+      loadedForUser.current = activeSession.user.id
     } catch (err) {
       // A rejected fetch (offline, DNS, blocked request) would otherwise
       // propagate and skip the code that clears the loading flag.
@@ -201,6 +206,14 @@ export function AuthProvider({ children }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (cancelled) return
       setSession(nextSession)
+
+      // A token refresh for the same signed-in user needs no new profile.
+      // Chrome fires one every time the tab regains focus, and refetching
+      // churns the context on each one for no gain.
+      if (nextSession?.user && nextSession.user.id === loadedForUser.current) {
+        return
+      }
+
       // Set before deferring, not inside the timeout: otherwise there is
       // still a frame with a session and no profile, which is the whole bug.
       if (nextSession?.user) setProfileLoading(true)
