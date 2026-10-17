@@ -185,6 +185,11 @@ export default function Employees() {
           <p className="mt-0.5 text-sm text-ink-3">
             {employees.length} records. Role and the Y/N switches drive access and payroll.
           </p>
+          {!isSuperAdmin && (
+            <p className="mt-1 text-xs text-ink-4">
+              Passwords and invitations are handled by a super admin.
+            </p>
+          )}
         </div>
         <Button onClick={() => setEditing({ ...BLANK })}>Add employee</Button>
       </div>
@@ -308,7 +313,7 @@ export default function Employees() {
                         <Button variant="ghost" size="sm" onClick={() => setEditing({ ...e })}>
                           Edit
                         </Button>
-                        {e.email && !e.auth_user_id && (
+                        {isSuperAdmin && e.email && !e.auth_user_id && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -318,7 +323,7 @@ export default function Employees() {
                             {busyId === e.id ? 'Sending…' : 'Invite'}
                           </Button>
                         )}
-                        {e.email && e.auth_user_id && (
+                        {isSuperAdmin && e.email && e.auth_user_id && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -328,7 +333,7 @@ export default function Employees() {
                             {busyId === e.id ? 'Sending…' : 'Send reset'}
                           </Button>
                         )}
-                        {e.email && (
+                        {isSuperAdmin && e.email && (
                           <Button
                             variant="ghost"
                             size="sm"

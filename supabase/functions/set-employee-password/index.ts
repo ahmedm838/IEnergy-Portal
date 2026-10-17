@@ -5,13 +5,10 @@
 // hire can be onboarded without any email being sent. The employee is
 // forced to choose their own password on first sign-in.
 //
-// Setting someone else's password is impersonation if it is not fenced,
-// so the rules are enforced here rather than in the browser:
-//
-//   * the caller must be an active admin or super admin
-//   * only a super admin may set the password of another admin or of a
-//     super admin -- otherwise any admin could take over the account that
-//     controls Settings, and the role separation would be decorative
+// Setting someone else's password is impersonation, so it is restricted to
+// an active super admin and enforced here rather than in the browser. An
+// admin manages staff and attendance but cannot hand themselves the keys to
+// anyone else's account, including the account that controls Settings.
 // =====================================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
@@ -33,8 +30,6 @@ function json(body: unknown, status = 200) {
   })
 }
 
-const ADMIN_LEVEL = ['admin', 'super_admin']
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -54,10 +49,12 @@ Deno.serve(async (req) => {
 
     // my_role() resolves through the database and already returns
     // 'no_access' for an inactive employee.
-    const { data: callerRole, error: roleError } = await caller.rpc('my_role')
+    // is_super_admin() resolves through the database and already excludes
+    // an inactive account, so the rule cannot drift from the SQL policies.
+    const { data: isSuperAdmin, error: roleError } = await caller.rpc('is_super_admin')
     if (roleError) return json({ error: roleError.message }, 400)
-    if (!ADMIN_LEVEL.includes(callerRole)) {
-      return json({ error: 'Only an active administrator can set a password.' }, 403)
+    if (!isSuperAdmin) {
+      return json({ error: 'Only an active super admin can set a password.' }, 403)
     }
 
     const { employee_id, password } = await req.json().catch(() => ({}))
@@ -80,13 +77,6 @@ Deno.serve(async (req) => {
     if (!employee) return json({ error: 'Employee not found.' }, 404)
     if (!employee.email) {
       return json({ error: `${employee.name} has no email address, which is their username.` }, 400)
-    }
-
-    if (ADMIN_LEVEL.includes(employee.role) && callerRole !== 'super_admin') {
-      return json(
-        { error: `Only a super admin can set the password of another administrator.` },
-        403,
-      )
     }
 
     // must_set_password survives until they choose their own, so a

@@ -49,15 +49,14 @@ Deno.serve(async (req) => {
       return json({ error: 'Your session has expired. Sign in again.' }, 401)
     }
 
-    // Ask the database rather than comparing role strings here. is_admin()
-    // means "admin level or above" and already excludes inactive accounts,
-    // so adding a role tier cannot leave this check behind -- which is
-    // exactly what happened when super_admin was introduced and this
-    // function kept testing role === 'admin'.
-    const { data: allowed, error: roleError } = await caller.rpc('is_admin')
+    // Inviting hands someone a route into an account, so it sits behind the
+    // same gate as setting a password: super admin only. Asking the database
+    // rather than comparing role strings keeps this in step with the SQL
+    // policies automatically.
+    const { data: allowed, error: roleError } = await caller.rpc('is_super_admin')
     if (roleError) return json({ error: roleError.message }, 400)
     if (!allowed) {
-      return json({ error: 'Only an active administrator can send invitations.' }, 403)
+      return json({ error: 'Only an active super admin can send invitations.' }, 403)
     }
 
     const { employee_id, redirect_to } = await req.json().catch(() => ({}))
