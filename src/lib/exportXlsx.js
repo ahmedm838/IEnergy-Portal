@@ -98,7 +98,6 @@ export async function exportSheet(spec, filename) {
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet(spec.sheetName || 'Report', {
-    views: [{ state: 'frozen', ySplit: 0 }],
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   })
 
@@ -132,7 +131,9 @@ export async function exportSheet(spec, filename) {
     row.commit()
   })
 
-  sheet.views = [{ state: 'frozen', xSplit: 0, ySplit: headerRowIndex }]
+  // No frozen pane: exported sheets open plain, so they can be sorted,
+  // filtered and copied without a split getting in the way.
+  sheet.views = [{ state: 'normal' }]
   sheet.autoFilter = {
     from: { row: headerRowIndex, column: 1 },
     to: { row: headerRowIndex, column: spec.columns.length },
@@ -179,7 +180,7 @@ export async function exportEmployeeReport({ employee, from, to, summary, column
     })
   })
 
-  sheet.views = [{ state: 'frozen', ySplit: headerRowIndex }]
+  sheet.views = [{ state: 'normal' }]
   autoFit(sheet, columns)
 
   await download(
