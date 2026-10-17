@@ -14,6 +14,7 @@ deployed to GitHub Pages by GitHub Actions.
 | **Attendance** | admin | The day-by-day grid from the *employee report* sheet — one row per calendar day, with bulk fills for weekly rest and workdays. |
 | **Employee report** | everyone (in scope) | Day counts, late hours, transport, required vs. worked hours, leave balances, absence penalty. Exports to Excel. |
 | **Monthly report** | everyone (in scope) | The payroll-input table from the *monthly report* sheet. Lists payable employees who have attendance or adjustments in the selected dates; anyone with no activity is left out rather than shown as a row of zeros. Exports to Excel. |
+| **Hours report** | admin | Hours owed against hours worked for employees whose Overtime switch is off, over a payroll period or custom range. Exports to Excel. |
 | **Adjustments** | admin | The *Others* sheet: incentives, bonuses, penalties, adjusted days/hours, salary adjustments and advances. |
 | **Employees** | admin | Employee records, roles, payroll switches, opening leave balances. |
 | **Settings** | admin | Meal rate, hours per working day, attendance-type behaviour, sites, statuses, the absence scale. |

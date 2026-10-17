@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard'
 import Attendance from './pages/Attendance'
 import EmployeeReport from './pages/EmployeeReport'
 import MonthlyReport from './pages/MonthlyReport'
+import HoursReport from './pages/HoursReport'
 import Adjustments from './pages/Adjustments'
 import Employees from './pages/Employees'
 import Settings from './pages/Settings'
@@ -33,6 +34,14 @@ export default function App() {
         <Route path="employee-report" element={<EmployeeReport />} />
         <Route path="monthly-report" element={<MonthlyReport />} />
 
+        <Route
+          path="hours-report"
+          element={
+            <ProtectedRoute requireAdmin>
+              <HoursReport />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="attendance"
           element={
