@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import PeriodLabel from '../components/PeriodLabel'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { exportEmployeeReport, prefetchExcel } from '../lib/exportXlsx'
@@ -6,7 +7,7 @@ import {
   dayLabel,
   minutesToHHMM,
   payrollPeriod,
-  payrollPeriodLabel,
+  shiftPayrollPeriod,
   num,
   trimTime,
   hoursToHHMM,
@@ -88,6 +89,10 @@ export default function EmployeeReport() {
     load()
   }, [load])
 
+  function shiftPeriod(delta) {
+    setRange(shiftPayrollPeriod(range.to, delta))
+  }
+
   const employee = employees.find((e) => e.id === employeeId) || null
   const currency = lookups.currency
 
@@ -167,10 +172,11 @@ export default function EmployeeReport() {
         <p className="mt-0.5 text-sm text-ink-3">
           Day-by-day attendance with leave balances for a chosen period.
         </p>
+        <PeriodLabel from={range.from} to={range.to} className="mt-2" />
       </div>
 
       <Card className="no-print">
-        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5">
           <Field label="Employee" className="sm:col-span-2 lg:col-span-1">
             <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
               <option value="">Select an employee…</option>
@@ -195,6 +201,18 @@ export default function EmployeeReport() {
               onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
             />
           </Field>
+          <div className="flex items-end gap-2">
+            <Button variant="secondary" onClick={() => shiftPeriod(-1)}>
+              ‹ Prev
+            </Button>
+            <Button variant="secondary" onClick={() => setRange(payrollPeriod())}>
+              This period
+            </Button>
+            <Button variant="secondary" onClick={() => shiftPeriod(1)}>
+              Next ›
+            </Button>
+          </div>
+
           <div className="flex items-end gap-2">
             <Button variant="secondary" onClick={() => window.print()} disabled={!summary}>
               Print

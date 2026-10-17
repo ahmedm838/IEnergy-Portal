@@ -2,12 +2,7 @@ import { useMemo, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
-import {
-  inviteEmployee,
-  sendPasswordReset,
-  setTemporaryPassword,
-  generateTemporaryPassword,
-} from '../lib/invites'
+import { setTemporaryPassword, generateTemporaryPassword } from '../lib/invites'
 import {
   Alert,
   Badge,
@@ -69,35 +64,6 @@ export default function Employees() {
       setNotice(result.message)
       setPasswordFor(null)
       reload()
-    } catch (err) {
-      setFormError(err.message)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function handleInvite(employee) {
-    setFormError(null)
-    setNotice(null)
-    setBusyId(employee.id)
-    try {
-      const result = await inviteEmployee(employee.id)
-      setNotice(result?.message ?? `Invitation sent to ${employee.email}.`)
-      reload()
-    } catch (err) {
-      setFormError(err.message)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function handleReset(employee) {
-    setFormError(null)
-    setNotice(null)
-    setBusyId(employee.id)
-    try {
-      const result = await sendPasswordReset(employee.email)
-      setNotice(result.message)
     } catch (err) {
       setFormError(err.message)
     } finally {
@@ -187,7 +153,7 @@ export default function Employees() {
           </p>
           {!isSuperAdmin && (
             <p className="mt-1 text-xs text-ink-4">
-              Passwords and invitations are handled by a super admin.
+              Passwords are set by a super admin. There is no email reset.
             </p>
           )}
         </div>
@@ -313,26 +279,6 @@ export default function Employees() {
                         <Button variant="ghost" size="sm" onClick={() => setEditing({ ...e })}>
                           Edit
                         </Button>
-                        {isSuperAdmin && e.email && !e.auth_user_id && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busyId === e.id}
-                            onClick={() => handleInvite(e)}
-                          >
-                            {busyId === e.id ? 'Sending…' : 'Invite'}
-                          </Button>
-                        )}
-                        {isSuperAdmin && e.email && e.auth_user_id && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busyId === e.id}
-                            onClick={() => handleReset(e)}
-                          >
-                            {busyId === e.id ? 'Sending…' : 'Send reset'}
-                          </Button>
-                        )}
                         {isSuperAdmin && e.email && (
                           <Button
                             variant="ghost"

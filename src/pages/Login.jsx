@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth'
 import { Alert, Button, Card, Field, Input, Spinner } from '../components/ui'
 
 export default function Login() {
-  const { session, loading, signIn, resetPassword } = useAuth()
+  const { session, loading, signIn } = useAuth()
   const location = useLocation()
 
   const [identifier, setIdentifier] = useState('')
@@ -38,19 +38,6 @@ export default function Login() {
       )
     }
     setBusy(false)
-  }
-
-  async function handleReset() {
-    if (!identifier.trim()) {
-      setError('Enter your username or email first, then choose “Forgot password”.')
-      return
-    }
-    setBusy(true)
-    setError(null)
-    const { error: resetError } = await resetPassword(identifier)
-    setBusy(false)
-    if (resetError) setError(resetError.message)
-    else setNotice(`If that account exists, a reset link is on its way.`)
   }
 
   return (
@@ -93,14 +80,11 @@ export default function Login() {
               {busy ? 'Signing in…' : 'Sign in'}
             </Button>
 
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={busy}
-              className="text-center text-xs text-ink-3 underline-offset-2 hover:text-brand-700 hover:underline"
-            >
-              Forgot password?
-            </button>
+            {/* No self-service reset: a super admin sets a temporary
+                password instead, so there is nothing to click here. */}
+            <p className="text-center text-xs text-ink-4">
+              Forgotten your password? Ask a super admin to set a new one for you.
+            </p>
           </form>
         </Card>
       </div>
