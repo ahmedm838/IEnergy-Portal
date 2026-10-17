@@ -172,6 +172,26 @@ src/
   pages/                       one file per screen
 ```
 
+## Leave balances never go negative
+
+Annual leave, un-planned leave and added days are checked in the database
+before anything is committed. Booking a day the employee has no balance for
+is refused, as is lowering an entitlement below what has already been taken.
+
+The check lives in a trigger rather than the save path, so it holds however
+a record arrives — the attendance grid, a bulk month save, the API or SQL.
+It uses the same definitions as `report_employee_summary`, so the rule and
+the figures on the Employee report can never disagree.
+
+The triggers are deferred to commit time on purpose: a bulk save may pass
+through a transient state where a day has been replaced but its replacement
+is not written yet, and checking row by row would reject a save whose final
+state is perfectly valid.
+
+Added days are earned by ticking *Add to balance* on a day and spent by
+recording a `بدل راحة` / Rest Day, so a Rest Day is refused until one has
+been earned.
+
 ## Payroll periods
 
 A payroll month runs from the **21st to the 20th**, and is named after the
