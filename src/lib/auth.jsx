@@ -122,6 +122,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [profileError, setProfileError] = useState(null)
   const [linkError, setLinkError] = useState(null)
+  // Distinguishes "the profile has not arrived yet" from "this account has
+  // no employee record". Without it the gap between setting the session and
+  // the deferred fetch returning renders the not-linked warning for a frame.
+  const [profileLoading, setProfileLoading] = useState(false)
   // Starts true when this load came from a recovery or invite link, and is
   // cleared once the password is set. A module constant cannot be used
   // directly: it would still be true after saving and bounce the user
@@ -131,8 +135,10 @@ export function AuthProvider({ children }) {
   const loadProfile = useCallback(async (activeSession) => {
     if (!activeSession?.user) {
       setProfile(null)
+      setProfileLoading(false)
       return
     }
+    setProfileLoading(true)
     try {
       const { data, error } = await supabase
       .from('employees')
@@ -159,6 +165,8 @@ export function AuthProvider({ children }) {
       // propagate and skip the code that clears the loading flag.
       setProfileError(err?.message ?? 'Could not load your profile.')
       setProfile(null)
+    } finally {
+      setProfileLoading(false)
     }
   }, [])
 
@@ -193,6 +201,9 @@ export function AuthProvider({ children }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (cancelled) return
       setSession(nextSession)
+      // Set before deferring, not inside the timeout: otherwise there is
+      // still a frame with a session and no profile, which is the whole bug.
+      if (nextSession?.user) setProfileLoading(true)
 
       // Deliberately not awaited. supabase-js holds an internal auth lock for
       // the duration of this callback, and any Supabase query made inside it
@@ -230,6 +241,7 @@ export function AuthProvider({ children }) {
       // admin-gated screen keeps working for them unchanged.
       // Set when an account was invited and has not chosen a password yet.
       mustSetPassword: session?.user?.user_metadata?.must_set_password === true,
+      profileLoading,
       passwordLinkPending,
       clearPasswordLink: () => setPasswordLinkPending(false),
       linkError,
@@ -244,7 +256,7 @@ export function AuthProvider({ children }) {
         }),
       signOut: () => supabase.auth.signOut(),
     }
-  }, [session, profile, profileError, linkError, passwordLinkPending, loading, loadProfile])
+  }, [session, profile, profileError, linkError, profileLoading, passwordLinkPending, loading, loadProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

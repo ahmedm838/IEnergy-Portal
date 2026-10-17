@@ -10,11 +10,11 @@ import { Alert, Button, Card, Spinner } from './ui'
  * just means they get a clear message instead of a page full of empty tables.
  */
 export default function ProtectedRoute({ children, requireAdmin = false, requireSuperAdmin = false }) {
-  const { session, profile, profileError, loading, role, signOut, mustSetPassword, passwordLinkPending } =
+  const { session, profile, profileError, loading, role, signOut, mustSetPassword, passwordLinkPending, profileLoading } =
     useAuth()
   const location = useLocation()
 
-  if (loading) return <Spinner label="Checking your session…" />
+  if (loading || profileLoading) return <Spinner label="Checking your session…" />
 
   // Two ways to arrive here owing a password: an invited account that has
   // never set one, and a recovery link just redeemed. Checked before the
