@@ -40,6 +40,8 @@ export default function EmployeeReport() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [exporting, setExporting] = useState(false)
+  // 'all' | 'attended' | 'not-attended' | 'type:<id>'
+  const [dayFilter, setDayFilter] = useState('all')
 
   useEffect(() => {
     prefetchExcel()
@@ -93,6 +95,34 @@ export default function EmployeeReport() {
     setRange(shiftPayrollPeriod(range.to, delta))
   }
 
+  /**
+   * Attended means the employee was on shift that day, which is exactly what
+   * is_working_day marks — the same flag that drives required hours. Reusing
+   * it keeps the filter and the hours figures telling the same story, and it
+   * stays correct if the flag is changed in Settings.
+   */
+  const visibleRecords = useMemo(() => {
+    if (dayFilter === 'all') return records
+    if (dayFilter.startsWith('type:')) {
+      const id = Number(dayFilter.slice(5))
+      return records.filter((r) => r.attendance_type_id === id)
+    }
+    const wantAttended = dayFilter === 'attended'
+    return records.filter((r) => {
+      const type = lookups.typeById?.get(r.attendance_type_id)
+      return Boolean(type?.is_working_day) === wantAttended
+    })
+  }, [records, dayFilter, lookups.typeById])
+
+  const filterLabel =
+    dayFilter === 'all'
+      ? null
+      : dayFilter === 'attended'
+        ? 'Attended days'
+        : dayFilter === 'not-attended'
+          ? 'Not attended'
+          : (lookups.types?.find((t) => `type:${t.id}` === dayFilter)?.name_en ?? 'Filtered')
+
   const employee = employees.find((e) => e.id === employeeId) || null
   const currency = lookups.currency
 
@@ -137,13 +167,14 @@ export default function EmployeeReport() {
         ['Average clock out', summary.avg_clock_out ?? '—'],
         ['Absence days', summary.absence_days],
         ['Absence penalty (days)', Number(summary.absence_penalty)],
+        ...(filterLabel ? [['Rows below filtered to', filterLabel]] : []),
         ...summary.balances.map((b) => [
           `${b.label} — balance / consumed / remaining`,
           `${num(b.balance)} / ${num(b.consumed)} / ${num(b.remaining)}`,
         ]),
       ],
       columns: exportColumns,
-      rows: records.map((r) => ({
+      rows: visibleRecords.map((r) => ({
         date: dayLabel(r.work_date),
         attendance: r.attendance_types?.name_en ?? '',
         attendance_ar: r.attendance_types?.name_ar ?? '',
@@ -341,9 +372,51 @@ export default function EmployeeReport() {
           </div>
 
           <Card>
-            <CardHeader title="Daily records" subtitle={`${records.length} days recorded`} />
+            <CardHeader
+              title="Daily Records"
+              subtitle={
+                filterLabel
+                  ? `Showing ${visibleRecords.length} of ${records.length} days · ${filterLabel}`
+                  : `${records.length} days recorded`
+              }
+              actions={
+                <div className="no-print flex flex-wrap items-end gap-2">
+                  {[
+                    ['all', 'All'],
+                    ['attended', 'Attended'],
+                    ['not-attended', 'Not attended'],
+                  ].map(([value, label]) => (
+                    <Button
+                      key={value}
+                      size="sm"
+                      variant={dayFilter === value ? 'primary' : 'secondary'}
+                      onClick={() => setDayFilter(value)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                  <Select
+                    aria-label="Filter by attendance type"
+                    className="w-52"
+                    value={dayFilter.startsWith('type:') ? dayFilter : ''}
+                    onChange={(e) => setDayFilter(e.target.value || 'all')}
+                  >
+                    <option value="">Any type…</option>
+                    {lookups.types?.map((t) => (
+                      <option key={t.id} value={`type:${t.id}`}>
+                        {t.name_en}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              }
+            />
             {records.length === 0 ? (
               <EmptyState title="Nothing recorded for this period" />
+            ) : visibleRecords.length === 0 ? (
+              <EmptyState title={`No ${filterLabel?.toLowerCase()} days in this period`}>
+                The range holds {records.length} other recorded days.
+              </EmptyState>
             ) : (
               <div className="max-h-[70vh] overflow-auto">
                 <table className="sticky-head w-full border-collapse">
@@ -361,7 +434,7 @@ export default function EmployeeReport() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
-                    {records.map((r) => (
+                    {visibleRecords.map((r) => (
                       <tr key={r.id} className="hover:bg-hover">
                         <Td className="font-medium text-ink">{dayLabel(r.work_date)}</Td>
                         <Td>
