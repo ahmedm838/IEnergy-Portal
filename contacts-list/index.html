@@ -108,42 +108,7 @@
     document.getElementById('year').textContent = String(new Date().getFullYear());
   </script>
 
-  <!-- SheetJS (XLSX) loader with CDN fallbacks -->
-  <script>
-  (function() {
-    const CDN_LIST = [
-      'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
-      'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-      'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
-    ];
-
-    function loadScript(src) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.async = true;
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
-
-    async function ensureXLSX() {
-      if (window.XLSX) return true;
-      for (const url of CDN_LIST) {
-        try {
-          await loadScript(url);
-          if (window.XLSX) return true;
-        } catch (e) {}
-      }
-      return false;
-    }
-
-    window.__ensureXLSX = ensureXLSX;
-  })();
-  </script>
-
-  <script src="contacts-list.js?v=3"></script>
+  <script src="contacts-list.js?v=4"></script>
 
   <script src="../auth.js?v=2"></script>
 

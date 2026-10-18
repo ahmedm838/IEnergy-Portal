@@ -1,10 +1,18 @@
 /* Contacts List
-   - Reads an Excel file in the browser (default: ./contacts-list.xlsx)
+   - Reads the live employee directory from the Attendance Tracker
    - Search by Employee Name OR Code
    - No native browser autocomplete dropdown; selections are made from the Matches section
 */
 (function () {
   'use strict';
+
+  /* Contacts come from the Attendance Tracker's employee_contacts view, so
+     the portal shows whatever HR last saved rather than a spreadsheet that
+     has to be re-exported. The view is read-only and exposes contact
+     columns for active employees only; everything else stays behind row
+     level security. The key below is the publishable anon key. */
+  const SUPABASE_URL = 'https://ednaedkurjsgvjrvayys.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkbmFlZGt1cmpzZ3ZqcnZheXlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5ODIzNzYsImV4cCI6MjEwNzU1ODM3Nn0.VvBg4YtwZsjmgmTxbf3vin3Oq_WyNTeioz6m-FRQLzA';
 
   const elQuery = document.getElementById('nameInput');
   const elHint = document.getElementById('hintMsg');
@@ -66,31 +74,6 @@
     const parts = window.location.pathname.split('/').filter(Boolean);
     if (parts.length === 0) return '/';
     return `/${parts[0]}/`;
-  }
-
-  function buildExcelCandidates() {
-    const candidates = [];
-    // Preferred: keep the Excel beside this page under /contacts-list/
-    candidates.push(new URL('./contacts-list.xlsx', window.location.href).toString());
-    candidates.push(new URL('contacts-list.xlsx', window.location.href).toString());
-
-    // Backward-compatible fallbacks (older builds placed the file under /data/)
-    candidates.push(new URL('../data/contacts-list.xlsx', window.location.href).toString());
-    candidates.push(new URL('data/contacts-list.xlsx', window.location.href).toString());
-    candidates.push(new URL('./data/contacts-list.xlsx', window.location.href).toString());
-
-    const repoBase = getRepoBasePrefix();
-    // Preferred (GitHub Pages project site): /<repo>/contacts-list/contacts-list.xlsx
-    candidates.push(new URL(repoBase + 'contacts-list/contacts-list.xlsx', window.location.origin).toString());
-    // Legacy: /<repo>/data/contacts-list.xlsx
-    candidates.push(new URL(repoBase + 'data/contacts-list.xlsx', window.location.origin).toString());
-
-    return Array.from(new Set(candidates));
-  }
-
-  function sheetToJson(ws) {
-    // Keep blanks, do not infer dates here
-    return XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
   }
 
   function pickField(row, candidates) {
@@ -271,55 +254,50 @@
     if (elQuery) elQuery.focus();
   }
 
-  async function readWorkbookFromArrayBuffer(buf) {
-    const wb = XLSX.read(buf, { type: 'array' });
-    const sheetName = wb.SheetNames[0];
-    if (!sheetName) throw new Error('No sheets found in Excel file.');
-    const ws = wb.Sheets[sheetName];
-    const data = sheetToJson(ws);
+  async function loadFromDatabase() {
+    // Mapped onto the same header names the spreadsheet used, so the
+    // search, the match list and the result card below keep working
+    // untouched -- only where the rows come from has changed.
+    const params = new URLSearchParams({
+      select: 'code,name,title,department,site,email,company_mobile,office_number',
+      order: 'code.asc',
+    });
+    const url = SUPABASE_URL + '/rest/v1/employee_contacts?' + params.toString();
 
-    // Also add normalized header aliases for robustness.
-    return data.map((r) => {
-      const o = {};
-      for (const k of Object.keys(r)) {
-        o[k] = r[k];
-        const nk = normalizeHeader(k);
-        if (!(nk in o)) o[nk] = r[k];
-      }
-      return o;
+    const resp = await fetch(url, {
+      headers: { apikey: SUPABASE_ANON_KEY, Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+    const rows = await resp.json();
+    return rows.map(function (r) {
+      return {
+        'Code': r.code,
+        'Employee Name': r.name,
+        'Name': r.name,
+        'Title': r.title,
+        'Department': r.department,
+        'Site': r.site,
+        'Email': r.email,
+        'Mobile Number': r.company_mobile,
+        'Office Number': r.office_number,
+      };
     });
   }
 
-  async function tryLoadFromUrl() {
-    const candidates = buildExcelCandidates();
-    for (const url of candidates) {
-      try {
-        const resp = await fetch(url, { cache: 'no-store' });
-        if (!resp.ok) continue;
-        const buf = await resp.arrayBuffer();
-        const data = await readWorkbookFromArrayBuffer(buf);
-        buildIndex(data);
-        return true;
-      } catch (e) {
-        // try next
-      }
-    }
-    return false;
-  }
-
   async function init() {
-    const okXlsx = await window.__ensureXLSX?.();
-    if (!okXlsx || !window.XLSX) {
-      setHint('Cannot load Excel reader library (XLSX). Check your network or ad-blocker.', true);
-      return;
-    }
-
-    const loaded = await tryLoadFromUrl();
-    if (!loaded) {
-      setHint('Unable to load contacts-list.xlsx from the site. Ensure it exists under /contacts-list/.', true);
+    try {
+      const data = await loadFromDatabase();
+      if (!data.length) {
+        setHint('No active employees found in the directory.', true);
+        return;
+      }
+      buildIndex(data);
+    } catch (e) {
+      setHint('Could not load the contacts directory (' + e.message + '). Please try again shortly.', true);
     }
   }
-
   // Events
   elQuery?.addEventListener('input', () => {
     const q = elQuery.value;
