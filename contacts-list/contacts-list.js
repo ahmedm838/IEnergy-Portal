@@ -1,18 +1,29 @@
 /* Contacts List
-   - Reads the live employee directory from the Attendance Tracker
+   - Searches the live employee directory in the Attendance Tracker
    - Search by Employee Name OR Code
    - No native browser autocomplete dropdown; selections are made from the Matches section
 */
 (function () {
   'use strict';
 
-  /* Contacts come from the Attendance Tracker's employee_contacts view, so
-     the portal shows whatever HR last saved rather than a spreadsheet that
-     has to be re-exported. The view is read-only and exposes contact
-     columns for active employees only; everything else stays behind row
-     level security. The key below is the publishable anon key. */
+  /* Nothing is loaded when the page opens. Each search goes to the
+     Attendance Tracker's employee_contacts view and asks the database
+     directly, so a number HR changed a moment ago is already there --
+     no reload, nothing cached to go stale. The view is read-only and
+     exposes contact columns for active employees only; everything else
+     stays behind row level security. The key below is the publishable
+     anon key. */
   const SUPABASE_URL = 'https://ednaedkurjsgvjrvayys.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkbmFlZGt1cmpzZ3ZqcnZheXlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5ODIzNzYsImV4cCI6MjEwNzU1ODM3Nn0.VvBg4YtwZsjmgmTxbf3vin3Oq_WyNTeioz6m-FRQLzA';
+
+  /* Typing is faster than the network, so a search waits for a short
+     pause and every reply carries the number of the keystroke that asked
+     for it -- otherwise a slow early request can land after a later one
+     and overwrite the newer results with older ones. */
+  const DEBOUNCE_MS = 220;
+  const SEARCH_LIMIT = 25;
+  let searchSeq = 0;
+  let debounceTimer = null;
 
   const elQuery = document.getElementById('nameInput');
   const elHint = document.getElementById('hintMsg');
@@ -47,33 +58,16 @@
   }
 
   function safeIntString(v) {
-    // Excel may store numbers as floats or scientific notation.
     if (v === null || v === undefined || v === '') return '';
     if (typeof v === 'number' && Number.isFinite(v)) return String(Math.trunc(v));
     const s = String(v).trim();
     return s.replace(/\.0$/, '');
   }
 
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
   function setHint(msg, isError) {
     if (!elHint) return;
     elHint.textContent = msg;
     elHint.style.opacity = isError ? '1' : '0.85';
-  }
-
-  function getRepoBasePrefix() {
-    // If hosted on GitHub Project Pages, path looks like /<repo>/...
-    const parts = window.location.pathname.split('/').filter(Boolean);
-    if (parts.length === 0) return '/';
-    return `/${parts[0]}/`;
   }
 
   function pickField(row, candidates) {
@@ -117,8 +111,6 @@
         nCode: normKey(code)
       });
     }
-
-    setHint(`Loaded ${index.length} contact(s). Type to search by name or code.`, false);
   }
 
   function hideMatches() {
@@ -209,6 +201,9 @@
     return null;
   }
 
+  /* The database has already narrowed the rows to those that match
+     somewhere. This only decides the order they are offered in, so a code
+     still beats a name and a name still beats a job title. */
   function findMatches(q, limit = 10) {
     const query = normKey(q);
     if (!query) return [];
@@ -235,9 +230,11 @@
         if (t && t.includes(query)) score = Math.max(score, 60);
       }
 
-      if (score > 0) {
-        scored.push({ idx: i, name: it.name, code: it.code, score });
-      }
+      // Returned by the search but matching none of the above (an accent
+      // or a case the database folded and this does not). Keep it, last.
+      if (score === 0) score = 10;
+
+      scored.push({ idx: i, name: it.name, code: it.code, score });
     }
 
     scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
@@ -254,24 +251,36 @@
     if (elQuery) elQuery.focus();
   }
 
-  async function loadFromDatabase() {
-    // Mapped onto the same header names the spreadsheet used, so the
-    // search, the match list and the result card below keep working
-    // untouched -- only where the rows come from has changed.
+  /* PostgREST reads commas and parentheses as its own syntax, so the
+     value is double-quoted; the characters stripped here are the ones
+     that would end that quoting early or turn the search into a wildcard
+     the person did not type. */
+  function filterValue(q) {
+    return String(q).replace(/[\\"*%]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  async function searchDatabase(q) {
+    const safe = filterValue(q);
+    if (!safe) return [];
+
+    const pattern = `"*${safe}*"`;
     const params = new URLSearchParams({
       select: 'code,name,title,department,site,email,company_mobile,office_number',
+      or: `(name.ilike.${pattern},title.ilike.${pattern},code_text.ilike.${pattern})`,
       order: 'code.asc',
+      limit: String(SEARCH_LIMIT),
     });
-    const url = SUPABASE_URL + '/rest/v1/employee_contacts?' + params.toString();
 
-    const resp = await fetch(url, {
+    const resp = await fetch(SUPABASE_URL + '/rest/v1/employee_contacts?' + params.toString(), {
       headers: { apikey: SUPABASE_ANON_KEY, Accept: 'application/json' },
       cache: 'no-store',
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
-    const rows = await resp.json();
-    return rows.map(function (r) {
+    const data = await resp.json();
+    // Mapped onto the header names the spreadsheet used, so the match
+    // list and the result card below keep working untouched.
+    return data.map(function (r) {
       return {
         'Code': r.code,
         'Employee Name': r.name,
@@ -286,43 +295,83 @@
     });
   }
 
-  async function init() {
+  function resetSearch(message) {
+    searchSeq++; // abandon anything still in flight
+    buildIndex([]);
+    hideMatches();
+    setResult(null);
+    setHint(message, false);
+  }
+
+  async function runSearch(q) {
+    if (!normStr(q)) {
+      resetSearch('Type a name or code to search.');
+      return;
+    }
+
+    const seq = ++searchSeq;
+    setHint('Searching…', false);
+
     try {
-      const data = await loadFromDatabase();
-      if (!data.length) {
-        setHint('No active employees found in the directory.', true);
+      const data = await searchDatabase(q);
+      if (seq !== searchSeq) return; // a later keystroke has already won
+
+      buildIndex(data);
+
+      if (index.length === 0) {
+        hideMatches();
+        setResult(null);
+        setHint(`No employee matches “${normStr(q)}”.`, false);
         return;
       }
-      buildIndex(data);
+
+      const exact = findExact(q);
+      setResult(exact ? exact.row : null);
+      showMatches(findMatches(q, 10));
+      setHint(
+        index.length === 1
+          ? '1 match.'
+          : `${index.length}${index.length === SEARCH_LIMIT ? '+' : ''} matches. Pick one from the list.`,
+        false
+      );
     } catch (e) {
-      setHint('Could not load the contacts directory (' + e.message + '). Please try again shortly.', true);
+      if (seq !== searchSeq) return;
+      hideMatches();
+      setResult(null);
+      setHint('Could not reach the directory (' + e.message + '). Please try again shortly.', true);
     }
   }
+
   // Events
   elQuery?.addEventListener('input', () => {
     const q = elQuery.value;
-    const exact = findExact(q);
-    if (exact) setResult(exact.row);
-    else setResult(null);
-
-    const matches = findMatches(q, 10);
-    showMatches(matches);
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (!normStr(q)) {
+      resetSearch('Type a name or code to search.');
+      return;
+    }
+    debounceTimer = setTimeout(() => runSearch(q), DEBOUNCE_MS);
   });
 
-  elQuery?.addEventListener('keydown', (e) => {
+  elQuery?.addEventListener('keydown', async (e) => {
     if (e.key !== 'Enter') return;
-    const q = elQuery.value;
-    const exact = findExact(q);
+    e.preventDefault();
+
+    // Enter means "now", so do not sit out the rest of the debounce.
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+      await runSearch(elQuery.value);
+    }
+
+    const exact = findExact(elQuery.value);
     if (exact) {
       setResult(exact.row);
       hideMatches();
       return;
     }
-    const matches = findMatches(q, 10);
-    if (matches.length > 0) {
-      e.preventDefault();
-      selectByIndex(matches[0].idx);
-    }
+    const matches = findMatches(elQuery.value, 10);
+    if (matches.length > 0) selectByIndex(matches[0].idx);
   });
 
   elMatches?.addEventListener('click', (e) => {
@@ -333,12 +382,9 @@
   });
 
   elClear?.addEventListener('click', () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
     if (elQuery) elQuery.value = '';
-    hideMatches();
-    setResult(null);
-    setHint(index.length ? 'Type to search by name or code.' : 'No contacts loaded yet.', false);
+    resetSearch('Type a name or code to search.');
     if (elQuery) elQuery.focus();
   });
-
-  init();
 })();
