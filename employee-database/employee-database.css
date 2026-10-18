@@ -373,3 +373,17 @@
   color: var(--text);
   font-weight: 650;
 }
+
+/* ---------------------------------------------------------------------
+   The hidden attribute is a user-agent style, so ANY author rule that
+   sets display beats it. .auth sets display:grid, which meant
+   gate.hidden = true did nothing: after a correct sign-in the gate stayed
+   exactly where it was -- fixed, inset 0, with a blurred overlay --
+   covering the app completely. The sign-in had worked; there was simply
+   no way to see past it.
+
+   Declared once for the whole page rather than only for .auth, because
+   this page hides and shows a lot of things and the next one to grow a
+   display rule would fail the same silent way.
+   --------------------------------------------------------------------- */
+[hidden] { display: none !important; }

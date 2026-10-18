@@ -141,6 +141,13 @@ function showAuthError(message) {
   const el = $('authError')
   el.textContent = message || ''
   el.hidden = !message
+  // Anything that fails after the gate is hidden would otherwise write its
+  // message into an element nobody can see, which is exactly what "I
+  // signed in and nothing happened" looks like from the outside.
+  if (message) {
+    $('gate').hidden = false
+    $('app').hidden = true
+  }
 }
 
 async function resolveEmail(identifier) {
