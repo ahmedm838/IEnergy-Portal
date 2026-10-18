@@ -103,6 +103,13 @@ const GROUPS = [
     ],
   },
   {
+    title: 'Leave balances',
+    fields: [
+      { key: 'annual_leave_balance', label: 'Annual leave (days)', type: 'number' },
+      { key: 'unplanned_leave_balance', label: 'Un-planned leave (days)', type: 'number' },
+    ],
+  },
+  {
     title: 'Social insurance',
     fields: [
       { key: 'si_date', label: 'S.I. date', type: 'date' },
@@ -783,6 +790,10 @@ $('newBtn').addEventListener('click', () => {
     // Every payroll component starts on; HR turns off the ones that do
     // not apply. Same as the column defaults in the database.
     ...Object.fromEntries(PAYROLL.map(([key]) => [key, true])),
+    // The entitlement the tracker form used to start people on. Zero
+    // would be wrong for almost everyone and easy not to notice.
+    annual_leave_balance: 21,
+    unplanned_leave_balance: 7,
   })
 })
 
@@ -911,7 +922,8 @@ function readForm() {
   }
   // Numbers and foreign keys must not cross as strings.
   for (const key of ['code', 'site_id', 'department_id', 'status_id', 'bus_route_id',
-                     'qualification_degree_id', 'si_basic_wage', 'si_gross_wage']) {
+                     'qualification_degree_id', 'si_basic_wage', 'si_gross_wage',
+                     'annual_leave_balance', 'unplanned_leave_balance']) {
     if (out[key] != null) out[key] = Number(out[key])
   }
   return out
