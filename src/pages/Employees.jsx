@@ -3,6 +3,7 @@ import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
 import { setTemporaryPassword, generateTemporaryPassword } from '../lib/invites'
+import { formatMobile, isValidMobile, mobileDigits, MOBILE_DIGITS } from '../lib/format'
 import {
   Alert,
   Badge,
@@ -87,7 +88,11 @@ export default function Employees() {
         String(e.code).includes(needle) ||
         (e.email ?? '').toLowerCase().includes(needle) ||
         (e.username ?? '').toLowerCase().includes(needle) ||
+        // Numbers are stored with dashes, so match on digits too --
+        // otherwise typing a number straight off a phone finds nothing.
         (e.company_mobile ?? '').toLowerCase().includes(needle) ||
+        (mobileDigits(needle).length > 0 &&
+          mobileDigits(e.company_mobile).includes(mobileDigits(needle))) ||
         (e.office_number ?? '').toLowerCase().includes(needle) ||
         (e.departments?.name ?? '').toLowerCase().includes(needle),
     )
@@ -105,13 +110,24 @@ export default function Employees() {
       return
     }
 
+    // Blank is fine -- not everyone has a company mobile. A half-typed one
+    // is not, and the constraint's message would only name the constraint.
+    const mobile = mobileDigits(form.company_mobile) ? formatMobile(form.company_mobile) : null
+    if (mobile && !isValidMobile(mobile)) {
+      setFormError(
+        `Company mobile must be ${MOBILE_DIGITS} digits starting with 0, as 000-0000-0000. ` +
+          `That one has ${mobileDigits(mobile).length}.`,
+      )
+      return
+    }
+
     try {
       const payload = {
         code: Number(form.code),
         name: form.name.trim(),
         si_no: form.si_no?.trim() || null,
         title: form.title?.trim() || null,
-        company_mobile: form.company_mobile?.trim() || null,
+        company_mobile: mobile,
         office_number: form.office_number?.trim() || null,
         email: form.email?.trim() || null,
         site_id: form.site_id === '' ? null : Number(form.site_id),
@@ -368,13 +384,27 @@ function EmployeeForm({ value, lookups, canGrantElevated, onCancel, onSave }) {
         <Field label="Title">
           <Input value={form.title ?? ''} onChange={(e) => set({ title: e.target.value })} />
         </Field>
-        <Field label="Company mobile">
+        <Field
+          label="Company mobile"
+          hint="11 digits starting with 0. The dashes are added as you type."
+          error={
+            form.company_mobile && !isValidMobile(form.company_mobile)
+              ? `${mobileDigits(form.company_mobile).length} of ${MOBILE_DIGITS} digits${
+                  mobileDigits(form.company_mobile)[0] !== '0' &&
+                  mobileDigits(form.company_mobile).length > 0
+                    ? ' — and it must start with 0'
+                    : ''
+                }`
+              : undefined
+          }
+        >
           <Input
             type="tel"
-            inputMode="tel"
-            placeholder="0100 000 0000"
-            value={form.company_mobile ?? ''}
-            onChange={(e) => set({ company_mobile: e.target.value })}
+            inputMode="numeric"
+            placeholder="012-3456-7890"
+            maxLength={13}
+            value={formatMobile(form.company_mobile ?? '')}
+            onChange={(e) => set({ company_mobile: formatMobile(e.target.value) })}
           />
         </Field>
         <Field label="Office number">

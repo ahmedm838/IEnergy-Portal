@@ -140,3 +140,39 @@ export function num(value, decimals = 2) {
     maximumFractionDigits: decimals,
   })
 }
+
+/* ---------------------------------------------------------------------
+ * Company mobile numbers.
+ *
+ * Stored in the formatted shape, 000-0000-0000, and a check constraint on
+ * the column keeps it that way. Storing the dashes means every place that
+ * shows a number -- this app's employee table, the company portal's
+ * contacts card -- prints it correctly without each one needing its own
+ * formatting pass.
+ * ------------------------------------------------------------------- */
+
+export const MOBILE_DIGITS = 11
+
+/** Digits only, never more than a whole number's worth. */
+export function mobileDigits(value) {
+  return String(value ?? '').replace(/\D/g, '').slice(0, MOBILE_DIGITS)
+}
+
+/**
+ * 01271301076 -> 012-7130-1076.
+ *
+ * Partial input formats as far as it reaches, so the dashes appear while
+ * someone is still typing rather than all at the end.
+ */
+export function formatMobile(value) {
+  const digits = mobileDigits(value)
+  if (digits.length <= 3) return digits
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+}
+
+/** Eleven digits, the first of them a zero. */
+export function isValidMobile(value) {
+  const digits = mobileDigits(value)
+  return digits.length === MOBILE_DIGITS && digits.startsWith('0')
+}
