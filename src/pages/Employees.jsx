@@ -19,6 +19,13 @@ import {
   Th,
 } from '../components/ui'
 
+/**
+ * Employee codes are at least six digits. The database enforces this with
+ * a check constraint; repeating it here is so the form can say so before
+ * someone fills the rest of it in.
+ */
+export const MIN_EMPLOYEE_CODE = 100000
+
 const BLANK = {
   code: '',
   name: '',
@@ -88,6 +95,16 @@ export default function Employees() {
 
   async function handleSave(form) {
     setFormError(null)
+
+    // The check constraint would catch this anyway, but its message names
+    // the constraint rather than the rule.
+    if (!Number.isInteger(Number(form.code)) || Number(form.code) < MIN_EMPLOYEE_CODE) {
+      setFormError(
+        `Employee code must be a whole number of at least 6 digits — ${MIN_EMPLOYEE_CODE} or above.`,
+      )
+      return
+    }
+
     try {
       const payload = {
         code: Number(form.code),
@@ -322,10 +339,21 @@ function EmployeeForm({ value, lookups, canGrantElevated, onCancel, onSave }) {
           onSave(form)
         }}
       >
-        <Field label="Code">
+        <Field
+          label="Code"
+          hint="At least 6 digits, so 100000 or above."
+          error={
+            form.code !== '' && Number(form.code) < MIN_EMPLOYEE_CODE
+              ? `Too short — codes are at least 6 digits (${MIN_EMPLOYEE_CODE} or above).`
+              : undefined
+          }
+        >
           <Input
             type="number"
             required
+            min={MIN_EMPLOYEE_CODE}
+            step="1"
+            placeholder={String(MIN_EMPLOYEE_CODE)}
             value={form.code}
             onChange={(e) => set({ code: e.target.value })}
           />
