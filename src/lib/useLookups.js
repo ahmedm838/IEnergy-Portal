@@ -1,41 +1,83 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase, run } from './supabase'
 
+/*
+ * The comment below always said "fetched once per session and shared".
+ * It was not: every page that called the hook got its own state and its
+ * own six requests, so moving between pages re-fetched all of it. From
+ * Frankfurt that is about a third of a second of waiting per navigation,
+ * for data that changes when somebody edits Settings.
+ *
+ * The cache lives at module scope so every caller shares one fetch.
+ * `lookupsValue` is kept beside the promise so a page that mounts after
+ * the first load renders immediately instead of flashing a spinner.
+ */
+let lookupsCache = null
+let lookupsValue = null
+
+/** Drop the cache: on sign-out, and whenever Settings changes something. */
+export function clearLookupsCache() {
+  lookupsCache = null
+  lookupsValue = null
+}
+
+async function fetchLookups() {
+  const [sites, sectors, departments, statuses, types, settings] = await Promise.all([
+    run(supabase.from('sites').select('*').order('sort_order')),
+    run(supabase.from('sectors').select('*').order('sort_order')),
+    run(
+      supabase
+        .from('departments')
+        .select('id, name, sector_id, sort_order, sectors ( id, name )')
+        .order('sort_order'),
+    ),
+    run(supabase.from('employee_statuses').select('*').order('sort_order')),
+    run(
+      supabase
+        .from('attendance_types')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order'),
+    ),
+    run(supabase.from('app_settings').select('*')),
+  ])
+
+  const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]))
+  return { sites, sectors, departments, statuses, types, settings: settingsMap }
+}
+
 /**
  * Reference data (sites, sectors, departments, statuses, attendance types,
- * settings) changes rarely but is needed on almost every page, so it is
- * fetched once per session and shared.
+ * settings): needed on almost every page, changed rarely, so it is fetched
+ * once and shared by every caller.
  */
 export function useLookups() {
-  const [data, setData] = useState(null)
+  const [data, setData] = useState(lookupsValue)
   const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(lookupsValue === null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async ({ force = false } = {}) => {
+    if (force) clearLookupsCache()
+
+    if (!lookupsCache) {
+      lookupsCache = fetchLookups().then(
+        (value) => {
+          lookupsValue = value
+          return value
+        },
+        (err) => {
+          // A failed fetch must not be cached, or one dropped connection
+          // leaves the app with no reference data until a reload.
+          lookupsCache = null
+          throw err
+        },
+      )
+    }
+
+    const pending = lookupsCache
+    if (lookupsValue === null) setLoading(true)
     try {
-      const [sites, sectors, departments, statuses, types, settings] = await Promise.all([
-        run(supabase.from('sites').select('*').order('sort_order')),
-        run(supabase.from('sectors').select('*').order('sort_order')),
-        run(
-          supabase
-            .from('departments')
-            .select('id, name, sector_id, sort_order, sectors ( id, name )')
-            .order('sort_order'),
-        ),
-        run(supabase.from('employee_statuses').select('*').order('sort_order')),
-        run(
-          supabase
-            .from('attendance_types')
-            .select('*')
-            .eq('is_active', true)
-            .order('sort_order'),
-        ),
-        run(supabase.from('app_settings').select('*')),
-      ])
-
-      const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]))
-      setData({ sites, sectors, departments, statuses, types, settings: settingsMap })
+      setData(await pending)
       setError(null)
     } catch (err) {
       setError(err.message)
@@ -47,6 +89,8 @@ export function useLookups() {
   useEffect(() => {
     load()
   }, [load])
+
+  const reload = useCallback(() => load({ force: true }), [load])
 
   const typeById = useMemo(() => {
     const map = new Map()
@@ -74,7 +118,7 @@ export function useLookups() {
     currency,
     loading,
     error,
-    reload: load,
+    reload,
   }
 }
 

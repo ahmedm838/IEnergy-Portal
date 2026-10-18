@@ -33,19 +33,17 @@ export default function Dashboard() {
     setLoading(true)
     setError(null)
     try {
-      const [visibleEmployees, monthRecords, summary] = await Promise.all([
+      // One call, counted in the database. This used to pull every
+      // attendance row in the period for every employee and count them
+      // here, which is a second of work for an admin and eight for a user
+      // once there are a few hundred people -- to show three numbers.
+      const [snapshot, summary] = await Promise.all([
         run(
-          supabase
-            .from('employees')
-            .select('id, code, name, is_active', { count: 'exact' })
-            .eq('is_active', true),
-        ),
-        run(
-          supabase
-            .from('attendance_records')
-            .select('id, employee_id, work_date')
-            .gte('work_date', range.from)
-            .lte('work_date', range.to),
+          supabase.rpc('dashboard_summary', {
+            p_from: range.from,
+            p_to: range.to,
+            p_today: today,
+          }),
         ),
         profile
           ? run(
@@ -58,16 +56,13 @@ export default function Dashboard() {
           : Promise.resolve(null),
       ])
 
-      const recordedToday = new Set(
-        monthRecords.filter((r) => r.work_date === today).map((r) => r.employee_id),
-      )
-
       setStats({
-        employees: visibleEmployees.length,
-        recordsThisMonth: monthRecords.length,
-        recordedToday: recordedToday.size,
+        employees: snapshot?.employees ?? 0,
+        recordsThisMonth: snapshot?.records_this_month ?? 0,
+        recordedToday: snapshot?.recorded_today ?? 0,
+        missingCount: snapshot?.missing_count ?? 0,
       })
-      setMissing(visibleEmployees.filter((e) => !recordedToday.has(e.id)).slice(0, 12))
+      setMissing(snapshot?.missing_today ?? [])
       setMySummary(summary)
     } catch (err) {
       setError(err.message)
@@ -169,7 +164,9 @@ export default function Dashboard() {
         <Card>
           <CardHeader
             title="Not recorded today"
-            subtitle={`${missing.length} of ${stats?.employees ?? 0} employees have no entry for ${today}`}
+            subtitle={`${stats?.missingCount ?? 0} of ${stats?.employees ?? 0} employees have no entry for ${today}${
+              (stats?.missingCount ?? 0) > missing.length ? ` — showing the first ${missing.length}` : ''
+            }`}
             actions={
               <Link to="/attendance">
                 <Button size="sm">Record attendance</Button>

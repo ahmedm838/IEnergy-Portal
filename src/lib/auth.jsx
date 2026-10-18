@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { supabase, isConfigured } from './supabase'
 import { authLink, hasAuthLink, wantsPasswordScreen } from './authLink'
+import { clearLookupsCache } from './useLookups'
 
 const AuthContext = createContext(null)
 
@@ -41,6 +42,7 @@ async function redeemAuthLink() {
 
   await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
   purgeStoredSession()
+  clearLookupsCache()
 
   if (authLink.error) {
     return { redeemed: false, error: authLink.error }
@@ -267,7 +269,13 @@ export function AuthProvider({ children }) {
           email: await resolveEmail(identifier),
           password,
         }),
-      signOut: () => supabase.auth.signOut(),
+      signOut: () => {
+        // Reference data is cached at module scope for the session. Two
+        // people signing in from the same browser must not inherit each
+        // other's, even though RLS would have filtered it the same way.
+        clearLookupsCache()
+        return supabase.auth.signOut()
+      },
     }
   }, [session, profile, profileError, linkError, profileLoading, passwordLinkPending, loading, loadProfile])
 
