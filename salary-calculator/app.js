@@ -3,39 +3,10 @@
 // NOTE: Salary Calculator is intentionally NOT password-protected.
 // Access control is handled at the portal level (main page) and other tools where required.
 
-let headerLogoHandlersBound = false;
-
 function $(id) { return document.getElementById(id); }
-
-function syncHeaderLogoHeight() {
-  const text = $("headerText");
-  const logo = $("headerLogo");
-  if (!text || !logo) return;
-
-  const rect = text.getBoundingClientRect();
-  const h = Math.round(rect.height);
-  if (h > 0) {
-    logo.style.height = `${h}px`;
-    // Fixed width as requested; keep aspect ratio inside the box.
-    logo.style.width = "312px";
-  }
-}
-
-function bindHeaderLogoSizing() {
-  // Match the header logo height to the combined height of the title + sentence.
-  syncHeaderLogoHeight();
-  if (headerLogoHandlersBound) return;
-  headerLogoHandlersBound = true;
-  window.addEventListener("resize", () => requestAnimationFrame(syncHeaderLogoHeight));
-  const logo = $("headerLogo");
-  if (logo && !logo.complete) {
-    logo.addEventListener("load", () => requestAnimationFrame(syncHeaderLogoHeight), { once: true });
-  }
-}
 
 document.addEventListener("DOMContentLoaded", () => {
   initCalculatorBindings();
-  bindHeaderLogoSizing();
 });
 
 const OVERTIME_MULTIPLIER = 1.5;
