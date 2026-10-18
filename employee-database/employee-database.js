@@ -557,14 +557,13 @@ function renderDerived() {
     items.push(['ID expiry', 'not recorded', 'muted'])
   }
 
-  // The workbook asks for "complete" or the names of what is missing,
-  // because a count sends somebody back to the checklist to work out
-  // which ones.
-  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).map(([, label]) => label)
+  // Just the count. The checklist is immediately below and already shows
+  // which ones are unticked, so naming them here only made the line long.
+  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).length
   items.push([
     'File status',
-    missing.length ? `Missing (${missing.length}): ${missing.join(', ')}` : 'Complete',
-    missing.length ? 'warn' : 'good',
+    missing ? `Missing (${missing})` : 'Complete',
+    missing ? 'warn' : 'good',
   ])
 
   panel.innerHTML = ''
@@ -702,15 +701,10 @@ function renderForm(employee) {
 }
 
 function updateFileStatus() {
-  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).map(([, label]) => label)
+  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).length
   const el = $('fileStatus')
-  if (!missing.length) {
-    el.textContent = 'File complete'
-    el.className = 'file-status good'
-  } else {
-    el.textContent = `Missing ${missing.length}: ${missing.join(', ')}`
-    el.className = 'file-status bad'
-  }
+  el.textContent = missing ? `Missing (${missing})` : 'Complete'
+  el.className = `file-status ${missing ? 'bad' : 'good'}`
   renderDerived()
 }
 
