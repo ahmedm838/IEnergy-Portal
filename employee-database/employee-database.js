@@ -835,7 +835,7 @@ $('exportBtn').addEventListener('click', async () => {
     el.textContent = `Could not export: ${err.message}`
   } finally {
     btn.disabled = false
-    btn.textContent = 'Export Excel'
+    btn.textContent = 'Export Database'
   }
 })
 
