@@ -206,12 +206,18 @@ $('signOutBtn').addEventListener('click', async () => {
 
 async function loadLookups() {
   const q = (table, select, order) => supabase.from(table).select(select).order(order)
-  const [sites, departments, statuses, degrees, busRoutes] = await Promise.all([
+  const [sites, departments, statuses, degrees, busRoutes, govs] = await Promise.all([
     q('sites', 'id, name', 'sort_order'),
     q('departments', 'id, name', 'sort_order'),
     q('employee_statuses', 'id, name', 'sort_order'),
     q('qualification_degrees', 'id, name_en, name_ar', 'sort_order'),
     q('bus_routes', 'id, name', 'sort_order'),
+    // Loaded here, with everything else that needs a session. It used to
+    // sit in a block that ran once when the page opened -- before anyone
+    // had signed in -- so in the normal flow of arriving signed out and
+    // signing in, the governorate names were never fetched at all and
+    // every ID resolved to "code not listed".
+    q('governorates', 'code, name_ar', 'code'),
   ])
   const rows = (r) => (r.error ? [] : r.data ?? [])
   lookups = {
@@ -221,6 +227,7 @@ async function loadLookups() {
     statuses: rows(statuses).map((r) => [r.id, r.name]),
     degrees: rows(degrees).map((r) => [r.id, `${r.name_en} — ${r.name_ar}`]),
     busRoutes: rows(busRoutes).map((r) => [r.id, r.name]),
+    governorates: Object.fromEntries(rows(govs).map((r) => [Number(r.code), r.name_ar])),
   }
 }
 
@@ -550,11 +557,14 @@ function renderDerived() {
     items.push(['ID expiry', 'not recorded', 'muted'])
   }
 
-  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).length
+  // The workbook asks for "complete" or the names of what is missing,
+  // because a count sends somebody back to the checklist to work out
+  // which ones.
+  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).map(([, label]) => label)
   items.push([
-    'Personnel file',
-    missing ? `${missing} of ${DOCUMENTS.length} missing` : 'complete',
-    missing ? 'warn' : '',
+    'File status',
+    missing.length ? `Missing (${missing.length}): ${missing.join(', ')}` : 'Complete',
+    missing.length ? 'warn' : 'good',
   ])
 
   panel.innerHTML = ''
@@ -731,6 +741,111 @@ $('cancelBtn').addEventListener('click', () => {
 })
 
 /* ------------------------------------------------------------------ */
+/* Export                                                              */
+/* ------------------------------------------------------------------ */
+
+/** Everything, in pages, because a select with no range stops at 1,000. */
+async function fetchAllProfiles() {
+  const size = 500
+  const all = []
+  for (let from = 0; ; from += size) {
+    const { data, error } = await supabase
+      .from('employee_profiles')
+      .select('*')
+      .order('code')
+      .range(from, from + size - 1)
+    if (error) throw error
+    all.push(...(data ?? []))
+    if ((data?.length ?? 0) < size) return all
+  }
+}
+
+const nameFrom = (pairs, id) => (pairs ?? []).find(([value]) => value === id)?.[1] ?? ''
+
+/** One row per employee, stored and calculated columns side by side. */
+function exportRow(e) {
+  const id = readNationalId(e.national_id)
+  const contract = e.hired_on ? new Date(`${e.hired_on}T00:00:00Z`) : null
+  if (contract && !Number.isNaN(contract.getTime())) contract.setUTCFullYear(contract.getUTCFullYear() + 1)
+  const idLeft = e.id_expiry_date ? daysUntil(e.id_expiry_date) : null
+  const missing = e.missing_documents ?? []
+
+  return {
+    'Code': e.code,
+    'Name': e.name,
+    'Arabic name': e.arabic_name ?? '',
+    'ID No.': e.national_id ?? '',
+    'Birth date': id?.birthDate ? asDMY(id.birthDate) : '',
+    'Gender': id?.gender ?? '',
+    'Governorate': e.governorate ?? '',
+    'ID expiry': e.id_expiry_date ?? '',
+    'ID expiry status': idLeft == null ? '' : idLeft < 0 ? `Expired ${Math.abs(idLeft)}d ago` : `${idLeft}d left`,
+    'S.I. No.': e.si_no ?? '',
+    'Job title': e.title ?? '',
+    'Site': nameFrom(lookups.sites, e.site_id),
+    'Department': nameFrom(lookups.departments, e.department_id),
+    'Status': nameFrom(lookups.statuses, e.status_id),
+    'Active': e.is_active ? 'Yes' : 'No',
+    'Hiring date': e.hired_on ?? '',
+    'Working period': e.hired_on ? spanFrom(e.hired_on) ?? '' : '',
+    'Contract expiry': contract && !Number.isNaN(contract.getTime()) ? asDMY(contract) : '',
+    'Weekend': e.weekend === 'fri' ? 'Friday only' : 'Friday + Saturday',
+    'Bus route': e.bus_route ?? '',
+    'S.I. date': e.si_date ?? '',
+    'S.I. code': e.si_code ?? '',
+    'S.I. title': e.si_title ?? '',
+    'S.I. basic wage': e.si_basic_wage ?? '',
+    'S.I. gross wage': e.si_gross_wage ?? '',
+    'Email': e.email ?? '',
+    'Company mobile': e.company_mobile ?? '',
+    'Personal mobile': e.personal_mobile ?? '',
+    'Secondary mobile': e.secondary_mobile ?? '',
+    'Secondary number belongs to': e.secondary_mobile_name ?? '',
+    'Office number': e.office_number ?? '',
+    'Military service': e.military_service ?? '',
+    'Marital status': e.marital_status ?? '',
+    'Religion': e.religion ?? '',
+    'Qualification degree': e.qualification_degree ?? '',
+    'Education field': e.education_field ?? '',
+    ...Object.fromEntries(DOCUMENTS.map(([key, label]) => [label, e[key] ? 'Yes' : 'No'])),
+    'File status': e.file_complete ? 'Complete' : `Missing (${missing.length})`,
+    'Missing documents': missing.join(', '),
+    'Notice date': e.notice_date ?? '',
+    'Resignation date': e.resignation_date ?? '',
+    'Resignation reason': e.resignation_reason ?? '',
+  }
+}
+
+$('exportBtn').addEventListener('click', async () => {
+  const btn = $('exportBtn')
+  btn.disabled = true
+  btn.textContent = 'Preparing…'
+  try {
+    // Loaded on demand: most visits never export, and the library is far
+    // bigger than this page.
+    const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm')
+    const rows = (await fetchAllProfiles()).map(exportRow)
+    if (!rows.length) throw new Error('There is nothing to export.')
+
+    const sheet = XLSX.utils.json_to_sheet(rows)
+    // Width by the longest value in each column, so nothing reads as ####.
+    sheet['!cols'] = Object.keys(rows[0]).map((key) => ({
+      wch: Math.min(42, Math.max(key.length + 2, ...rows.map((r) => String(r[key] ?? '').length + 2))),
+    }))
+    // No frozen panes anywhere, as agreed for the other exports.
+    const book = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(book, sheet, 'Employees')
+    XLSX.writeFile(book, `employee-database-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  } catch (err) {
+    const el = $('searchHint')
+    el.textContent = `Could not export: ${err.message}`
+  } finally {
+    btn.disabled = false
+    btn.textContent = 'Export Excel'
+  }
+})
+
+/* ------------------------------------------------------------------ */
 /* Saving                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -798,6 +913,20 @@ $('saveBtn').addEventListener('click', async () => {
   btn.disabled = true
   btn.textContent = 'Saving…'
   try {
+    // The foreign key would refuse an invented code anyway, but it would
+    // do so after the save, naming a constraint. Checking first means the
+    // message arrives before the work is lost and says what is wrong.
+    if (values.si_code) {
+      const { data: known, error: lookupError } = await supabase
+        .from('si_codes').select('code').eq('code', values.si_code).maybeSingle()
+      if (lookupError) throw lookupError
+      if (!known) {
+        throw new Error(
+          `S.I. code ${values.si_code} is not in the official list. Pick one from the suggestions — typing the title searches it.`,
+        )
+      }
+    }
+
     let saved
     if (current?.id) {
       const { data, error } = await supabase
@@ -861,12 +990,4 @@ function friendlyError(err) {
 
 /* ------------------------------------------------------------------ */
 
-;(async () => {
-  await start()
-  // Governorate names for the live readout under the ID field. Needs a
-  // session, so it runs after start() rather than beside it.
-  if (me) {
-    const { data } = await supabase.from('governorates').select('code, name_ar')
-    lookups.governorates = Object.fromEntries((data ?? []).map((r) => [r.code, r.name_ar]))
-  }
-})().catch((err) => showAuthError(err.message))
+start().catch((err) => showAuthError(err.message))

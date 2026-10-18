@@ -474,3 +474,6 @@ body:has(#app) .container { max-width: 1500px; }
 .derived-val.warn { color: var(--on-warning, #ffc46b); }
 .derived-val.bad { color: var(--danger-text); }
 .derived-val.muted { color: var(--muted); font-weight: 500; }
+
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.derived-val.good { color: var(--on-success, #3ee088); }

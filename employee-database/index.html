@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=4" />
-  <link rel="stylesheet" href="employee-database.css?v=22" />
+  <link rel="stylesheet" href="employee-database.css?v=23" />
   <script src="../theme.js?v=1"></script>
 </head>
 <body>
@@ -78,7 +78,10 @@
     <section class="section">
       <div class="row-between">
         <h2>Find an employee</h2>
-        <button class="btn primary" type="button" id="newBtn">New employee</button>
+        <div class="row-actions">
+          <button class="btn" type="button" id="exportBtn">Export Excel</button>
+          <button class="btn primary" type="button" id="newBtn">New employee</button>
+        </div>
       </div>
       <p class="section-sub">Search by code, or by name in English or Arabic.</p>
       <div class="search-row">
@@ -119,6 +122,6 @@
     <div class="footer">&copy; <span id="year"></span> iEnergy. Internal use.</div>
   </main>
 
-  <script type="module" src="employee-database.js?v=22"></script>
+  <script type="module" src="employee-database.js?v=23"></script>
 </body>
 </html>
