@@ -1,24 +1,24 @@
 /* Contacts List */
-.card { padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); }
+.card { padding: 16px; border-radius: 14px; background: rgba(var(--ink-rgb), 0.04); border: 1px solid rgba(var(--ink-rgb), 0.10); }
 .row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
 .field { display: flex; flex-direction: column; gap: 8px; }
 .field-actions { min-width: 140px; }
 .hint { margin-top: 6px; font-size: 13px; opacity: 0.85; }
 
 .btn {
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(var(--ink-rgb), 0.18);
+  background: rgba(var(--ink-rgb), 0.06);
   color: inherit;
   padding: 10px 12px;
   border-radius: 12px;
   cursor: pointer;
 }
-.btn:hover { background: rgba(255,255,255,0.10); }
+.btn:hover { background: rgba(var(--ink-rgb), 0.10); }
 
 /* Matches layout aligned with Employee Database page */
 .matches {
   margin-top: 12px;
-  border-top: 1px dashed rgba(255,255,255,0.14);
+  border-top: 1px dashed rgba(var(--ink-rgb), 0.14);
   padding-top: 12px;
 }
 .matches-title {
@@ -35,12 +35,12 @@
   text-align: left;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(0,0,0,0.18);
+  background: var(--sunken);
   padding: 10px 12px;
   color: var(--text);
   cursor: pointer;
 }
-.match-item:hover { background: rgba(255,255,255,0.08); }
+.match-item:hover { background: rgba(var(--ink-rgb), 0.08); }
 .match-top {
   display: flex;
   justify-content: space-between;
@@ -51,13 +51,13 @@
 .match-code { color: var(--muted); font-size: 13px; }
 .match-sub { margin-top: 3px; color: var(--muted); font-size: 13px; }
 
-.result { margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(255,255,255,0.15); }
+.result { margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(var(--ink-rgb), 0.15); }
 .result-header { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
 .result-name { font-size: 18px; font-weight: 700; line-height: 1.2; }
 .result-title { margin-top: 4px; opacity: 0.85; }
 .badge {
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(var(--ink-rgb), 0.18);
+  background: rgba(var(--ink-rgb), 0.06);
   padding: 8px 10px;
   border-radius: 12px;
   font-size: 13px;
@@ -71,7 +71,7 @@
   grid-template-columns: 3fr 4fr 3fr;
   gap: 12px;
 }
-.kv { border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04); border-radius: 12px; padding: 12px; }
+.kv { border: 1px solid rgba(var(--ink-rgb), 0.10); background: rgba(var(--ink-rgb), 0.04); border-radius: 12px; padding: 12px; }
 .k { font-size: 12px; opacity: 0.8; }
 .v { margin-top: 6px; font-weight: 600; word-break: break-word; }
 

@@ -1,16 +1,137 @@
+/* ---------------------------------------------------------------------
+   Theme.
+
+   The portal was dark only, with its colours written straight into the
+   rules. They are variables now so a light set can replace them, and the
+   dark values below are the same ones that were there before -- dark
+   mode looks exactly as it did.
+
+   Names say what a colour is for rather than what it looks like, because
+   "the surface a card sits on" survives a theme swap and "dark navy"
+   does not.
+   --------------------------------------------------------------------- */
+
 :root {
+  color-scheme: dark;
+
   --bg: #0b1220;
+  --bg-glow: #152042;        /* bright corner of the background wash */
   --card: #121b2e;
   --text: #e9eefc;
   --muted: #a9b4d0;
+
   --line: rgba(255,255,255,0.10);
+  --line-strong: rgba(255,255,255,0.22);
+
+  --surface: rgba(18,27,46,0.92);
+  --surface-soft: rgba(18,27,46,0.75);
+  --surface-strong: rgba(18,27,46,0.95);
+  --overlay: rgba(11,18,32,0.92);
+
+  /* Raised fills, lightest to heaviest. */
+  --fill-1: rgba(255,255,255,0.03);
+  --fill-2: rgba(255,255,255,0.04);
+  --fill-3: rgba(255,255,255,0.05);
+  --fill-4: rgba(255,255,255,0.06);
+
+  /* Text at reduced emphasis. */
+  --text-90: rgba(233,238,252,0.90);
+  --text-85: rgba(233,238,252,0.85);
+  --text-80: rgba(233,238,252,0.80);
+  --text-70: rgba(233,238,252,0.70);
+  --text-55: rgba(233,238,252,0.55);
+
+  --accent: #2f6bff;
+  --accent-line: rgba(47,107,255,0.45);
+  --accent-line-strong: rgba(47,107,255,0.55);
+  --accent-fill: rgba(47,107,255,0.10);
+  --accent-fill-strong: rgba(47,107,255,0.22);
+  --accent-ring: rgba(47,107,255,0.18);
+
+  --shadow: rgba(0,0,0,0.25);
+  --shadow-strong: rgba(0,0,0,0.35);
+
+  /* Raw channels, for the many one-off veils the page stylesheets mix at
+     their own alpha. Overlaying white on a dark page and near-black on a
+     light one is the same gesture, so these flip and the alphas stay. */
+  --ink-rgb: 255,255,255;
+  --text-rgb: 233,238,252;
+  --sunken: rgba(0,0,0,0.18);   /* recessed wells: inputs, lists */
+
+  --danger-text: rgba(255,180,180,0.95);
+  --danger-line: rgba(255,107,107,0.45);
+  --danger-fill: rgba(255,107,107,0.10);
+  --success-line: rgba(62,224,136,0.35);
+
+  /* The logo artwork has a dark background baked in, so on a light page
+     it is given a dark plate of its own rather than sitting in a stray
+     black rectangle. */
+  --logo-filter: brightness(1.25) contrast(1.05);
+  --logo-bg: transparent;
+  --logo-pad: 0;
+  --logo-radius: 0;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #eef2fa;
+  --bg-glow: #dde6fb;
+  --card: #ffffff;
+  --text: #0f1729;
+  --muted: #55607a;
+
+  --line: rgba(15,23,41,0.14);
+  --line-strong: rgba(15,23,41,0.30);
+
+  --surface: rgba(255,255,255,0.94);
+  --surface-soft: rgba(255,255,255,0.80);
+  --surface-strong: rgba(255,255,255,0.98);
+  --overlay: rgba(226,232,244,0.92);
+
+  --fill-1: rgba(15,23,41,0.03);
+  --fill-2: rgba(15,23,41,0.05);
+  --fill-3: rgba(15,23,41,0.07);
+  --fill-4: rgba(15,23,41,0.06);
+
+  --text-90: rgba(15,23,41,0.90);
+  --text-85: rgba(15,23,41,0.85);
+  --text-80: rgba(15,23,41,0.78);
+  --text-70: rgba(15,23,41,0.68);
+  --text-55: rgba(15,23,41,0.55);
+
+  --accent: #2456d8;
+  --accent-line: rgba(36,86,216,0.40);
+  --accent-line-strong: rgba(36,86,216,0.55);
+  --accent-fill: rgba(36,86,216,0.08);
+  --accent-fill-strong: rgba(36,86,216,0.14);
+  --accent-ring: rgba(36,86,216,0.20);
+
+  --shadow: rgba(15,23,41,0.10);
+  --shadow-strong: rgba(15,23,41,0.16);
+
+  --ink-rgb: 15,23,41;
+  --text-rgb: 15,23,41;
+  /* A dark well on a light page needs far less ink than a light one on a
+     dark page, so this is not a straight channel swap. */
+  --sunken: rgba(15,23,41,0.05);
+
+  --danger-text: #b42318;
+  --danger-line: rgba(180,35,24,0.40);
+  --danger-fill: rgba(180,35,24,0.07);
+  --success-line: rgba(22,135,80,0.40);
+
+  --logo-filter: none;
+  --logo-bg: #0b1220;
+  --logo-pad: 8px;
+  --logo-radius: 12px;
 }
 
 * { box-sizing: border-box; }
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: radial-gradient(1200px 700px at 30% 10%, #152042 0%, var(--bg) 55%);
+  background: radial-gradient(1200px 700px at 30% 10%, var(--bg-glow) 0%, var(--bg) 55%);
   color: var(--text);
 }
 
@@ -28,8 +149,8 @@ body {
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: rgba(18,27,46,0.92);
-  box-shadow: 0 18px 50px rgba(0,0,0,0.25);
+  background: var(--surface);
+  box-shadow: 0 18px 50px var(--shadow);
 }
 
 .pill {
@@ -37,8 +158,8 @@ body {
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: rgba(255,255,255,0.04);
-  color: rgba(233,238,252,0.85);
+  background: var(--fill-2);
+  color: var(--text-85);
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.2px;
@@ -61,7 +182,10 @@ body {
   max-width: 40vw;
   object-fit: contain;
   opacity: 1;
-  filter: brightness(1.25) contrast(1.05);
+  filter: var(--logo-filter);
+  background: var(--logo-bg);
+  padding: var(--logo-pad);
+  border-radius: var(--logo-radius);
 }
 
 .section {
@@ -69,7 +193,7 @@ body {
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: rgba(18,27,46,0.75);
+  background: var(--surface-soft);
 }
 
 .section h2 {
@@ -105,7 +229,7 @@ body {
   text-decoration: none;
   color: var(--text);
   border: 1px solid var(--line);
-  background: rgba(255,255,255,0.03);
+  background: var(--fill-1);
   border-radius: 14px;
   padding: 14px;
   transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
@@ -113,13 +237,13 @@ body {
 
 .tile:hover {
   transform: translateY(-1px);
-  border-color: rgba(255,255,255,0.22);
-  background: rgba(255,255,255,0.05);
+  border-color: var(--line-strong);
+  background: var(--fill-3);
 }
 
 .tile.primary {
-  border-color: rgba(47,107,255,0.45);
-  background: rgba(47,107,255,0.10);
+  border-color: var(--accent-line);
+  background: var(--accent-fill);
 }
 
 .tile-title {
@@ -129,14 +253,14 @@ body {
 }
 
 .tile-desc {
-  color: rgba(233,238,252,0.70);
+  color: var(--text-70);
   line-height: 1.35;
   font-size: 13px;
 }
 
 .footer {
   margin-top: 14px;
-  color: rgba(233,238,252,0.55);
+  color: var(--text-55);
 }
 
 /* Footer contact block (layout based on company letterhead) */
@@ -145,7 +269,7 @@ body {
   padding-top: 12px;
   border-top: 1px solid var(--line);
   text-align: center;
-  color: rgba(233,238,252,0.70);
+  color: var(--text-70);
   font-size: 12.5px;
   line-height: 1.45;
 }
@@ -160,11 +284,11 @@ body {
 
 .footer-line2 .label {
   font-weight: 800;
-  color: rgba(233,238,252,0.90);
+  color: var(--text-90);
 }
 
 .footer-line2 .value {
-  color: rgba(233,238,252,0.80);
+  color: var(--text-80);
 }
 
 /* Main page password gate */
@@ -174,7 +298,7 @@ body {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(11,18,32,0.92);
+  background: var(--overlay);
   backdrop-filter: blur(10px);
 }
 
@@ -184,8 +308,8 @@ body {
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 18px;
-  background: rgba(18,27,46,0.95);
-  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  background: var(--surface-strong);
+  box-shadow: 0 18px 50px var(--shadow-strong);
 }
 
 .auth-top {
@@ -214,7 +338,7 @@ body {
 }
 
 .field span {
-  color: rgba(233,238,252,0.80);
+  color: var(--text-80);
   font-size: 13px;
   font-weight: 650;
 }
@@ -224,14 +348,14 @@ body {
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(255,255,255,0.04);
+  background: var(--fill-2);
   color: var(--text);
   outline: none;
 }
 
 .field input:focus {
-  border-color: rgba(47,107,255,0.55);
-  box-shadow: 0 0 0 3px rgba(47,107,255,0.18);
+  border-color: var(--accent-line-strong);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .auth-actions {
@@ -244,29 +368,29 @@ body {
   padding: 10px 14px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(255,255,255,0.06);
+  background: var(--fill-4);
   color: var(--text);
   cursor: pointer;
 }
 
 .btn.primary {
-  border-color: rgba(47,107,255,0.55);
-  background: rgba(47,107,255,0.22);
+  border-color: var(--accent-line-strong);
+  background: var(--accent-fill-strong);
 }
 
 .btn:hover {
-  border-color: rgba(255,255,255,0.22);
+  border-color: var(--line-strong);
 }
 
 .auth-error {
   margin-top: 10px;
-  color: rgba(255, 180, 180, 0.95);
+  color: var(--danger-text);
   font-weight: 650;
 }
 
 .auth-note {
   margin: 12px 0 0;
-  color: rgba(233,238,252,0.55);
+  color: var(--text-55);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -278,4 +402,57 @@ body {
   right: 16px;
   bottom: 16px;
   z-index: 1000;
+}
+
+/* ---------------------------------------------------------------------
+   Theme toggle.
+
+   Fixed top right on every page, including over the sign-in gate, which
+   is itself fixed and would otherwise cover it.
+   --------------------------------------------------------------------- */
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 2000;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 6px 18px var(--shadow);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--line-strong);
+}
+
+.theme-toggle:focus-visible {
+  outline: none;
+  border-color: var(--accent-line-strong);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.theme-toggle .theme-toggle-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+@media (max-width: 520px) {
+  /* Just the icon, so it does not crowd a narrow header. */
+  .theme-toggle .theme-toggle-label { display: none; }
+  .theme-toggle { padding: 9px; }
+}
+
+@media print {
+  .theme-toggle { display: none; }
 }

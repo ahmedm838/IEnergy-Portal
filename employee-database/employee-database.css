@@ -10,11 +10,11 @@
 .auth-card {
   width: 100%;
   max-width: 560px;
-  background: rgba(18,27,46,0.92);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 18px;
-  box-shadow: 0 18px 50px rgba(0,0,0,0.25);
+  box-shadow: 0 18px 50px var(--shadow);
 }
 .auth-top {
   display: flex;
@@ -56,11 +56,11 @@
   border-radius: 12px;
   border: 1px solid var(--line);
   padding: 12px 14px;
-  background: rgba(255,255,255,0.06);
+  background: rgba(var(--ink-rgb), 0.06);
   color: var(--text);
   outline: none;
 }
-.auth-input:focus { border-color: rgba(255,255,255,0.28); }
+.auth-input:focus { border-color: rgba(var(--ink-rgb), 0.28); }
 .auth-actions {
   display: flex;
   justify-content: flex-end;
@@ -72,20 +72,20 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px 14px;
-  background: rgba(255,255,255,0.10);
+  background: rgba(var(--ink-rgb), 0.10);
   color: var(--text);
   font-weight: 600;
   cursor: pointer;
 }
-.primary:hover { background: rgba(255,255,255,0.14); }
+.primary:hover { background: rgba(var(--ink-rgb), 0.14); }
 .primary.small { padding: 10px 12px; }
 .auth-error {
   margin-top: 10px;
-  border: 1px solid rgba(255,107,107,0.45);
-  background: rgba(255,107,107,0.10);
+  border: 1px solid var(--danger-line);
+  background: var(--danger-fill);
   padding: 10px 12px;
   border-radius: 12px;
-  color: #ffd0d0;
+  color: var(--danger-text);
 }
 
 /* App UI */
@@ -97,7 +97,7 @@
   margin-top: 16px;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--ink-rgb), 0.04);
   padding: 14px;
 }
 .panel-top {
@@ -126,7 +126,7 @@
 }
 .seg-btn:hover { color: var(--text); }
 .seg-btn.active {
-  background: rgba(255,255,255,0.10);
+  background: rgba(var(--ink-rgb), 0.10);
   color: var(--text);
 }
 
@@ -142,11 +142,11 @@
   border-radius: 12px;
   border: 1px solid var(--line);
   padding: 12px 14px;
-  background: rgba(0,0,0,0.18);
+  background: var(--sunken);
   color: var(--text);
   outline: none;
 }
-.search-input:focus { border-color: rgba(255,255,255,0.28); }
+.search-input:focus { border-color: rgba(var(--ink-rgb), 0.28); }
 
 .hint {
   margin-top: 10px;
@@ -154,12 +154,12 @@
   font-size: 13px;
 }
 .hint.error {
-  color: #ffd0d0;
+  color: var(--danger-text);
 }
 
 .matches {
   margin-top: 12px;
-  border-top: 1px dashed rgba(255,255,255,0.14);
+  border-top: 1px dashed rgba(var(--ink-rgb), 0.14);
   padding-top: 12px;
 }
 .matches-title {
@@ -176,12 +176,12 @@
   text-align: left;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(0,0,0,0.18);
+  background: var(--sunken);
   padding: 10px 12px;
   color: var(--text);
   cursor: pointer;
 }
-.match-item:hover { background: rgba(255,255,255,0.08); }
+.match-item:hover { background: rgba(var(--ink-rgb), 0.08); }
 .match-top {
   display: flex;
   justify-content: space-between;
@@ -196,7 +196,7 @@
   margin-top: 16px;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--ink-rgb), 0.04);
   padding: 14px;
 }
 .result-head {
@@ -229,10 +229,10 @@
   .kv-grid { grid-template-columns: 1fr; }
 }
 .kv {
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(var(--ink-rgb), 0.12);
   border-radius: 14px;
   padding: 10px 12px;
-  background: rgba(0,0,0,0.14);
+  background: var(--sunken);
 }
 .kv .k { color: var(--muted); font-size: 12px; }
 .kv .v { margin-top: 4px; font-weight: 700; }
@@ -244,7 +244,7 @@
   min-width: 520px;
 }
 .data-table th, .data-table td {
-  border-bottom: 1px solid rgba(255,255,255,0.12);
+  border-bottom: 1px solid rgba(var(--ink-rgb), 0.12);
   padding: 10px 10px;
   vertical-align: top;
 }

@@ -1,9 +1,7 @@
 :root {
-  --bg: #0b1220;
-  --card: #121b2e;
-  --text: #e9eefc;
-  --muted: #a9b4d0;
-  --line: rgba(255,255,255,0.10);
+  /* Palette comes from home.css so the theme switch reaches this page.
+     Redeclaring --bg and friends here would override it, because this
+     stylesheet loads second. */
   /* Slightly tighter vertical rhythm across the page (~10% reduction) */
   --section-gap: 13px;
 }
@@ -12,7 +10,7 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: radial-gradient(1200px 700px at 30% 10%, #152042 0%, var(--bg) 55%);
+  background: radial-gradient(1200px 700px at 30% 10%, var(--bg-glow) 0%, var(--bg) 55%);
   color: var(--text);
 }
 
@@ -61,12 +59,12 @@ body {
 }
 
 .card {
-  background: rgba(18,27,46,0.92);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 16px;
   margin-top: 14px;
-  box-shadow: 0 18px 50px rgba(0,0,0,0.25);
+  box-shadow: 0 18px 50px var(--shadow);
 }
 
 /* Reduce gap between page header and first card (inputs section) */
@@ -102,13 +100,13 @@ body {
   padding: 10px 11px;
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--ink-rgb), 0.04);
   color: var(--text);
   outline: none;
 }
-.field input:focus, .field select:focus { border-color: rgba(255,255,255,0.22); }
+.field input:focus, .field select:focus { border-color: rgba(var(--ink-rgb), 0.22); }
 
-.hint { color: rgba(233,238,252,0.65); font-size: 12px; }
+.hint { color: rgba(var(--text-rgb), 0.65); font-size: 12px; }
 
 .row {
   display: flex;
@@ -142,12 +140,12 @@ button {
   cursor: pointer;
   font-weight: 650;
 }
-.primary { background: #2f6bff; color: white; }
-.secondary { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--line); }
+.primary { background: var(--accent); color: white; }
+.secondary { background: rgba(var(--ink-rgb), 0.08); color: var(--text); border: 1px solid var(--line); }
 
 .disclaimer {
   margin: 11px 0 0;
-  color: rgba(233,238,252,0.62);
+  color: rgba(var(--text-rgb), 0.62);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -174,12 +172,12 @@ button {
   padding: 11px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(var(--ink-rgb), 0.03);
 }
 .kpi .label { color: var(--muted); font-size: 12px; }
 .kpi .value { font-size: 18px; margin-top: 5px; font-weight: 750; }
 
-.net { border-color: rgba(62,224,136,0.35); }
+.net { border-color: var(--success-line); }
 
 /* Net salary stays within the same KPI grid (4 per row on desktop) */
 
@@ -194,21 +192,21 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
   padding: 9px 11px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255,255,255,0.02);
+  background: rgba(var(--ink-rgb), 0.02);
 }
 .breakdown dt { color: var(--muted); }
 .breakdown dd { margin: 0; font-weight: 700; }
 
 .errors {
-  border: 1px solid rgba(255,107,107,0.45);
-  background: rgba(255,107,107,0.10);
+  border: 1px solid var(--danger-line);
+  background: var(--danger-fill);
   padding: 9px 11px;
   border-radius: 12px;
   margin-bottom: 11px;
-  color: #ffd0d0;
+  color: var(--danger-text);
 }
 
-.footer { margin-top: 13px; color: rgba(233,238,252,0.55); }
+.footer { margin-top: 13px; color: rgba(var(--text-rgb), 0.55); }
 .header-top {
   display: flex;
   align-items: center;
@@ -269,11 +267,11 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 .auth-card {
   width: 100%;
   max-width: 560px;
-  background: rgba(18,27,46,0.92);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 18px;
-  box-shadow: 0 18px 50px rgba(0,0,0,0.25);
+  box-shadow: 0 18px 50px var(--shadow);
 }
 .auth-top {
   display: flex;
@@ -298,15 +296,15 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 }
 .auth-error {
   margin-top: 10px;
-  border: 1px solid rgba(255,107,107,0.45);
-  background: rgba(255,107,107,0.10);
+  border: 1px solid var(--danger-line);
+  background: var(--danger-fill);
   padding: 10px 12px;
   border-radius: 12px;
-  color: #ffd0d0;
+  color: var(--danger-text);
 }
 .auth-note {
   margin: 12px 0 0;
-  color: rgba(233,238,252,0.55);
+  color: rgba(var(--text-rgb), 0.55);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -317,7 +315,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 .back-link {
   display: inline-block;
   margin-bottom: 7px;
-  color: rgba(233,238,252,0.85);
+  color: rgba(var(--text-rgb), 0.85);
   text-decoration: none;
   font-size: 13px;
 }
@@ -327,7 +325,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 .actions.center { justify-content: center; }
 
 .outputs .field input[readonly] {
-  background: rgba(255,255,255,0.02);
+  background: rgba(var(--ink-rgb), 0.02);
   opacity: 0.95;
 }
 

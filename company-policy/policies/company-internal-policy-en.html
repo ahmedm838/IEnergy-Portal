@@ -6,19 +6,19 @@
   <meta name="description" content="Company Internal Policy (text view)" />
   <title>iEnergy | Company Policy | Internal Work Regulations</title>
   <link rel="icon" type="image/png" href="../favicon.png" />
-  <link rel="stylesheet" href="../responsive.css?v=1" />
-  <link rel="stylesheet" href="../home.css?v=3" />
+  <link rel="stylesheet" href="../../responsive.css?v=1" />
+  <link rel="stylesheet" href="../../home.css?v=4" />
   <style>
     .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
-    .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; }
-    .policy-card { border:1px solid var(--line); border-radius:16px; overflow:hidden; background:rgba(255,255,255,0.02); }
-    .policy-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:12px 14px; background:rgba(255,255,255,0.03); }
+    .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(var(--ink-rgb), 0.03); padding:8px 10px; border-radius:12px; }
+    .policy-card { border:1px solid var(--line); border-radius:16px; overflow:hidden; background:rgba(var(--ink-rgb), 0.02); }
+    .policy-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:12px 14px; background:rgba(var(--ink-rgb), 0.03); }
     .policy-head h2 { margin:0; font-size:16px; }
     .tools { display:flex; gap:8px; flex-wrap:wrap; }
-    .tool { appearance:none; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--text); padding:8px 10px; border-radius:12px; cursor:pointer; font:inherit; }
+    .tool { appearance:none; border:1px solid var(--line); background:rgba(var(--ink-rgb), 0.03); color:var(--text); padding:8px 10px; border-radius:12px; cursor:pointer; font:inherit; }
     .tool:active { transform: translateY(1px); }
     .search { display:flex; gap:8px; align-items:center; }
-    .search input { width:min(420px, 70vw); padding:8px 10px; border-radius:12px; border:1px solid var(--line); background:rgba(0,0,0,0.12); color:var(--text); }
+    .search input { width:min(420px, 70vw); padding:8px 10px; border-radius:12px; border:1px solid var(--line); background:var(--sunken); color:var(--text); }
     .policy-body { padding:14px; }
     pre.policy-text {
       margin:0;
@@ -31,6 +31,7 @@
     .hint { opacity:0.8; font-size:12px; }
     mark { padding:0 2px; border-radius:6px; }
   </style>
+  <script src="../../theme.js?v=1"></script>
 </head>
 <body>
   <main class="container">
@@ -321,7 +322,7 @@ Managing Director
     </section>
   </main>
 
-  <script src="../auth.js?v=2"></script>
+  <script src="../../auth.js?v=2"></script>
   <script>
     (function () {
       'use strict';
