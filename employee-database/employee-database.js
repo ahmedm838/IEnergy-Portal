@@ -238,13 +238,19 @@ async function loadTotals() {
     )
     return error ? null : n
   }
-  const [listed, onBoard, complete] = await Promise.all([
+  const [listed, onBoard, uninsured, complete] = await Promise.all([
     count((q) => q),
     count((q) => q.eq('is_active', true)),
+    // On board with no insurance date on file. "On board" is the same
+    // test as the tile beside it, the Active flag, so the two numbers are
+    // always read against each other rather than against two different
+    // populations.
+    count((q) => q.eq('is_active', true).is('si_date', null)),
     count((q) => q.eq('file_complete', true)),
   ])
   $('totalListed').textContent = listed ?? '—'
   $('totalOnBoard').textContent = onBoard ?? '—'
+  $('totalUninsured').textContent = uninsured ?? '—'
   $('totalComplete').textContent = complete ?? '—'
 }
 
