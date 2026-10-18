@@ -387,3 +387,90 @@
    display rule would fail the same silent way.
    --------------------------------------------------------------------- */
 [hidden] { display: none !important; }
+
+/* ---------------------------------------------------------------------
+   Native dropdowns in dark mode.
+
+   An <option> does not inherit the page's colours: the browser paints the
+   open list with the system default, which is white. Against the near
+   white text this page uses, the choices were white on white -- there,
+   selectable, and invisible. Both the control and its options therefore
+   get an opaque colour of their own rather than the translucent fill the
+   text inputs use.
+   --------------------------------------------------------------------- */
+select.input,
+select.input option,
+select.input optgroup {
+  background-color: var(--card);
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------------
+   Use the width of the screen.
+
+   The portal's 980px column suits reading; this page is a form of forty
+   fields and a wide screen should show most of them at once instead of
+   making someone scroll to find out what is there.
+   --------------------------------------------------------------------- */
+/* responsive.css drives the column with width: min(var(--container-max),
+   100%), so a max-width here is simply ignored -- the variable is the
+   knob that actually moves it. */
+body:has(#app) { --container-max: 1500px; }
+body:has(#app) .container { max-width: 1500px; }
+
+@media (min-width: 1100px) {
+  /* Two groups side by side, so the record reads as columns rather than
+     one long strip. Personnel file spans both: it is eleven tick boxes
+     and wants the room. */
+  #employeeForm {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  #employeeForm > fieldset:last-child { grid-column: 1 / -1; }
+}
+
+/* Tighter vertical rhythm everywhere on this page: the same content in
+   noticeably less height. */
+#app .section { margin-top: 12px; padding: 14px 16px; }
+#app .hero { padding: 14px 16px; }
+#app .hero-text h1 { margin: 4px 0 2px; font-size: 22px; }
+.db-group { padding: 10px 12px 12px; margin: 0 0 10px; }
+.db-grid { gap: 10px; }
+.db-field { gap: 3px; }
+.input { padding: 7px 10px; }
+.total { padding: 10px 12px; }
+.total-value { font-size: 22px; }
+.db-docs { gap: 6px 14px; }
+
+/* ---------------------------------------------------------------------
+   The values the system works out for itself.
+   --------------------------------------------------------------------- */
+.derived-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 14px;
+  background: var(--accent-fill);
+}
+.derived-item { min-width: 0; }
+.derived-key {
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.derived-val {
+  margin-top: 2px;
+  font-size: 14.5px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.derived-val.warn { color: var(--on-warning, #ffc46b); }
+.derived-val.bad { color: var(--danger-text); }
+.derived-val.muted { color: var(--muted); font-weight: 500; }

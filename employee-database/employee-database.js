@@ -420,6 +420,17 @@ function fieldControl(field, value) {
   }
   input.id = `f_${field.key}`
   input.dataset.key = field.key
+
+  // The fields the calculated panel is built from, kept live as they are
+  // typed rather than only refreshed on save.
+  if (['national_id', 'hired_on', 'id_expiry_date'].includes(field.key)) {
+    input.addEventListener('input', renderDerived)
+  }
+  if (field.key === 'si_code') {
+    input.addEventListener('change', () => resolveSiTitle(input.value))
+    input.addEventListener('input', () => { derivedSiTitle = null; renderDerived() })
+  }
+
   wrap.appendChild(input)
 
   if (field.derives) {
@@ -436,6 +447,134 @@ function fieldControl(field, value) {
   }
   return wrap
 }
+
+/* ------------------------------------------------------------------ */
+/* Values the system works out for itself                              */
+/* ------------------------------------------------------------------ */
+
+const pad2 = (n) => String(n).padStart(2, '0')
+const asDMY = (d) => `${pad2(d.getUTCDate())}-${pad2(d.getUTCMonth() + 1)}-${d.getUTCFullYear()}`
+
+/** The parts of an Egyptian national ID, or null when it is not one. */
+function readNationalId(id) {
+  const value = String(id ?? '').trim()
+  if (!/^[23]\d{13}$/.test(value)) return null
+  const year = (value[0] === '2' ? 1900 : 2000) + Number(value.slice(1, 3))
+  const month = Number(value.slice(3, 5))
+  const day = Number(value.slice(5, 7))
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const real = date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  return {
+    birthDate: real ? date : null,
+    gender: Number(value[12]) % 2 === 1 ? 'Male' : 'Female',
+    governorate: lookups.governorates?.[Number(value.slice(7, 9))] ?? null,
+  }
+}
+
+/** Whole years and months between two dates, as "3y 2m". */
+function spanFrom(fromISO) {
+  const from = new Date(`${fromISO}T00:00:00Z`)
+  if (Number.isNaN(from.getTime())) return null
+  const now = new Date()
+  let months =
+    (now.getUTCFullYear() - from.getUTCFullYear()) * 12 + (now.getUTCMonth() - from.getUTCMonth())
+  if (now.getUTCDate() < from.getUTCDate()) months -= 1
+  if (months < 0) return null
+  return `${Math.floor(months / 12)}y ${months % 12}m`
+}
+
+function daysUntil(iso) {
+  const when = new Date(`${iso}T00:00:00Z`)
+  if (Number.isNaN(when.getTime())) return null
+  const today = new Date()
+  const start = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  return Math.round((when.getTime() - start) / 86400000)
+}
+
+/**
+ * The calculated half of the record, refreshed from whatever is currently
+ * in the form. Shown as soon as an employee is selected rather than only
+ * after a save, because the whole point of deriving them is that nobody
+ * has to work them out or wait.
+ */
+function renderDerived() {
+  const panel = $('derivedPanel')
+  if (!panel) return
+  const val = (key) => $(`f_${key}`)?.value?.trim() || ''
+  const items = []
+
+  const id = readNationalId(val('national_id'))
+  if (val('national_id')) {
+    items.push(['Birth date', id?.birthDate ? asDMY(id.birthDate) : 'not a real date', id?.birthDate ? '' : 'bad'])
+    items.push(['Gender', id?.gender ?? '—', id ? '' : 'bad'])
+    items.push(['Governorate', id?.governorate ?? (id ? 'code not listed' : '—'), id?.governorate ? '' : 'muted'])
+  } else {
+    items.push(['Birth date', 'needs the ID No.', 'muted'])
+    items.push(['Gender', 'needs the ID No.', 'muted'])
+    items.push(['Governorate', 'needs the ID No.', 'muted'])
+  }
+
+  // The insurance title belongs to the code; it comes back with the row
+  // and is refreshed when the code changes.
+  items.push(['S.I. title', derivedSiTitle ?? (val('si_code') ? 'looking up…' : '—'),
+    derivedSiTitle ? '' : 'muted'])
+
+  const hired = val('hired_on')
+  if (hired) {
+    items.push(['Working period', spanFrom(hired) ?? 'starts in the future', 'muted'])
+    const contract = new Date(`${hired}T00:00:00Z`)
+    if (!Number.isNaN(contract.getTime())) {
+      contract.setUTCFullYear(contract.getUTCFullYear() + 1)
+      const left = daysUntil(contract.toISOString().slice(0, 10))
+      items.push([
+        'Contract expiry',
+        `${asDMY(contract)}${left != null && left <= 30 ? ` · ${left < 0 ? 'passed' : `${left}d left`}` : ''}`,
+        left != null && left < 0 ? 'bad' : left != null && left <= 30 ? 'warn' : '',
+      ])
+    }
+  } else {
+    items.push(['Working period', 'needs the hiring date', 'muted'])
+    items.push(['Contract expiry', 'needs the hiring date', 'muted'])
+  }
+
+  // The workbook asks for a warning a month before the ID runs out.
+  const expiry = val('id_expiry_date')
+  if (expiry) {
+    const left = daysUntil(expiry)
+    items.push([
+      'ID expiry',
+      left == null ? expiry : left < 0 ? `expired ${Math.abs(left)}d ago` : `${left}d left`,
+      left == null ? '' : left < 0 ? 'bad' : left <= 30 ? 'warn' : '',
+    ])
+  } else {
+    items.push(['ID expiry', 'not recorded', 'muted'])
+  }
+
+  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).length
+  items.push([
+    'Personnel file',
+    missing ? `${missing} of ${DOCUMENTS.length} missing` : 'complete',
+    missing ? 'warn' : '',
+  ])
+
+  panel.innerHTML = ''
+  for (const [key, value, tone] of items) {
+    const cell = document.createElement('div')
+    cell.className = 'derived-item'
+    const k = document.createElement('div')
+    k.className = 'derived-key'
+    k.textContent = key
+    const v = document.createElement('div')
+    v.className = `derived-val${tone ? ` ${tone}` : ''}`
+    v.textContent = value
+    cell.appendChild(k)
+    cell.appendChild(v)
+    panel.appendChild(cell)
+  }
+  panel.hidden = false
+}
+
+let derivedSiTitle = null
 
 /** Birth date, gender and governorate, shown as the ID is typed. */
 function showDerived() {
@@ -459,6 +598,15 @@ function showDerived() {
     ? `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`
     : 'birth date not a real day'
   el.textContent = `${shown} · ${gender}${gov ? ` · ${gov}` : ''}`
+}
+
+/** The official title for a code, for the calculated panel. */
+async function resolveSiTitle(code) {
+  const value = String(code ?? '').trim()
+  if (!value) { derivedSiTitle = null; renderDerived(); return }
+  const { data } = await supabase.from('si_codes').select('title').eq('code', value).maybeSingle()
+  derivedSiTitle = data?.title ?? 'not in the official list'
+  renderDerived()
 }
 
 async function siCodeLookup(term) {
@@ -535,6 +683,7 @@ function renderForm(employee) {
 
   showDerived()
   updateFileStatus()
+  renderDerived()
   $('editorTitle').textContent = employee.id
     ? `Edit ${employee.name || employee.arabic_name || 'employee'}`
     : 'New employee'
@@ -552,6 +701,7 @@ function updateFileStatus() {
     el.textContent = `Missing ${missing.length}: ${missing.join(', ')}`
     el.className = 'file-status bad'
   }
+  renderDerived()
 }
 
 async function openEmployee(id) {
@@ -560,6 +710,9 @@ async function openEmployee(id) {
     $('searchHint').textContent = `Could not open that record: ${error.message}`
     return
   }
+  // The view already resolved the insurance title for this code, so the
+  // calculated panel can show it without another round trip.
+  derivedSiTitle = data.si_title ?? null
   if (data.si_code) siCodeLookup(data.si_code)
   $('formError').hidden = true
   renderForm(data)
@@ -568,6 +721,7 @@ async function openEmployee(id) {
 $('newBtn').addEventListener('click', () => {
   $('formNotice').hidden = true
   $('formError').hidden = true
+  derivedSiTitle = null
   renderForm({ weekend: 'fri_sat', is_active: true })
 })
 

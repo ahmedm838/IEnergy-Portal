@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=4" />
-  <link rel="stylesheet" href="employee-database.css?v=21" />
+  <link rel="stylesheet" href="employee-database.css?v=22" />
   <script src="../theme.js?v=1"></script>
 </head>
 <body>
@@ -98,6 +98,9 @@
       </div>
       <div id="formError" class="auth-error" hidden></div>
       <div id="formNotice" class="form-notice" hidden></div>
+      <!-- Values the system works out rather than stores: read from the ID,
+           the hiring date, the insurance code and the document ticks. -->
+      <div id="derivedPanel" class="derived-panel" hidden></div>
       <form id="employeeForm" autocomplete="off"></form>
       <div class="form-actions">
         <button class="btn primary" type="button" id="saveBtn">Save</button>
@@ -116,6 +119,6 @@
     <div class="footer">&copy; <span id="year"></span> iEnergy. Internal use.</div>
   </main>
 
-  <script type="module" src="employee-database.js?v=21"></script>
+  <script type="module" src="employee-database.js?v=22"></script>
 </body>
 </html>
