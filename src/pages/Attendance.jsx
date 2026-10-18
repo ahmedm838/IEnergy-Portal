@@ -3,6 +3,7 @@ import PeriodLabel from '../components/PeriodLabel'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useLocks, lockRangeLabel } from '../lib/useLocks'
+import { recordBlockReason } from '../lib/recordable'
 import { summarise } from '../lib/calc'
 import {
   dateRange,
@@ -64,6 +65,12 @@ export default function Attendance() {
 
   const selectedEmployee = employees.find((e) => e.id === employeeId) || null
 
+  // Records may only be written for an active employee. The database
+  // refuses either way; this is so the grid does not invite a week of
+  // typing it will then throw away.
+  const employeeBlock = recordBlockReason(selectedEmployee)
+  const readOnlyEmployee = employeeBlock !== null
+
   // Warn before losing unsaved edits to a browser navigation.
   useEffect(() => {
     if (dirty.size === 0) return undefined
@@ -121,9 +128,10 @@ export default function Attendance() {
 
   const update = useCallback(
     (iso, patch) => {
-      // Locked days render disabled, so this is belt and braces -- but it
-      // keeps a locked day out of `dirty`, which is what the save sends.
-      if (locks.isLocked(iso)) return
+      // Locked days and non-active employees render disabled, so this is
+      // belt and braces -- but it keeps them out of `dirty`, which is
+      // what the save sends.
+      if (readOnlyEmployee || locks.isLocked(iso)) return
       setRows((current) => ({
         ...current,
         [iso]: { ...(current[iso] ?? EMPTY_ROW), ...patch },
@@ -131,7 +139,7 @@ export default function Attendance() {
       setDirty((current) => new Set(current).add(iso))
       setNotice(null)
     },
-    [locks.isLocked],
+    [locks.isLocked, readOnlyEmployee],
   )
 
   /** Apply a type to every day matching `predicate` that has no type yet. */
@@ -171,7 +179,7 @@ export default function Attendance() {
   }
 
   async function handleSave() {
-    if (dirty.size === 0) return
+    if (dirty.size === 0 || readOnlyEmployee) return
     setSaving(true)
     setError(null)
     setNotice(null)
@@ -258,6 +266,7 @@ export default function Attendance() {
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.id}>
                   #{emp.code} — {emp.name}
+                  {recordBlockReason(emp) ? ` (${emp.employee_statuses?.name ?? 'no status'})` : ''}
                 </option>
               ))}
             </Select>
@@ -296,7 +305,13 @@ export default function Attendance() {
       {error && <Alert tone="error" onDismiss={() => setError(null)}>{error}</Alert>}
       {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
 
-      {lockedCount > 0 && (
+      {employeeBlock && (
+        <Alert tone="warning" title="This employee cannot be recorded">
+          {employeeBlock}
+        </Alert>
+      )}
+
+      {lockedCount > 0 && !readOnlyEmployee && (
         <Alert
           tone="warning"
           title={
@@ -363,12 +378,18 @@ export default function Attendance() {
               }`}
               actions={
                 <>
-                  <Button variant="secondary" size="sm" onClick={() => bulkFill('weekly_rest', isWeekend)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={readOnlyEmployee}
+                    onClick={() => bulkFill('weekly_rest', isWeekend)}
+                  >
                     Fill Fri/Sat rest
                   </Button>
                   <Button
                     variant="secondary"
                     size="sm"
+                    disabled={readOnlyEmployee}
                     onClick={() => bulkFill('paid_day', (iso) => !isWeekend(iso))}
                   >
                     Fill workdays
@@ -376,7 +397,11 @@ export default function Attendance() {
                   <Button variant="ghost" size="sm" onClick={clearAll} disabled={dirty.size === 0}>
                     Discard changes
                   </Button>
-                  <Button size="sm" onClick={handleSave} disabled={saving || dirty.size === 0}>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={saving || dirty.size === 0 || readOnlyEmployee}
+                  >
                     {saving ? 'Saving…' : `Save ${dirty.size || ''}`}
                   </Button>
                 </>
@@ -411,6 +436,7 @@ export default function Attendance() {
                         typeById={lookups.typeById}
                         isDirty={dirty.has(iso)}
                         lock={locks.lockFor(iso)}
+                        readOnly={readOnlyEmployee}
                         onChange={(patch) => update(iso, patch)}
                       />
                     ))}
@@ -425,11 +451,15 @@ export default function Attendance() {
   )
 }
 
-function DayRow({ iso, row, types, typeById, isDirty, lock, onChange }) {
+function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, onChange }) {
   const type = row.attendance_type_id ? typeById.get(row.attendance_type_id) : null
   const weekend = isWeekend(iso)
-  const locked = !!lock
-  const lockTitle = locked
+  // Two different reasons a row cannot be edited: the period is locked,
+  // or the employee is not one that may be recorded. Both disable the
+  // inputs; only the first earns the padlock, since the second is
+  // explained once above the grid rather than on every row.
+  const locked = !!lock || readOnly
+  const lockTitle = lock
     ? `${lockRangeLabel(lock)} is locked${lock.note ? ` — ${lock.note}` : ''}`
     : undefined
   const [lateText, setLateText] = useState(() => minutesToHHMM(row.late_minutes))
@@ -461,7 +491,7 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, onChange }) {
       <Td className="font-medium text-ink">
         <div className="flex items-center gap-2">
           {dayLabel(iso)}
-          {locked && (
+          {lock && (
             <span className="text-ink-4" aria-label="Locked" title={lockTitle}>
               &#128274;
             </span>

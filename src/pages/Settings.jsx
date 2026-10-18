@@ -129,6 +129,30 @@ export default function Settings() {
     }
   }
 
+  // Which statuses an employee may be recorded against. The guard in the
+  // database reads this column, so turning one on here is all it takes --
+  // there is no list of status names in the code to keep in step.
+  async function toggleRecordable(status) {
+    setError(null)
+    setNotice(null)
+    try {
+      await run(
+        supabase
+          .from('employee_statuses')
+          .update({ allows_records: !status.allows_records })
+          .eq('id', status.id),
+      )
+      setNotice(
+        status.allows_records
+          ? `Attendance and adjustments can no longer be saved for employees with the status "${status.name}".`
+          : `Attendance and adjustments can now be saved for employees with the status "${status.name}".`,
+      )
+      lookups.reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   if (lookups.loading) return <Spinner />
 
   return (
@@ -307,7 +331,7 @@ export default function Settings() {
         <Card>
           <CardHeader
             title="Employee statuses"
-            subtitle="Only payable statuses appear in the monthly report."
+            subtitle="Only payable statuses appear in the monthly report. Only recordable statuses can have attendance or adjustments saved."
           />
           <table className="w-full">
             <tbody className="divide-y divide-line">
@@ -322,10 +346,24 @@ export default function Settings() {
                       onChange={() => togglePayroll(s)}
                     />
                   </Td>
+                  <Td className="text-right">
+                    <Checkbox
+                      label="Can be recorded"
+                      checked={s.allows_records}
+                      disabled={readOnly}
+                      onChange={() => toggleRecordable(s)}
+                    />
+                  </Td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p className="px-5 pb-5 pt-1 text-xs text-ink-4">
+            An employee can only have attendance or adjustments saved when they are active
+            <em> and</em> hold a status ticked here. Note that leave days are themselves attendance
+            records, so if you move people to a status such as “On Leave” while they are away, that
+            status needs ticking or their leave cannot be entered.
+          </p>
         </Card>
       </div>
 

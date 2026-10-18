@@ -97,7 +97,7 @@ export function useEmployees({ activeOnly = true } = {}) {
            annual_leave_balance, unplanned_leave_balance,
            sites ( id, name ),
            departments ( id, name ),
-           employee_statuses ( id, name, in_payroll )`,
+           employee_statuses ( id, name, in_payroll, allows_records )`,
         )
         .order('code')
       if (activeOnly) query = query.eq('is_active', true)

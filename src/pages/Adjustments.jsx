@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useLocks, lockRangeLabel } from '../lib/useLocks'
+import { recordBlockReason } from '../lib/recordable'
 import { hhmmToMinutes, minutesToHHMM, payrollPeriod, num, toISODate } from '../lib/format'
 import {
   Alert,
@@ -37,7 +38,7 @@ export default function Adjustments() {
     try {
       let query = supabase
         .from('adjustments')
-        .select('*, employees ( id, code, name )')
+        .select('*, employees ( id, code, name, is_active, employee_statuses ( name, allows_records ) )')
         .gte('adj_date', range.from)
         .lte('adj_date', range.to)
         .order('adj_date', { ascending: false })
@@ -207,9 +208,15 @@ export default function Adjustments() {
               <tbody className="divide-y divide-line">
                 {rows.map((r) => {
                   const lock = locks.lockFor(r.adj_date)
-                  const lockTitle = lock ? `${lockRangeLabel(lock)} is locked` : undefined
+                  // The row's employee is read back with the adjustment, so
+                  // a resigned colleague's rows are shown but not touchable.
+                  const employeeBlock = recordBlockReason(r.employees)
+                  const frozen = !!lock || !!employeeBlock
+                  const lockTitle = lock
+                    ? `${lockRangeLabel(lock)} is locked`
+                    : employeeBlock || undefined
                   return (
-                  <tr key={r.id} className={lock ? 'bg-subtle/40 opacity-70' : 'hover:bg-hover'}>
+                  <tr key={r.id} className={frozen ? 'bg-subtle/40 opacity-70' : 'hover:bg-hover'}>
                     <Td className="font-medium text-ink">
                       <div className="flex items-center gap-2">
                         {r.adj_date}
@@ -236,7 +243,7 @@ export default function Adjustments() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={!!lock}
+                          disabled={frozen}
                           title={lockTitle}
                           onClick={() =>
                             setDraft({
@@ -250,7 +257,7 @@ export default function Adjustments() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={!!lock}
+                          disabled={frozen}
                           title={lockTitle}
                           onClick={() => remove(r)}
                         >
@@ -274,6 +281,8 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
   const [form, setForm] = useState(value)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
   const lock = lockFor(form.adj_date)
+  const employeeBlock = recordBlockReason(employees.find((e) => e.id === form.employee_id))
+  const blocked = !!lock || !!employeeBlock
 
   return (
     <Card>
@@ -282,7 +291,7 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
         className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4"
         onSubmit={(e) => {
           e.preventDefault()
-          if (lock) return
+          if (blocked) return
           onSave(form)
         }}
       >
@@ -291,6 +300,13 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
             <Alert tone="warning" title="That date is in a locked period">
               {lockRangeLabel(lock)} is closed to edits. Choose a date outside it, or ask a super
               admin to unlock the period under Settings.
+            </Alert>
+          </div>
+        )}
+        {employeeBlock && (
+          <div className="sm:col-span-2 lg:col-span-4">
+            <Alert tone="warning" title="This employee cannot be recorded">
+              {employeeBlock}
             </Alert>
           </div>
         )}
@@ -376,7 +392,7 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
         </Field>
 
         <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
-          <Button type="submit" disabled={!!lock}>
+          <Button type="submit" disabled={blocked}>
             {form.id ? 'Save changes' : 'Add adjustment'}
           </Button>
           <Button type="button" variant="secondary" onClick={onCancel}>
