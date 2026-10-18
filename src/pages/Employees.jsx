@@ -27,30 +27,6 @@ import {
  */
 export const MIN_EMPLOYEE_CODE = 100000
 
-const BLANK = {
-  code: '',
-  name: '',
-  si_no: '',
-  title: '',
-  company_mobile: '',
-  office_number: '',
-  email: '',
-  site_id: '',
-  department_id: '',
-  status_id: '',
-  role: 'no_access',
-  // Every payroll component is on for a new employee; HR turns off the
-  // ones that do not apply. Matches the column defaults in the database.
-  has_meal: true,
-  has_allowance: true,
-  has_overtime: true,
-  has_incentive: true,
-  has_deductions: true,
-  annual_leave_balance: 21,
-  unplanned_leave_balance: 7,
-  is_active: true,
-}
-
 export default function Employees() {
   const lookups = useLookups()
   const { isSuperAdmin } = useAuth()
@@ -144,17 +120,10 @@ export default function Employees() {
         is_active: !!form.is_active,
       }
 
-      if (form.id) {
-        await run(supabase.from('employees').update(payload).eq('id', form.id))
-        setNotice(`Updated ${payload.name}.`)
-      } else {
-        await run(supabase.from('employees').insert(payload))
-        setNotice(
-          `Created ${payload.name}. They can sign in once you invite ${
-            payload.email ?? 'their email'
-          } from the Supabase dashboard — the account links to this record automatically.`,
-        )
-      }
+      // This page only edits. Creating an employee moved to the portal's
+      // Database page, which collects the whole personnel record.
+      await run(supabase.from('employees').update(payload).eq('id', form.id))
+      setNotice(`Updated ${payload.name}.`)
       setEditing(null)
       reload()
     } catch (err) {
@@ -190,7 +159,19 @@ export default function Employees() {
             </p>
           )}
         </div>
-        <Button onClick={() => setEditing({ ...BLANK })}>Add employee</Button>
+        {/* Adding an employee happens in the portal's Database page, which
+            holds the full personnel record -- national ID, insurance
+            details, documents. Creating a half-filled row here and then
+            completing it somewhere else is how records end up incomplete,
+            so this page edits only what it already shows. */}
+        <a
+          className="text-sm font-medium text-brand-600 underline-offset-2 hover:underline dark:text-brand-400"
+          href="https://ahmedm838.github.io/IEnergy-Portal/employee-database/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Add an employee in the Database page ↗
+        </a>
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
@@ -345,7 +326,7 @@ function EmployeeForm({ value, lookups, canGrantElevated, onCancel, onSave }) {
   return (
     <Card>
       <CardHeader
-        title={form.id ? `Edit ${form.name}` : 'New employee'}
+        title={`Edit ${form.name}`}
         subtitle="Access is enforced by the database, so the role here is the real one."
       />
       <form
@@ -550,7 +531,7 @@ function EmployeeForm({ value, lookups, canGrantElevated, onCancel, onSave }) {
         </div>
 
         <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
-          <Button type="submit">{form.id ? 'Save changes' : 'Create employee'}</Button>
+          <Button type="submit">Save changes</Button>
           <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
