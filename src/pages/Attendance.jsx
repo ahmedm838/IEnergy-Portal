@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import PeriodLabel from '../components/PeriodLabel'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
+import { useLocks, lockRangeLabel } from '../lib/useLocks'
 import { summarise } from '../lib/calc'
 import {
   dateRange,
@@ -45,6 +46,7 @@ const EMPTY_ROW = {
 export default function Attendance() {
   const lookups = useLookups()
   const { employees, loading: employeesLoading } = useEmployees()
+  const locks = useLocks()
 
   const [employeeId, setEmployeeId] = useState('')
   const [range, setRange] = useState(() => payrollPeriod())
@@ -117,14 +119,20 @@ export default function Attendance() {
 
   const getRow = useCallback((iso) => rows[iso] ?? EMPTY_ROW, [rows])
 
-  const update = useCallback((iso, patch) => {
-    setRows((current) => ({
-      ...current,
-      [iso]: { ...(current[iso] ?? EMPTY_ROW), ...patch },
-    }))
-    setDirty((current) => new Set(current).add(iso))
-    setNotice(null)
-  }, [])
+  const update = useCallback(
+    (iso, patch) => {
+      // Locked days render disabled, so this is belt and braces -- but it
+      // keeps a locked day out of `dirty`, which is what the save sends.
+      if (locks.isLocked(iso)) return
+      setRows((current) => ({
+        ...current,
+        [iso]: { ...(current[iso] ?? EMPTY_ROW), ...patch },
+      }))
+      setDirty((current) => new Set(current).add(iso))
+      setNotice(null)
+    },
+    [locks.isLocked],
+  )
 
   /** Apply a type to every day matching `predicate` that has no type yet. */
   function bulkFill(typeCode, predicate) {
@@ -144,6 +152,7 @@ export default function Attendance() {
       const touched = new Set(dirty)
       for (const iso of days) {
         if (!predicate(iso)) continue
+        if (locks.isLocked(iso)) continue
         if (next[iso]?.attendance_type_id) continue
         next[iso] = { ...EMPTY_ROW, ...next[iso], attendance_type_id: type.id }
         touched.add(iso)
@@ -171,6 +180,10 @@ export default function Attendance() {
         .map((iso) => {
           const row = rows[iso]
           if (!row?.attendance_type_id) return null
+          // One locked day would abort the whole save in the database, so
+          // a day that was locked while this page was open is dropped
+          // rather than taking the other days down with it.
+          if (locks.isLocked(iso)) return null
           return {
             employee_id: employeeId,
             work_date: iso,
@@ -204,6 +217,16 @@ export default function Attendance() {
   function shiftPeriod(delta) {
     setRange(shiftPayrollPeriod(range.to, delta))
   }
+
+  const lockedCount = useMemo(() => locks.countLocked(days), [days, locks.countLocked])
+  const lockedRanges = useMemo(() => {
+    const seen = new Map()
+    for (const iso of days) {
+      const lock = locks.lockFor(iso)
+      if (lock) seen.set(lock.id, lockRangeLabel(lock))
+    }
+    return [...seen.values()]
+  }, [days, locks.lockFor])
 
   const gridRows = useMemo(
     () => days.map((iso) => ({ ...getRow(iso), work_date: iso })),
@@ -272,6 +295,21 @@ export default function Attendance() {
 
       {error && <Alert tone="error" onDismiss={() => setError(null)}>{error}</Alert>}
       {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
+
+      {lockedCount > 0 && (
+        <Alert
+          tone="warning"
+          title={
+            lockedCount === days.length
+              ? 'This period is locked'
+              : `${lockedCount} of these ${days.length} days are locked`
+          }
+        >
+          {lockedRanges.join(' · ')}
+          {lockedRanges.length === 1 ? ' is closed' : ' are closed'} to edits. Those rows are
+          read-only until a super admin unlocks the period under Settings.
+        </Alert>
+      )}
 
       {!employeeId ? (
         <Card>
@@ -372,6 +410,7 @@ export default function Attendance() {
                         types={lookups.types ?? []}
                         typeById={lookups.typeById}
                         isDirty={dirty.has(iso)}
+                        lock={locks.lockFor(iso)}
                         onChange={(patch) => update(iso, patch)}
                       />
                     ))}
@@ -386,9 +425,13 @@ export default function Attendance() {
   )
 }
 
-function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
+function DayRow({ iso, row, types, typeById, isDirty, lock, onChange }) {
   const type = row.attendance_type_id ? typeById.get(row.attendance_type_id) : null
   const weekend = isWeekend(iso)
+  const locked = !!lock
+  const lockTitle = locked
+    ? `${lockRangeLabel(lock)} is locked${lock.note ? ` — ${lock.note}` : ''}`
+    : undefined
   const [lateText, setLateText] = useState(() => minutesToHHMM(row.late_minutes))
   const lastMinutes = useRef(row.late_minutes)
 
@@ -405,12 +448,24 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
     <tr
       className={cx(
         'transition',
-        isDirty ? 'bg-tint-warning/60' : weekend ? 'bg-subtle/70' : 'hover:bg-hover',
+        locked
+          ? 'bg-subtle/40 opacity-70'
+          : isDirty
+            ? 'bg-tint-warning/60'
+            : weekend
+              ? 'bg-subtle/70'
+              : 'hover:bg-hover',
       )}
+      title={lockTitle}
     >
       <Td className="font-medium text-ink">
         <div className="flex items-center gap-2">
           {dayLabel(iso)}
+          {locked && (
+            <span className="text-ink-4" aria-label="Locked" title={lockTitle}>
+              &#128274;
+            </span>
+          )}
           {isDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" title="Unsaved" />}
         </div>
       </Td>
@@ -418,6 +473,7 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
       <Td>
         <Select
           value={row.attendance_type_id ?? ''}
+          disabled={locked}
           onChange={(e) =>
             onChange({ attendance_type_id: e.target.value ? Number(e.target.value) : null })
           }
@@ -435,6 +491,7 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
       <Td>
         <Input
           value={lateText}
+          disabled={locked}
           onChange={(e) => setLateText(e.target.value)}
           onBlur={() => {
             const minutes = hhmmToMinutes(lateText)
@@ -454,6 +511,7 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
           min="0"
           step="0.01"
           value={row.transport ?? 0}
+          disabled={locked}
           onChange={(e) => onChange({ transport: Number(e.target.value) || 0 })}
           className="w-24 py-1.5 text-sm"
         />
@@ -462,6 +520,7 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
       <Td className="text-center">
         <Checkbox
           checked={!!row.add_to_leave_balance}
+          disabled={locked}
           onChange={(e) => onChange({ add_to_leave_balance: e.target.checked })}
         />
       </Td>
@@ -470,6 +529,7 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
         <Input
           type="time"
           value={row.clock_in ?? ''}
+          disabled={locked}
           onChange={(e) => onChange({ clock_in: e.target.value })}
           className="w-28 py-1.5 text-sm"
         />
@@ -479,6 +539,7 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
         <Input
           type="time"
           value={row.clock_out ?? ''}
+          disabled={locked}
           onChange={(e) => onChange({ clock_out: e.target.value })}
           className="w-28 py-1.5 text-sm"
         />
@@ -491,6 +552,7 @@ function DayRow({ iso, row, types, typeById, isDirty, onChange }) {
       <Td>
         <Input
           value={row.note ?? ''}
+          disabled={locked}
           onChange={(e) => onChange({ note: e.target.value })}
           className="py-1.5 text-sm"
           placeholder="—"

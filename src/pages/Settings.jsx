@@ -3,6 +3,7 @@ import { supabase, run } from '../lib/supabase'
 import { useLookups } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
 import { absenceDeduction } from '../lib/calc'
+import LockedPeriods from '../components/LockedPeriods'
 import {
   Alert,
   Badge,
@@ -196,6 +197,8 @@ export default function Settings() {
           </div>
         </form>
       </Card>
+
+      <LockedPeriods readOnly={readOnly} />
 
       <Card>
         <CardHeader

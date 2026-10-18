@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
+import { useLocks, lockRangeLabel } from '../lib/useLocks'
 import { hhmmToMinutes, minutesToHHMM, payrollPeriod, num, toISODate } from '../lib/format'
 import {
   Alert,
@@ -20,6 +21,7 @@ import {
 export default function Adjustments() {
   const lookups = useLookups()
   const { employees } = useEmployees()
+  const locks = useLocks()
 
   const [range, setRange] = useState(() => payrollPeriod())
   const [employeeFilter, setEmployeeFilter] = useState('')
@@ -135,6 +137,7 @@ export default function Adjustments() {
           value={draft}
           employees={employees}
           currency={currency}
+          lockFor={locks.lockFor}
           onCancel={() => setDraft(null)}
           onSave={save}
         />
@@ -202,9 +205,21 @@ export default function Adjustments() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-hover">
-                    <Td className="font-medium text-ink">{r.adj_date}</Td>
+                {rows.map((r) => {
+                  const lock = locks.lockFor(r.adj_date)
+                  const lockTitle = lock ? `${lockRangeLabel(lock)} is locked` : undefined
+                  return (
+                  <tr key={r.id} className={lock ? 'bg-subtle/40 opacity-70' : 'hover:bg-hover'}>
+                    <Td className="font-medium text-ink">
+                      <div className="flex items-center gap-2">
+                        {r.adj_date}
+                        {lock && (
+                          <span className="text-ink-4" aria-label="Locked" title={lockTitle}>
+                            &#128274;
+                          </span>
+                        )}
+                      </div>
+                    </Td>
                     <Td>
                       #{r.employees?.code} — {r.employees?.name}
                     </Td>
@@ -221,6 +236,8 @@ export default function Adjustments() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          disabled={!!lock}
+                          title={lockTitle}
                           onClick={() =>
                             setDraft({
                               ...r,
@@ -230,13 +247,20 @@ export default function Adjustments() {
                         >
                           Edit
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => remove(r)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!!lock}
+                          title={lockTitle}
+                          onClick={() => remove(r)}
+                        >
                           Delete
                         </Button>
                       </div>
                     </Td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -246,9 +270,10 @@ export default function Adjustments() {
   )
 }
 
-function AdjustmentForm({ value, employees, currency, onCancel, onSave }) {
+function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave }) {
   const [form, setForm] = useState(value)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  const lock = lockFor(form.adj_date)
 
   return (
     <Card>
@@ -257,9 +282,18 @@ function AdjustmentForm({ value, employees, currency, onCancel, onSave }) {
         className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4"
         onSubmit={(e) => {
           e.preventDefault()
+          if (lock) return
           onSave(form)
         }}
       >
+        {lock && (
+          <div className="sm:col-span-2 lg:col-span-4">
+            <Alert tone="warning" title="That date is in a locked period">
+              {lockRangeLabel(lock)} is closed to edits. Choose a date outside it, or ask a super
+              admin to unlock the period under Settings.
+            </Alert>
+          </div>
+        )}
         <Field label="Employee" className="sm:col-span-2">
           <Select
             required
@@ -342,7 +376,9 @@ function AdjustmentForm({ value, employees, currency, onCancel, onSave }) {
         </Field>
 
         <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
-          <Button type="submit">{form.id ? 'Save changes' : 'Add adjustment'}</Button>
+          <Button type="submit" disabled={!!lock}>
+            {form.id ? 'Save changes' : 'Add adjustment'}
+          </Button>
           <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
