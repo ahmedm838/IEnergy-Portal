@@ -3,7 +3,7 @@ import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
 import { setTemporaryPassword, generateTemporaryPassword } from '../lib/invites'
-import { formatMobile, isValidMobile, mobileDigits, MOBILE_DIGITS } from '../lib/format'
+import { mobileDigits } from '../lib/format'
 import {
   Alert,
   Badge,
@@ -20,20 +20,12 @@ import {
   Th,
 } from '../components/ui'
 
-/**
- * Employee codes are at least six digits. The database enforces this with
- * a check constraint; repeating it here is so the form can say so before
- * someone fills the rest of it in.
- */
-export const MIN_EMPLOYEE_CODE = 100000
-
 export default function Employees() {
   const lookups = useLookups()
   const { isSuperAdmin } = useAuth()
   const { employees, loading, error, reload } = useEmployees({ activeOnly: false })
 
   const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState(null)
   const [formError, setFormError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [busyId, setBusyId] = useState(null)
@@ -73,63 +65,6 @@ export default function Employees() {
         (e.departments?.name ?? '').toLowerCase().includes(needle),
     )
   }, [employees, search])
-
-  async function handleSave(form) {
-    setFormError(null)
-
-    // The check constraint would catch this anyway, but its message names
-    // the constraint rather than the rule.
-    if (!Number.isInteger(Number(form.code)) || Number(form.code) < MIN_EMPLOYEE_CODE) {
-      setFormError(
-        `Employee code must be a whole number of at least 6 digits — ${MIN_EMPLOYEE_CODE} or above.`,
-      )
-      return
-    }
-
-    // Blank is fine -- not everyone has a company mobile. A half-typed one
-    // is not, and the constraint's message would only name the constraint.
-    const mobile = mobileDigits(form.company_mobile) ? formatMobile(form.company_mobile) : null
-    if (mobile && !isValidMobile(mobile)) {
-      setFormError(
-        `Company mobile must be ${MOBILE_DIGITS} digits starting with 0, as 000-0000-0000. ` +
-          `That one has ${mobileDigits(mobile).length}.`,
-      )
-      return
-    }
-
-    try {
-      const payload = {
-        code: Number(form.code),
-        name: form.name.trim(),
-        si_no: form.si_no?.trim() || null,
-        title: form.title?.trim() || null,
-        company_mobile: mobile,
-        office_number: form.office_number?.trim() || null,
-        email: form.email?.trim() || null,
-        site_id: form.site_id === '' ? null : Number(form.site_id),
-        department_id: form.department_id === '' ? null : Number(form.department_id),
-        status_id: form.status_id === '' ? null : Number(form.status_id),
-        role: form.role,
-        has_meal: !!form.has_meal,
-        has_allowance: !!form.has_allowance,
-        has_overtime: !!form.has_overtime,
-        has_incentive: !!form.has_incentive,
-        has_deductions: !!form.has_deductions,
-        annual_leave_balance: Number(form.annual_leave_balance) || 0,
-        unplanned_leave_balance: Number(form.unplanned_leave_balance) || 0,
-        is_active: !!form.is_active,
-      }
-
-      // This page only edits. Creating an employee moved to the portal's
-      // Database page, which collects the whole personnel record.
-      await run(supabase.from('employees').update(payload).eq('id', form.id))
-      setNotice(`Updated ${payload.name}.`)
-      setEditing(null)
-      reload()
-    } catch (err) {
-      setFormError(duplicateMessage(err.message) ?? err.message)
-    }
-  }
 
   async function toggleActive(employee) {
     try {
@@ -177,16 +112,6 @@ export default function Employees() {
       {error && <Alert tone="error">{error}</Alert>}
       {formError && <Alert tone="error" onDismiss={() => setFormError(null)}>{formError}</Alert>}
       {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
-
-      {editing && (
-        <EmployeeForm
-          value={editing}
-          lookups={lookups}
-          canGrantElevated={isSuperAdmin}
-          onCancel={() => setEditing(null)}
-          onSave={handleSave}
-        />
-      )}
 
       {passwordFor && (
         <TemporaryPasswordForm
@@ -290,9 +215,10 @@ export default function Employees() {
                     </Td>
                     <Td className="sticky right-0 z-[1] bg-panel text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setEditing({ ...e })}>
-                          Edit
-                        </Button>
+                        {/* Editing lives in the portal's Database page, which
+                            holds the whole personnel record. Two forms
+                            writing the same row from different places is how
+                            fields quietly diverge. */}
                         {isSuperAdmin && e.email && (
                           <Button
                             variant="ghost"
@@ -319,255 +245,7 @@ export default function Employees() {
   )
 }
 
-function EmployeeForm({ value, lookups, canGrantElevated, onCancel, onSave }) {
-  const [form, setForm] = useState(value)
-  const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
-  return (
-    <Card>
-      <CardHeader
-        title={`Edit ${form.name}`}
-        subtitle="Access is enforced by the database, so the role here is the real one."
-      />
-      <form
-        className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4"
-        onSubmit={(e) => {
-          e.preventDefault()
-          onSave(form)
-        }}
-      >
-        <Field
-          label="Code"
-          hint="At least 6 digits, so 100000 or above."
-          error={
-            form.code !== '' && Number(form.code) < MIN_EMPLOYEE_CODE
-              ? `Too short — codes are at least 6 digits (${MIN_EMPLOYEE_CODE} or above).`
-              : undefined
-          }
-        >
-          <Input
-            type="number"
-            required
-            min={MIN_EMPLOYEE_CODE}
-            step="1"
-            placeholder={String(MIN_EMPLOYEE_CODE)}
-            value={form.code}
-            onChange={(e) => set({ code: e.target.value })}
-          />
-        </Field>
-        <Field label="Name" className="sm:col-span-2">
-          <Input required value={form.name} onChange={(e) => set({ name: e.target.value })} />
-        </Field>
-        <Field label="S.I. No." hint="Must be unique across all employees.">
-          <Input value={form.si_no ?? ''} onChange={(e) => set({ si_no: e.target.value })} />
-        </Field>
-
-        <Field label="Title">
-          <Input value={form.title ?? ''} onChange={(e) => set({ title: e.target.value })} />
-        </Field>
-        <Field
-          label="Company mobile"
-          hint="11 digits starting with 0. The dashes are added as you type."
-          error={
-            form.company_mobile && !isValidMobile(form.company_mobile)
-              ? `${mobileDigits(form.company_mobile).length} of ${MOBILE_DIGITS} digits${
-                  mobileDigits(form.company_mobile)[0] !== '0' &&
-                  mobileDigits(form.company_mobile).length > 0
-                    ? ' — and it must start with 0'
-                    : ''
-                }`
-              : undefined
-          }
-        >
-          <Input
-            type="tel"
-            inputMode="numeric"
-            placeholder="012-3456-7890"
-            maxLength={13}
-            value={formatMobile(form.company_mobile ?? '')}
-            onChange={(e) => set({ company_mobile: formatMobile(e.target.value) })}
-          />
-        </Field>
-        <Field label="Office number">
-          <Input
-            type="tel"
-            inputMode="tel"
-            placeholder="Extension or direct line"
-            value={form.office_number ?? ''}
-            onChange={(e) => set({ office_number: e.target.value })}
-          />
-        </Field>
-        <Field
-          label="Email"
-          hint={
-            form.email?.includes('@')
-              ? `Username will be "${form.email.split('@')[0].toLowerCase()}" — derived automatically.`
-              : 'Used to sign in; must match their Supabase account.'
-          }
-        >
-          <Input
-            type="email"
-            value={form.email ?? ''}
-            onChange={(e) => set({ email: e.target.value })}
-          />
-        </Field>
-        <Field label="Site">
-          <Select value={form.site_id ?? ''} onChange={(e) => set({ site_id: e.target.value })}>
-            <option value="">—</option>
-            {lookups.sites?.map((s) => (
-              <option key={s.id} value={s.id} disabled={!s.available && String(form.site_id) !== String(s.id)}>
-                {s.name}
-                {!s.available ? ' (unavailable)' : ''}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Department">
-          <Select
-            value={form.department_id ?? ''}
-            onChange={(e) => set({ department_id: e.target.value })}
-          >
-            <option value="">—</option>
-            {lookups.departments?.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name} ({d.sectors?.name})
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field label="Status">
-          <Select value={form.status_id ?? ''} onChange={(e) => set({ status_id: e.target.value })}>
-            <option value="">—</option>
-            {lookups.statuses?.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-                {s.in_payroll ? '' : ' (not payable)'}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field
-          label="Role"
-          hint={
-            !canGrantElevated
-              ? 'Only a super admin can grant or remove the admin and super admin roles.'
-              : form.role === 'super_admin'
-                ? 'Everything an admin can do, plus editing Settings.'
-                : form.role === 'admin'
-                  ? 'Manages employees, attendance and adjustments. Settings are read-only.'
-                  : undefined
-          }
-        >
-          {/* Admin and super admin are offered only to a super admin. The
-              database refuses either grant from anyone else, so leaving them
-              selectable would just produce a save that fails. */}
-          <Select value={form.role} onChange={(e) => set({ role: e.target.value })}>
-            <option value="user">User — read own department (default)</option>
-            <option value="no_access">No access — blocked entirely</option>
-            <option value="admin" disabled={!canGrantElevated && form.role !== 'admin'}>
-              Admin — manage staff and attendance
-              {!canGrantElevated && form.role !== 'admin' ? ' (super admin only)' : ''}
-            </option>
-            <option value="super_admin" disabled={!canGrantElevated && form.role !== 'super_admin'}>
-              Super admin — also edits Settings
-              {!canGrantElevated && form.role !== 'super_admin' ? ' (super admin only)' : ''}
-            </option>
-          </Select>
-        </Field>
-        <Field label="Annual leave balance">
-          <Input
-            type="number"
-            step="0.5"
-            value={form.annual_leave_balance}
-            onChange={(e) => set({ annual_leave_balance: e.target.value })}
-          />
-        </Field>
-        <Field label="Un planned leave balance">
-          <Input
-            type="number"
-            step="0.5"
-            value={form.unplanned_leave_balance}
-            onChange={(e) => set({ unplanned_leave_balance: e.target.value })}
-          />
-        </Field>
-
-        <div className="sm:col-span-2 lg:col-span-4">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-3">
-            Payroll switches
-          </p>
-          <div className="flex flex-wrap gap-5">
-            <Checkbox
-              label="Meal"
-              checked={!!form.has_meal}
-              onChange={(e) => set({ has_meal: e.target.checked })}
-            />
-            <Checkbox
-              label="Allowance"
-              checked={!!form.has_allowance}
-              onChange={(e) => set({ has_allowance: e.target.checked })}
-            />
-            <Checkbox
-              label="Overtime"
-              checked={!!form.has_overtime}
-              onChange={(e) => set({ has_overtime: e.target.checked })}
-            />
-            <Checkbox
-              label="Incentive"
-              checked={!!form.has_incentive}
-              onChange={(e) => set({ has_incentive: e.target.checked })}
-            />
-            <Checkbox
-              label="Deductions"
-              checked={!!form.has_deductions}
-              onChange={(e) => set({ has_deductions: e.target.checked })}
-            />
-            <Checkbox
-              label="Active"
-              checked={!!form.is_active}
-              onChange={(e) => set({ is_active: e.target.checked })}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
-          <Button type="submit">Save changes</Button>
-          <Button type="button" variant="secondary" onClick={onCancel}>
-            Cancel
-          </Button>
-        </div>
-      </form>
-    </Card>
-  )
-}
-
-/**
- * Turn a Postgres unique-violation into something actionable.
- *
- * A duplicate email trips employees_username_idx first, because username is
- * generated from the local part of the address -- so that index name has to
- * map back to "email" or the message would point at a field the form does
- * not even show.
- */
-function duplicateMessage(message) {
-  if (!message) return null
-  if (message.includes('super admin')) {
-    return 'Only a super admin can grant or remove the admin and super admin roles.'
-  }
-  if (!message.includes('duplicate key') && !message.includes('unique constraint')) return null
-
-  const byIndex = [
-    ['employees_code_key', 'That employee code is already used. Codes must be unique.'],
-    ['employees_name_unique_idx', 'An employee with this name already exists. Names must be unique.'],
-    ['employees_si_no_unique_idx', 'That S.I. No. is already used by another employee.'],
-    ['employees_username_idx', 'That email is already used by another employee.'],
-    ['employees_email_lower_idx', 'That email is already used by another employee.'],
-  ]
-  for (const [index, text] of byIndex) {
-    if (message.includes(index)) return text
-  }
-  return 'One of these values is already used by another employee.'
-}
 
 /**
  * Hands an administrator a temporary password to pass on in person.

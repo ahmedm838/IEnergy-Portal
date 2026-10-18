@@ -10,7 +10,7 @@ import {
   dayLabel,
   hhmmToMinutes,
   hoursToHHMM,
-  isWeekend,
+  isRestDay,
   minutesToHHMM,
   payrollPeriod,
   payrollPeriodLabel,
@@ -70,6 +70,14 @@ export default function Attendance() {
   // typing it will then throw away.
   const employeeBlock = recordBlockReason(selectedEmployee)
   const readOnlyEmployee = employeeBlock !== null
+
+  // Rest days are per employee: some hold Friday and Saturday, some hold
+  // Friday alone, so a Saturday is time off for one person and an ordinary
+  // working day for the colleague beside them. The fill buttons, and the
+  // shading that marks a row as time off, both follow whoever is selected
+  // rather than a single company-wide assumption.
+  const weekend = selectedEmployee?.weekend === 'fri' ? 'fri' : 'fri_sat'
+  const restDay = useCallback((iso) => isRestDay(iso, weekend), [weekend])
 
   // Warn before losing unsaved edits to a browser navigation.
   useEffect(() => {
@@ -382,15 +390,15 @@ export default function Attendance() {
                     variant="secondary"
                     size="sm"
                     disabled={readOnlyEmployee}
-                    onClick={() => bulkFill('weekly_rest', isWeekend)}
+                    onClick={() => bulkFill('weekly_rest', restDay)}
                   >
-                    Fill Fri/Sat rest
+                    {weekend === 'fri' ? 'Fill Friday Rest' : 'Fill Fri/Sat Rest'}
                   </Button>
                   <Button
                     variant="secondary"
                     size="sm"
                     disabled={readOnlyEmployee}
-                    onClick={() => bulkFill('paid_day', (iso) => !isWeekend(iso))}
+                    onClick={() => bulkFill('paid_day', (iso) => !restDay(iso))}
                   >
                     Fill workdays
                   </Button>
@@ -436,6 +444,7 @@ export default function Attendance() {
                         typeById={lookups.typeById}
                         isDirty={dirty.has(iso)}
                         lock={locks.lockFor(iso)}
+                        isRest={restDay(iso)}
                         readOnly={readOnlyEmployee}
                         onChange={(patch) => update(iso, patch)}
                       />
@@ -451,9 +460,8 @@ export default function Attendance() {
   )
 }
 
-function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, onChange }) {
+function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, onChange }) {
   const type = row.attendance_type_id ? typeById.get(row.attendance_type_id) : null
-  const weekend = isWeekend(iso)
   // Two different reasons a row cannot be edited: the period is locked,
   // or the employee is not one that may be recorded. Both disable the
   // inputs; only the first earns the padlock, since the second is
@@ -482,7 +490,7 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, onChange }
           ? 'bg-subtle/40 opacity-70'
           : isDirty
             ? 'bg-tint-warning/60'
-            : weekend
+            : isRest
               ? 'bg-subtle/70'
               : 'hover:bg-hover',
       )}

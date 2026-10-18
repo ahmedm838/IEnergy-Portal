@@ -90,6 +90,19 @@ export function isFriday(iso) {
   return fromISODate(iso).getDay() === 5
 }
 
+/**
+ * Is this date a rest day for an employee on this weekend pattern?
+ *
+ * Employees hold either Friday and Saturday or Friday alone, so a
+ * Saturday is a rest day for one person and an ordinary working day for
+ * the colleague at the next desk. isWeekend below answers the company
+ * default and is kept for anything that has no employee in hand.
+ */
+export function isRestDay(iso, weekend = 'fri_sat') {
+  const day = fromISODate(iso).getDay()
+  return weekend === 'fri' ? day === 5 : day === 5 || day === 6
+}
+
 export function isWeekend(iso) {
   const day = fromISODate(iso).getDay()
   return day === 5 || day === 6 // Fri/Sat — the Egyptian working week
