@@ -407,11 +407,13 @@ body {
 /* ---------------------------------------------------------------------
    Theme toggle.
 
-   Fixed top right on every page, including over the sign-in gate, which
-   is itself fixed and would otherwise cover it.
+   Sits at the top right of the page and scrolls away with it, rather
+   than riding along over the content. Absolute with no positioned
+   ancestor anchors it to the document, so it still sits above the
+   sign-in gate, which is itself fixed across the viewport.
    --------------------------------------------------------------------- */
 .theme-toggle {
-  position: fixed;
+  position: absolute;
   top: 14px;
   right: 14px;
   z-index: 2000;

@@ -58,7 +58,6 @@ const DOCUMENTS = [
   ['doc_medical_form_111', 'Medical form No. 111'],
   ['doc_si_record_copy', 'SI record (copy)'],
   ['doc_si_form_1', 'SI form 1 (copy)'],
-  ['doc_si_form_6', 'SI form 6 (copy)'],
   ['doc_contract', 'Contract'],
 ]
 
