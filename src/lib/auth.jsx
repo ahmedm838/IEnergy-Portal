@@ -269,12 +269,47 @@ export function AuthProvider({ children }) {
           email: await resolveEmail(identifier),
           password,
         }),
-      signOut: () => {
+      /**
+       * Sign out, and mean it.
+       *
+       * The old version returned supabase.auth.signOut() and trusted it.
+       * That call revokes the session on the server, and when the server
+       * refuses -- an expired or already-rotated refresh token answers
+       * 403 session_not_found, which is exactly the state someone is in
+       * after sitting idle -- it reports the error and leaves the stored
+       * token where it is. No SIGNED_OUT event follows, so the context
+       * keeps its session and the next page load restores it from
+       * storage. The button appeared to do nothing.
+       *
+       * So: ask the server to revoke, but never depend on the answer.
+       * What actually keeps someone signed in is the entry in
+       * localStorage, and that is removed either way.
+       */
+      signOut: async () => {
         // Reference data is cached at module scope for the session. Two
         // people signing in from the same browser must not inherit each
         // other's, even though RLS would have filtered it the same way.
         clearLookupsCache()
-        return supabase.auth.signOut()
+
+        try {
+          const { error } = await supabase.auth.signOut()
+          if (error) throw error
+        } catch {
+          // Server unreachable, or it does not recognise the session any
+          // more. Either way this browser is done with it.
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+        }
+        purgeStoredSession()
+
+        // onAuthStateChange is what normally clears these, and it does not
+        // fire when the call above failed. Clearing them here means the UI
+        // leaves immediately instead of waiting for an event that may
+        // never come.
+        loadedForUser.current = null
+        setSession(null)
+        setProfile(null)
+        setProfileError(null)
+        setProfileLoading(false)
       },
     }
   }, [session, profile, profileError, linkError, profileLoading, passwordLinkPending, loading, loadProfile])

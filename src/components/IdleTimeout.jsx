@@ -53,6 +53,22 @@ export default function IdleTimeout() {
   const { session, signOut } = useAuth()
   const navigate = useNavigate()
 
+  // Held in refs so the countdown below does not depend on their identity.
+  // The auth context rebuilds its value whenever the session object
+  // changes, and supabase-js replaces that object on every token refresh
+  // -- which happens on a timer and on tab focus, with nobody touching
+  // anything. Depending on them restarted the effect, and the effect
+  // resets the clock, so an idle tab could have its ten minutes quietly
+  // extended by a refresh it never saw.
+  const signOutRef = useRef(signOut)
+  const navigateRef = useRef(navigate)
+  signOutRef.current = signOut
+  navigateRef.current = navigate
+
+  // The identity that matters is who is signed in, not which token object
+  // currently represents them.
+  const userId = session?.user?.id ?? null
+
   const lastActivity = useRef(Date.now())
   const warningRef = useRef(false)
   const signingOut = useRef(false)
@@ -76,7 +92,7 @@ export default function IdleTimeout() {
   }, [])
 
   useEffect(() => {
-    if (!session) return undefined
+    if (!userId) return undefined
 
     lastActivity.current = Date.now()
     writeShared(Date.now())
@@ -113,9 +129,9 @@ export default function IdleTimeout() {
         signingOut.current = true
         clearInterval(tick)
         try {
-          await signOut()
+          await signOutRef.current()
         } finally {
-          navigate('/login', { replace: true, state: { reason: 'idle' } })
+          navigateRef.current('/login', { replace: true, state: { reason: 'idle' } })
         }
         return
       }
@@ -135,7 +151,7 @@ export default function IdleTimeout() {
       window.removeEventListener('storage', onStorage)
       clearInterval(tick)
     }
-  }, [session, markActive, signOut, navigate])
+  }, [userId, markActive])
 
   if (!warning) return null
 
