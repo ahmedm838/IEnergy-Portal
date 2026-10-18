@@ -124,6 +124,19 @@ export default function EmployeeReport() {
           : (lookups.types?.find((t) => `type:${t.id}` === dayFilter)?.name_en ?? 'Filtered')
 
   const employee = employees.find((e) => e.id === employeeId) || null
+
+  /**
+   * Hours owed mean nothing for someone paid overtime.
+   *
+   * With the Overtime switch on, extra hours are paid rather than measured
+   * against a quota, so "required hours", what they worked against it, the
+   * resulting excess or shortage, and the average clock times are not a
+   * standard this employee is held to. Showing numbers there invites
+   * somebody to read a shortage into a month that was never short. The
+   * Hours report covers the opposite case -- the employees whose switch is
+   * off, where the comparison is the whole point.
+   */
+  const hoursNotRequired = !!employee?.has_overtime
   const currency = lookups.currency
 
   const exportColumns = useMemo(
@@ -156,15 +169,21 @@ export default function EmployeeReport() {
         ['Site', employee.sites?.name ?? ''],
         ['Department', employee.departments?.name ?? ''],
         ['Working days', summary.working_days],
-        ['Required hours', Number(summary.required_hours)],
-        ['Worked hours', Number(summary.worked_hours)],
-        ['Excess / shortage (hours)', Number(summary.hours_variance)],
+        // The same rule as on screen: a file that still carried the
+        // numbers would be read as the real answer the moment it left
+        // this page.
+        ['Required hours', hoursNotRequired ? 'Not required' : Number(summary.required_hours)],
+        ['Worked hours', hoursNotRequired ? 'Not required' : Number(summary.worked_hours)],
+        [
+          'Excess / shortage (hours)',
+          hoursNotRequired ? 'Not required' : Number(summary.hours_variance),
+        ],
         ['Total late', minutesToHHMM(summary.late_minutes)],
         [`Total transport (${currency})`, Number(summary.transport_total)],
         ['Overtime hours', Number(summary.overtime_hours)],
         ['Meal units', Number(summary.meal_units)],
-        ['Average clock in', summary.avg_clock_in ?? '—'],
-        ['Average clock out', summary.avg_clock_out ?? '—'],
+        ['Average clock in', hoursNotRequired ? 'Not required' : summary.avg_clock_in ?? '—'],
+        ['Average clock out', hoursNotRequired ? 'Not required' : summary.avg_clock_out ?? '—'],
         ['Absence days', summary.absence_days],
         ['Absence penalty (days)', Number(summary.absence_penalty)],
         ...(filterLabel ? [['Rows below filtered to', filterLabel]] : []),
@@ -285,16 +304,29 @@ export default function EmployeeReport() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
               label="Required hours"
-              value={num(summary.required_hours)}
-              sub={`${summary.working_days} working days × ${lookups.requiredHoursPerDay} h`}
+              value={hoursNotRequired ? 'Not required' : num(summary.required_hours)}
+              sub={
+                hoursNotRequired
+                  ? 'Overtime is paid'
+                  : `${summary.working_days} working days × ${lookups.requiredHoursPerDay} h`
+              }
             />
-            <Stat label="Total working hours" value={num(summary.worked_hours)} />
+            <Stat
+              label="Total working hours"
+              value={hoursNotRequired ? 'Not required' : num(summary.worked_hours)}
+              sub={hoursNotRequired ? 'Overtime is paid' : undefined}
+            />
             <Stat
               label="Excess / shortage"
-              value={`${Number(summary.hours_variance) >= 0 ? '+' : ''}${num(
-                summary.hours_variance,
-              )} h`}
-              tone={Number(summary.hours_variance) >= 0 ? 'good' : 'bad'}
+              value={
+                hoursNotRequired
+                  ? 'Not required'
+                  : `${Number(summary.hours_variance) >= 0 ? '+' : ''}${num(summary.hours_variance)} h`
+              }
+              sub={hoursNotRequired ? 'Overtime is paid' : undefined}
+              tone={
+                hoursNotRequired ? undefined : Number(summary.hours_variance) >= 0 ? 'good' : 'bad'
+              }
             />
             <Stat label="Total late hours" value={minutesToHHMM(summary.late_minutes)} />
             <Stat
@@ -304,8 +336,12 @@ export default function EmployeeReport() {
             <Stat label="Overtime hours" value={num(summary.overtime_hours)} />
             <Stat
               label="Average clock in"
-              value={summary.avg_clock_in ?? '—'}
-              sub={`Average clock out ${summary.avg_clock_out ?? '—'}`}
+              value={hoursNotRequired ? 'Not required' : summary.avg_clock_in ?? '—'}
+              sub={
+                hoursNotRequired
+                  ? 'Overtime is paid'
+                  : `Average clock out ${summary.avg_clock_out ?? '—'}`
+              }
             />
             <Stat
               label="Absence penalty"
