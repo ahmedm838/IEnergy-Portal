@@ -3,167 +3,119 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="description" content="Employee Database - lookup employee master data" />
+  <meta name="description" content="Employee Database - add and edit employee master data" />
   <title>iEnergy | Employee Database</title>
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=4" />
-  <link rel="stylesheet" href="employee-database.css?v=11" />
+  <link rel="stylesheet" href="employee-database.css?v=20" />
   <script src="../theme.js?v=1"></script>
 </head>
 <body>
-  <!-- App -->
-<main id="app" class="container">
-    <header class="hero">
-      <div class="hero-text">
-        <div class="pill">Tools Portal</div>
-        <h1>Employee Database</h1>
-        <p class="tagline">Search employee master data by code or name.</p>
-        <div class="meta">
-          <span id="xlsxStatus" class="meta-item">Excel: not loaded</span>
-          <span class="meta-dot">•</span>
-          <span class="meta-item">Session auto-lock: 10 minutes</span>
+  <!-- Unlike the rest of the portal this is a real sign-in. The page reads
+       and writes the employees table, so the account is the one from the
+       Attendance Tracker and the database decides what it may do from the
+       role on that person's own record. A password in the page source,
+       which is what guards the other pages, would be no guard at all here. -->
+  <div class="auth" id="gate">
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">&larr; iEnergy Home</a>
+          <h1>Employee Database</h1>
+          <p>Sign in with your Attendance Tracker account.</p>
         </div>
-        <p style="margin:12px 0 0;">
-          <a class="tile" style="display:inline-block;padding:10px 12px;" href="../index.html">← Back to Home</a>
-        </p>
       </div>
-      <img class="hero-logo" src="../logo.jpg" alt="iEnergy logo" />
+
+      <form id="signInForm">
+        <label class="field">
+          <span>Email or username</span>
+          <input id="emailInput" class="auth-input" type="text" autocomplete="username"
+                 placeholder="name@ienergyegypt.com" required />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" required />
+        </label>
+        <div class="auth-actions">
+          <button class="btn primary" type="submit" id="signInBtn">Sign in</button>
+        </div>
+        <div id="authError" class="auth-error" hidden></div>
+        <p class="auth-note">
+          The same account as the Attendance Tracker. Only an administrator can change records here.
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <main class="container" id="app" hidden>
+    <header class="hero hero-compact">
+      <div class="hero-text">
+        <a class="link" href="../index.html">&larr; iEnergy Home</a>
+        <h1>Employee Database</h1>
+        <p class="tagline" id="whoami"></p>
+      </div>
+      <button class="btn" type="button" id="signOutBtn">Sign out</button>
     </header>
 
-    <section class="panel">
-      <div class="panel-top">
-        <div class="panel-actions">
-          <button id="btnReload" class="tile small" type="button" title="Reload Excel file">Reload Excel</button>
+    <section class="section">
+      <div class="totals">
+        <div class="total">
+          <div class="total-label">Listed employees</div>
+          <div class="total-value" id="totalListed">&mdash;</div>
+        </div>
+        <div class="total">
+          <div class="total-label">On board</div>
+          <div class="total-value" id="totalOnBoard">&mdash;</div>
+        </div>
+        <div class="total">
+          <div class="total-label">Complete files</div>
+          <div class="total-value" id="totalComplete">&mdash;</div>
         </div>
       </div>
+    </section>
 
-      <div class="search-row">
-        <input id="searchInput" class="search-input" type="text" autocomplete="off" placeholder="Type employee name or code..." />
-        <button id="btnSearch" class="primary small" type="button">Search</button>
+    <section class="section">
+      <div class="row-between">
+        <h2>Find an employee</h2>
+        <button class="btn primary" type="button" id="newBtn">New employee</button>
       </div>
-
-      <div id="hint" class="hint" role="status" aria-live="polite"></div>
-
+      <p class="section-sub">Search by code, or by name in English or Arabic.</p>
+      <div class="search-row">
+        <input class="input" id="searchInput" type="text" placeholder="Code or name&hellip;" autocomplete="off" />
+        <button class="btn" type="button" id="clearBtn">Clear</button>
+      </div>
+      <div class="hint" id="searchHint">Type to search.</div>
       <div id="matches" class="matches" hidden>
-        <div class="matches-title">Matches</div>
         <div id="matchesList" class="matches-list"></div>
       </div>
     </section>
 
-    <section id="result" class="result" hidden>
-      <div class="result-head">
-        <div class="result-title">
-          <h2 id="rTitle">Employee Details</h2>
-          <div id="rSubtitle" class="result-subtitle"></div>
-        </div>
-        <div class="result-actions">
-          <button id="btnClear" class="tile small" type="button">Clear</button>
-        </div>
+    <section class="section" id="editor" hidden>
+      <div class="row-between">
+        <h2 id="editorTitle">Employee</h2>
+        <div id="fileStatus" class="file-status"></div>
       </div>
-
-      <div class="kv-grid">
-        <div class="kv"><div class="k">Employee Code</div><div id="rCode" class="v">—</div></div>
-        <div class="kv"><div class="k">Employee Name</div><div id="rName" class="v">—</div></div>
-        <div class="kv"><div class="k">Position</div><div id="rPosition" class="v">—</div></div>
-        <div class="kv"><div class="k">Department</div><div id="rDept" class="v">—</div></div>
-      </div>
-
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr><th style="width:38%;">Field</th><th>Value</th></tr>
-          </thead>
-          <tbody id="fieldsBody"></tbody>
-        </table>
+      <div id="formError" class="auth-error" hidden></div>
+      <div id="formNotice" class="form-notice" hidden></div>
+      <form id="employeeForm" autocomplete="off"></form>
+      <div class="form-actions">
+        <button class="btn primary" type="button" id="saveBtn">Save</button>
+        <button class="btn" type="button" id="cancelBtn">Cancel</button>
       </div>
     </section>
 
-    <footer class="footer">
-      <div>© <span id="year"></span> iEnergy</div>
-      <div class="footnote">Excel file is loaded client-side in your browser.</div>
-    </footer>
+    <div class="footer-contact">
+      <div class="footer-line1">CPC industrial park, Building 17,40, Northern Extension, Industrial Zone, 6th of October City, Giza, Egypt.</div>
+      <div class="footer-line2">
+        <span class="label">Head Office Tel.:</span> <span class="value">+202 3864 4921 / +202 3864 4922</span>
+        <span class="label">Fax:</span> <span class="value">+202 3864 4921</span>
+        <span class="label">Email:</span> <span class="value">info@ienergyegypt.com</span>
+      </div>
+    </div>
+    <div class="footer">&copy; <span id="year"></span> iEnergy. Internal use.</div>
   </main>
 
-  <!-- SheetJS (XLSX) loader with CDN fallbacks -->
-  <script>
-    (function () {
-      'use strict';
-      const candidates = [
-        'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
-        'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-        'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
-      ];
-
-      function loadScript(src) {
-        return new Promise((resolve, reject) => {
-          const s = document.createElement('script');
-          s.src = src;
-          s.async = true;
-          s.onload = () => resolve(true);
-          s.onerror = () => reject(new Error('Failed to load ' + src));
-          document.head.appendChild(s);
-        });
-      }
-
-      async function ensureXLSX() {
-        if (window.XLSX) return true;
-        for (const src of candidates) {
-          try {
-            await loadScript(src);
-            if (window.XLSX) return true;
-          } catch (e) { /* try next */ }
-        }
-        return false;
-      }
-
-      window.__ensureXLSX = ensureXLSX;
-    })();
-  </script>
-
-  <!-- XlsxPopulate loader (supports password-protected workbooks) -->
-  <script>
-    (function () {
-      'use strict';
-      const candidates = [
-        'https://cdnjs.cloudflare.com/ajax/libs/xlsx-populate/1.21.0/xlsx-populate.min.js'
-      ];
-
-      function loadScript(src) {
-        return new Promise((resolve, reject) => {
-          const s = document.createElement('script');
-          s.src = src;
-          s.async = true;
-          s.onload = () => resolve(true);
-          s.onerror = () => reject(new Error('Failed to load ' + src));
-          document.head.appendChild(s);
-        });
-      }
-
-      async function ensureXlsxPopulate() {
-        if (window.XlsxPopulate && window.XlsxPopulate.fromDataAsync) return true;
-        for (const src of candidates) {
-          try {
-            await loadScript(src);
-            if (window.XlsxPopulate && window.XlsxPopulate.fromDataAsync) return true;
-          } catch (e) { /* try next */ }
-        }
-        return false;
-      }
-
-      window.__ensureXlsxPopulate = ensureXlsxPopulate;
-    })();
-  </script>
-  <script src="../auth.js?v=2"></script>
-  <script>
-    (function () {
-      'use strict';
-      document.addEventListener('DOMContentLoaded', () => {
-        IEnergyAuth.ensureAuth({ allowedRoles: ['admin', 'user'], homeHref: '../index.html' });
-      });
-    })();
-  </script>
-
-  <script src="employee-database.js?v=12"></script>
+  <script type="module" src="employee-database.js?v=20"></script>
 </body>
 </html>

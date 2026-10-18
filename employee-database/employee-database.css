@@ -267,3 +267,109 @@
   font-size: 13px;
 }
 .footnote { opacity: 0.85; }
+
+/* ---------------------------------------------------------------------
+   Database editor.
+
+   Added when the page stopped being a spreadsheet viewer and became the
+   place employees are created and edited. Colours come from the theme
+   variables in home.css, so this follows the light/dark switch with the
+   rest of the portal.
+   --------------------------------------------------------------------- */
+
+.hero-compact { padding: 18px; }
+
+.link { color: inherit; text-decoration: none; opacity: 0.85; }
+.link:hover { opacity: 1; text-decoration: underline; }
+
+.row-between {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 560px) { .totals { grid-template-columns: 1fr; } }
+
+.total {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--fill-1);
+  padding: 14px;
+}
+.total-label { color: var(--muted); font-size: 12.5px; }
+.total-value { font-size: 26px; font-weight: 750; margin-top: 4px; }
+
+.input {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+.input:focus { border-color: var(--accent-line-strong); box-shadow: 0 0 0 3px var(--accent-ring); }
+.input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* The record, grouped. A fieldset per section keeps forty-odd inputs
+   navigable, and the legend gives each group a heading screen readers
+   announce. */
+.db-group {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px 16px;
+  margin: 0 0 14px;
+}
+.db-group > legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.db-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.db-field { display: flex; flex-direction: column; gap: 5px; }
+.db-label { font-size: 12.5px; font-weight: 650; color: var(--text-80); }
+.db-hint, .db-derived { font-size: 12px; color: var(--muted); }
+.db-derived { font-weight: 650; }
+.db-derived.bad { color: var(--danger-text); }
+
+.db-field .db-check { width: 18px; height: 18px; align-self: flex-start; margin-top: 4px; }
+
+.db-docs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px 14px;
+}
+.db-doc { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.db-doc input { width: 17px; height: 17px; }
+
+.file-status { font-size: 12.5px; font-weight: 650; max-width: 60ch; text-align: right; }
+.file-status.good { color: var(--on-success, #3ee088); }
+.file-status.bad { color: var(--muted); }
+
+.form-actions { display: flex; gap: 10px; margin-top: 4px; }
+
+.form-notice {
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--success-line);
+  color: var(--text);
+  font-weight: 650;
+}

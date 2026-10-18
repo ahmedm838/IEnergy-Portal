@@ -1,777 +1,711 @@
 /* Employee Database
-   - Role protected (Admin only)
-   - Reads an Excel file in the browser (default: ./employees.xlsm)
-   - Search by Employee Code (exact) or Employee Name (contains)
-   - Displays all columns for the selected employee row
+   - Real Supabase sign-in: the account is the Attendance Tracker one, and
+     row level security decides what it may read and write. The portal's
+     other pages use a password held in their own source, which would be
+     meaningless on a page that edits the table controlling access.
+   - Add and edit the full personnel record.
+   - Birth date, gender, governorate, insurance title and file status come
+     from the database view rather than being recomputed here, so this page
+     and the reports cannot disagree about them.
 */
-(function () {
-  'use strict';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
 
-  function $(id) { return document.getElementById(id); }
+const SUPABASE_URL = 'https://ednaedkurjsgvjrvayys.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkbmFlZGt1cmpzZ3ZqcnZheXlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5ODIzNzYsImV4cCI6MjEwNzU1ODM3Nn0.VvBg4YtwZsjmgmTxbf3vin3Oq_WyNTeioz6m-FRQLzA'
 
-  let appInited = false;
+/* The tracker is on this same origin, so it shares this storage and
+   therefore this session: signing in here signs you into the tracker too,
+   and its ten minute idle timeout ends both. That is deliberate -- one
+   account, one session, one place to revoke it. */
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+})
 
-  function initOnce() {
-    if (appInited) return;
-    appInited = true;
-    initApp();
+const $ = (id) => document.getElementById(id)
+const MIN_CODE = 100000
+
+let me = null
+let lookups = {}
+let current = null
+let searchTimer = null
+let searchSeq = 0
+
+/* ------------------------------------------------------------------ */
+/* Shared shapes                                                       */
+/* ------------------------------------------------------------------ */
+
+const mobileDigits = (v) => String(v ?? '').replace(/\D/g, '').slice(0, 11)
+function formatMobile(v) {
+  const d = mobileDigits(v)
+  if (d.length <= 3) return d
+  if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`
+}
+const validMobile = (v) => /^0\d{2}-\d{4}-\d{4}$/.test(String(v ?? ''))
+const filterValue = (q) => String(q).replace(/[\\"*%]/g, ' ').replace(/\s+/g, ' ').trim()
+
+/* ------------------------------------------------------------------ */
+/* The record, described once and rendered from the description        */
+/* ------------------------------------------------------------------ */
+
+const DOCUMENTS = [
+  ['doc_graduation_certificate', 'Graduation certificate'],
+  ['doc_military_certificate', 'Military certificate'],
+  ['doc_birth_certificate', 'Birth certificate'],
+  ['doc_fingerprint_record', 'Finger print record'],
+  ['doc_id_copy', 'ID (copy)'],
+  ['doc_personal_photos', '6 personal photos'],
+  ['doc_medical_form_111', 'Medical form No. 111'],
+  ['doc_si_record_copy', 'SI record (copy)'],
+  ['doc_si_form_1', 'SI form 1 (copy)'],
+  ['doc_si_form_6', 'SI form 6 (copy)'],
+  ['doc_contract', 'Contract'],
+]
+
+const GROUPS = [
+  {
+    title: 'Identity',
+    fields: [
+      { key: 'code', label: 'Code', type: 'number', required: true, hint: 'At least 6 digits.' },
+      { key: 'name', label: 'Name (English)', type: 'text', required: true },
+      { key: 'arabic_name', label: 'Arabic name as in ID', type: 'text', dir: 'rtl', hint: 'Arabic letters only.' },
+      { key: 'national_id', label: 'ID No.', type: 'text', derives: true },
+      { key: 'id_expiry_date', label: 'ID expiry date', type: 'date' },
+      { key: 'si_no', label: 'S.I. No.', type: 'text' },
+    ],
+  },
+  {
+    title: 'Employment',
+    fields: [
+      { key: 'title', label: 'Job title', type: 'text' },
+      { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
+      { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
+      { key: 'status_id', label: 'Status', type: 'select', source: 'statuses' },
+      { key: 'hired_on', label: 'Hiring date', type: 'date' },
+      { key: 'weekend', label: 'Weekend', type: 'select', options: [['fri_sat', 'Friday + Saturday'], ['fri', 'Friday only']] },
+      { key: 'bus_route_id', label: 'Bus route', type: 'select', source: 'busRoutes' },
+      { key: 'is_active', label: 'Active', type: 'checkbox' },
+    ],
+  },
+  {
+    title: 'Social insurance',
+    fields: [
+      { key: 'si_date', label: 'S.I. date', type: 'date' },
+      { key: 'si_code', label: 'S.I. code', type: 'sicode' },
+      { key: 'si_basic_wage', label: 'S.I. basic wage', type: 'number', hint: '5,500 to 99,999.' },
+      { key: 'si_gross_wage', label: 'S.I. gross wage', type: 'number', hint: '7,100 to 99,999.' },
+    ],
+  },
+  {
+    title: 'Contact',
+    fields: [
+      { key: 'email', label: 'Email', type: 'text' },
+      { key: 'company_mobile', label: 'Company mobile', type: 'mobile' },
+      { key: 'personal_mobile', label: 'Personal mobile', type: 'mobile' },
+      { key: 'secondary_mobile', label: 'Secondary mobile', type: 'mobile' },
+      { key: 'secondary_mobile_name', label: 'Secondary number belongs to', type: 'text' },
+      { key: 'office_number', label: 'Office number', type: 'text' },
+    ],
+  },
+  {
+    title: 'Personal',
+    fields: [
+      { key: 'military_service', label: 'Military service', type: 'select', options: [['Served', 'Served'], ['Postponed', 'Postponed'], ['Exempted', 'Exempted']] },
+      { key: 'marital_status', label: 'Marital status', type: 'select', options: [['Single', 'Single'], ['Married', 'Married'], ['Divorced', 'Divorced']] },
+      { key: 'religion', label: 'Religion', type: 'select', options: [['Muslim', 'Muslim'], ['Christian', 'Christian']] },
+      { key: 'qualification_degree_id', label: 'Qualification degree', type: 'select', source: 'degrees' },
+      { key: 'education_field', label: 'Education field', type: 'text' },
+    ],
+  },
+  {
+    title: 'Leaving',
+    fields: [
+      { key: 'notice_date', label: 'Notice date', type: 'date' },
+      { key: 'resignation_date', label: 'Resignation date', type: 'date' },
+      { key: 'resignation_reason', label: 'Resignation reason', type: 'text' },
+    ],
+  },
+]
+
+/** Columns this page writes. Everything else on the row it leaves alone. */
+const WRITABLE = [
+  ...GROUPS.flatMap((g) => g.fields.map((f) => f.key)),
+  ...DOCUMENTS.map(([key]) => key),
+]
+
+/* ------------------------------------------------------------------ */
+/* Sign in                                                             */
+/* ------------------------------------------------------------------ */
+
+function showAuthError(message) {
+  const el = $('authError')
+  el.textContent = message || ''
+  el.hidden = !message
+}
+
+async function resolveEmail(identifier) {
+  const value = String(identifier ?? '').trim()
+  if (!value || value.includes('@')) return value
+  // Usernames are the part before @ on the company domain. If that domain
+  // cannot be read before signing in, say so rather than guessing one and
+  // failing with "invalid credentials", which blames the password.
+  const { data, error } = await supabase.rpc('default_email_domain')
+  if (error || !data) throw new Error('Enter your full email address.')
+  return `${value}@${data}`
+}
+
+$('signInForm').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  showAuthError('')
+  const btn = $('signInBtn')
+  btn.disabled = true
+  btn.textContent = 'Signing in…'
+  try {
+    const email = await resolveEmail($('emailInput').value)
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: $('passwordInput').value,
+    })
+    if (error) throw error
+    $('passwordInput').value = ''
+    await start()
+  } catch (err) {
+    showAuthError(
+      err.message === 'Invalid login credentials'
+        ? 'That email and password do not match an account.'
+        : err.message,
+    )
+  } finally {
+    btn.disabled = false
+    btn.textContent = 'Sign in'
+  }
+})
+
+$('signOutBtn').addEventListener('click', async () => {
+  // Same reasoning as the tracker: ask the server to revoke, but never
+  // depend on it. What keeps someone signed in is the stored token.
+  try {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+  } catch {
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+  }
+  location.reload()
+})
+
+/* ------------------------------------------------------------------ */
+/* Loading                                                             */
+/* ------------------------------------------------------------------ */
+
+async function loadLookups() {
+  const q = (table, select, order) => supabase.from(table).select(select).order(order)
+  const [sites, departments, statuses, degrees, busRoutes] = await Promise.all([
+    q('sites', 'id, name', 'sort_order'),
+    q('departments', 'id, name', 'sort_order'),
+    q('employee_statuses', 'id, name', 'sort_order'),
+    q('qualification_degrees', 'id, name_en, name_ar', 'sort_order'),
+    q('bus_routes', 'id, name', 'sort_order'),
+  ])
+  const rows = (r) => (r.error ? [] : r.data ?? [])
+  lookups = {
+    ...lookups,
+    sites: rows(sites).map((r) => [r.id, r.name]),
+    departments: rows(departments).map((r) => [r.id, r.name]),
+    statuses: rows(statuses).map((r) => [r.id, r.name]),
+    degrees: rows(degrees).map((r) => [r.id, `${r.name_en} — ${r.name_ar}`]),
+    busRoutes: rows(busRoutes).map((r) => [r.id, r.name]),
+  }
+}
+
+async function loadTotals() {
+  const count = async (apply) => {
+    const { count: n, error } = await apply(
+      supabase.from('employee_profiles').select('id', { count: 'exact', head: true }),
+    )
+    return error ? null : n
+  }
+  const [listed, onBoard, complete] = await Promise.all([
+    count((q) => q),
+    count((q) => q.eq('is_active', true)),
+    count((q) => q.eq('file_complete', true)),
+  ])
+  $('totalListed').textContent = listed ?? '—'
+  $('totalOnBoard').textContent = onBoard ?? '—'
+  $('totalComplete').textContent = complete ?? '—'
+}
+
+async function start() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    $('gate').hidden = false
+    $('app').hidden = true
+    return
   }
 
-// -----------------------------
-  // Excel loading + search
-  // -----------------------------
-  const EXCEL_PASSWORD = 'iEnergy25'; // Excel workbook open password
-  const DEFAULT_XLSX_PATH = './employees.xlsm';
-  const FALLBACK_XLSX_PATHS = [
-    DEFAULT_XLSX_PATH,
-    './employees.xlsx'
-  ];
+  const { data, error } = await supabase
+    .from('employees')
+    .select('id, code, name, role')
+    .eq('auth_user_id', user.id)
+    .maybeSingle()
 
-  let rows = [];
-  let index = [];
-  let headerOrder = []; // { row, code, name, normCode, normName }
-  let loadedFrom = null;
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+  if (error || !data) {
+    showAuthError(
+      'That account signed in but is not linked to an employee record, so it cannot read the database.',
+    )
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    $('gate').hidden = false
+    $('app').hidden = true
+    return
   }
 
-  // (Legacy) Name suggestions via browser-native datalist.
-  // The portal uses the Matches panel instead, so this is a no-op unless a
-  // datalist is reintroduced.
-  function updateNameSuggestions() {
-    const dl = $('nameSuggestions');
-    if (!dl) return;
+  me = data
+  const canEdit = me.role === 'admin' || me.role === 'super_admin'
+  $('whoami').textContent = canEdit
+    ? `Signed in as ${me.name} (${me.role === 'super_admin' ? 'super admin' : 'administrator'}).`
+    : `Signed in as ${me.name}. Your role is read-only here — the database refuses changes.`
+  $('newBtn').hidden = !canEdit
+  $('saveBtn').hidden = !canEdit
 
-    const names = index.map(it => it.name).filter(Boolean);
-    const uniq = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
-    dl.innerHTML = uniq.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
+  $('gate').hidden = true
+  $('app').hidden = false
+  $('year').textContent = new Date().getFullYear()
+
+  await loadLookups()
+  await loadTotals()
+}
+
+/* ------------------------------------------------------------------ */
+/* Search                                                              */
+/* ------------------------------------------------------------------ */
+
+async function runSearch(term) {
+  const safe = filterValue(term)
+  if (!safe) {
+    $('matches').hidden = true
+    $('searchHint').textContent = 'Type to search.'
+    return
   }
+  const seq = ++searchSeq
+  $('searchHint').textContent = 'Searching…'
 
-  function setHint(msg, isError) {
-    const el = $('hint');
-    if (!el) return;
-    el.textContent = msg || '';
-    el.classList.toggle('error', !!isError);
+  const pattern = `"*${safe}*"`
+  const parts = [`name.ilike.${pattern}`, `arabic_name.ilike.${pattern}`]
+  if (/^\d+$/.test(safe)) parts.push(`code.eq.${safe}`)
+
+  const { data, error } = await supabase
+    .from('employee_profiles')
+    .select('id, code, name, arabic_name, title, is_active, file_complete')
+    .or(parts.join(','))
+    .order('code')
+    .limit(25)
+
+  if (seq !== searchSeq) return
+  if (error) {
+    $('searchHint').textContent = `Could not search: ${error.message}`
+    $('matches').hidden = true
+    return
   }
+  renderMatches(data ?? [], safe)
+}
 
-  function setStatus(msg) {
-    const el = $('xlsxStatus');
-    if (el) el.textContent = msg;
+function renderMatches(rows, term) {
+  const list = $('matchesList')
+  list.innerHTML = ''
+  if (!rows.length) {
+    $('matches').hidden = true
+    $('searchHint').textContent = `No employee matches “${term}”.`
+    return
   }
-
-  function normStr(v) {
-    if (v === null || v === undefined) return '';
-    return String(v).replace(/\s+/g, ' ').trim();
+  $('searchHint').textContent = `${rows.length}${rows.length === 25 ? '+' : ''} match${rows.length === 1 ? '' : 'es'}.`
+  for (const row of rows) {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'match-item'
+    btn.innerHTML =
+      '<div class="match-top"><div class="match-name"></div><div class="match-code"></div></div>' +
+      '<div class="match-sub"></div>'
+    btn.querySelector('.match-name').textContent = row.name || row.arabic_name || '—'
+    btn.querySelector('.match-code').textContent = row.code ?? '—'
+    const bits = [row.title, row.is_active ? null : 'inactive', row.file_complete ? null : 'file incomplete']
+    btn.querySelector('.match-sub').textContent = bits.filter(Boolean).join(' • ') || '—'
+    btn.addEventListener('click', () => openEmployee(row.id))
+    list.appendChild(btn)
   }
+  $('matches').hidden = false
+}
 
-  function normKey(v) {
-    return normStr(v).toLowerCase();
+$('searchInput').addEventListener('input', (e) => {
+  const term = e.target.value
+  clearTimeout(searchTimer)
+  if (!term.trim()) {
+    searchSeq++
+    $('matches').hidden = true
+    $('searchHint').textContent = 'Type to search.'
+    return
   }
+  searchTimer = setTimeout(() => runSearch(term), 220)
+})
 
-  // Resolve a header (which may have different whitespace/newlines) to the actual key used in the parsed row object.
-  function resolveHeaderKey(row, header) {
-    if (!row || !header) return header;
-    const target = normKey(header);
-    const keys = Object.keys(row);
-    const exact = keys.find(k0 => normKey(k0) === target);
-    return exact || header;
-  }
+$('clearBtn').addEventListener('click', () => {
+  clearTimeout(searchTimer)
+  searchSeq++
+  $('searchInput').value = ''
+  $('matches').hidden = true
+  $('searchHint').textContent = 'Type to search.'
+  $('searchInput').focus()
+})
 
-  // Use a clean label for display (Excel headers sometimes include newlines).
-  function prettyHeaderLabel(header) {
-    return normStr(header) || '';
-  }
+/* ------------------------------------------------------------------ */
+/* The form                                                            */
+/* ------------------------------------------------------------------ */
 
+function fieldControl(field, value) {
+  const wrap = document.createElement('label')
+  wrap.className = 'db-field'
+  const label = document.createElement('span')
+  label.className = 'db-label'
+  label.textContent = field.label + (field.required ? ' *' : '')
+  wrap.appendChild(label)
 
-  function pickField(row, candidates) {
-    // Try exact keys first
-    for (const c of candidates) {
-      if (Object.prototype.hasOwnProperty.call(row, c) && normStr(row[c])) return row[c];
+  let input
+  if (field.type === 'select') {
+    input = document.createElement('select')
+    input.className = 'input'
+    const options = field.options ?? lookups[field.source] ?? []
+    const blank = document.createElement('option')
+    blank.value = ''
+    blank.textContent = '—'
+    input.appendChild(blank)
+    for (const [val, text] of options) {
+      const opt = document.createElement('option')
+      opt.value = String(val)
+      opt.textContent = text
+      input.appendChild(opt)
     }
-    // Try fuzzy keys
-    const keys = Object.keys(row || {});
-    for (const c of candidates) {
-      const cNorm = normKey(c);
-      const k = keys.find(k0 => normKey(k0) === cNorm);
-      if (k && normStr(row[k])) return row[k];
+    input.value = value == null ? '' : String(value)
+  } else if (field.type === 'checkbox') {
+    input = document.createElement('input')
+    input.type = 'checkbox'
+    input.className = 'db-check'
+    input.checked = !!value
+  } else if (field.type === 'sicode') {
+    input = document.createElement('input')
+    input.className = 'input'
+    input.type = 'text'
+    input.setAttribute('list', 'siCodeList')
+    input.placeholder = 'Code or title…'
+    input.value = value ?? ''
+    input.addEventListener('input', () => siCodeLookup(input.value))
+  } else {
+    input = document.createElement('input')
+    input.className = 'input'
+    input.type = field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'
+    if (field.dir) input.dir = field.dir
+    input.value = value ?? ''
+    if (field.type === 'mobile') {
+      input.type = 'tel'
+      input.inputMode = 'numeric'
+      input.maxLength = 13
+      input.placeholder = '012-3456-7890'
+      input.value = value ? formatMobile(value) : ''
+      input.addEventListener('input', () => { input.value = formatMobile(input.value) })
     }
-    // Try contains
-    for (const c of candidates) {
-      const cNorm = normKey(c);
-      const k = keys.find(k0 => normKey(k0).includes(cNorm));
-      if (k && normStr(row[k])) return row[k];
+  }
+  input.id = `f_${field.key}`
+  input.dataset.key = field.key
+  wrap.appendChild(input)
+
+  if (field.derives) {
+    const derived = document.createElement('span')
+    derived.className = 'db-derived'
+    derived.id = 'derivedFromId'
+    wrap.appendChild(derived)
+    input.addEventListener('input', showDerived)
+  } else if (field.hint) {
+    const hint = document.createElement('span')
+    hint.className = 'db-hint'
+    hint.textContent = field.hint
+    wrap.appendChild(hint)
+  }
+  return wrap
+}
+
+/** Birth date, gender and governorate, shown as the ID is typed. */
+function showDerived() {
+  const el = $('derivedFromId')
+  if (!el) return
+  const id = String($('f_national_id')?.value ?? '').trim()
+  if (!/^[23]\d{13}$/.test(id)) {
+    el.textContent = id ? '14 digits starting with 2 or 3.' : 'Birth date, gender and governorate are read from this.'
+    el.classList.toggle('bad', !!id)
+    return
+  }
+  el.classList.remove('bad')
+  const year = (id[0] === '2' ? 1900 : 2000) + Number(id.slice(1, 3))
+  const month = Number(id.slice(3, 5))
+  const day = Number(id.slice(5, 7))
+  const gov = lookups.governorates?.[Number(id.slice(7, 9))]
+  const gender = Number(id[12]) % 2 === 1 ? 'Male' : 'Female'
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const real = date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  const shown = real
+    ? `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`
+    : 'birth date not a real day'
+  el.textContent = `${shown} · ${gender}${gov ? ` · ${gov}` : ''}`
+}
+
+async function siCodeLookup(term) {
+  const safe = filterValue(term)
+  if (safe.length < 2) return
+  const { data } = await supabase
+    .from('si_codes')
+    .select('code, title')
+    .or(`code.ilike."*${safe}*",title.ilike."*${safe}*"`)
+    .limit(20)
+  const list = $('siCodeList')
+  if (!list) return
+  list.innerHTML = ''
+  for (const row of data ?? []) {
+    const opt = document.createElement('option')
+    opt.value = row.code
+    opt.textContent = `${row.code} — ${row.title}`
+    list.appendChild(opt)
+  }
+}
+
+function renderForm(employee) {
+  current = employee
+  const form = $('employeeForm')
+  form.innerHTML = ''
+
+  const datalist = document.createElement('datalist')
+  datalist.id = 'siCodeList'
+  form.appendChild(datalist)
+
+  for (const group of GROUPS) {
+    const section = document.createElement('fieldset')
+    section.className = 'db-group'
+    const legend = document.createElement('legend')
+    legend.textContent = group.title
+    section.appendChild(legend)
+    const grid = document.createElement('div')
+    grid.className = 'db-grid'
+    for (const field of group.fields) grid.appendChild(fieldControl(field, employee[field.key]))
+    section.appendChild(grid)
+    form.appendChild(section)
+  }
+
+  // The eleven tick boxes decide whether the file counts as complete, so
+  // they read better as one block than scattered through the rest.
+  const docs = document.createElement('fieldset')
+  docs.className = 'db-group'
+  const legend = document.createElement('legend')
+  legend.textContent = 'Personnel file'
+  docs.appendChild(legend)
+  const docGrid = document.createElement('div')
+  docGrid.className = 'db-docs'
+  for (const [key, label] of DOCUMENTS) {
+    const wrap = document.createElement('label')
+    wrap.className = 'db-doc'
+    const box = document.createElement('input')
+    box.type = 'checkbox'
+    box.id = `f_${key}`
+    box.dataset.key = key
+    box.checked = !!employee[key]
+    box.addEventListener('change', updateFileStatus)
+    const text = document.createElement('span')
+    text.textContent = label
+    wrap.appendChild(box)
+    wrap.appendChild(text)
+    docGrid.appendChild(wrap)
+  }
+  docs.appendChild(docGrid)
+  form.appendChild(docs)
+
+  if (!(me?.role === 'admin' || me?.role === 'super_admin')) {
+    form.querySelectorAll('input, select').forEach((el) => { el.disabled = true })
+  }
+
+  showDerived()
+  updateFileStatus()
+  $('editorTitle').textContent = employee.id
+    ? `Edit ${employee.name || employee.arabic_name || 'employee'}`
+    : 'New employee'
+  $('editor').hidden = false
+  $('editor').scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function updateFileStatus() {
+  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).map(([, label]) => label)
+  const el = $('fileStatus')
+  if (!missing.length) {
+    el.textContent = 'File complete'
+    el.className = 'file-status good'
+  } else {
+    el.textContent = `Missing ${missing.length}: ${missing.join(', ')}`
+    el.className = 'file-status bad'
+  }
+}
+
+async function openEmployee(id) {
+  const { data, error } = await supabase.from('employee_profiles').select('*').eq('id', id).single()
+  if (error) {
+    $('searchHint').textContent = `Could not open that record: ${error.message}`
+    return
+  }
+  if (data.si_code) siCodeLookup(data.si_code)
+  $('formError').hidden = true
+  renderForm(data)
+}
+
+$('newBtn').addEventListener('click', () => {
+  $('formNotice').hidden = true
+  $('formError').hidden = true
+  renderForm({ weekend: 'fri_sat', is_active: true })
+})
+
+$('cancelBtn').addEventListener('click', () => {
+  $('editor').hidden = true
+  current = null
+})
+
+/* ------------------------------------------------------------------ */
+/* Saving                                                              */
+/* ------------------------------------------------------------------ */
+
+function readForm() {
+  const out = {}
+  for (const key of WRITABLE) {
+    const el = $(`f_${key}`)
+    if (!el) continue
+    if (el.type === 'checkbox') { out[key] = el.checked; continue }
+    const raw = String(el.value ?? '').trim()
+    out[key] = raw === '' ? null : raw
+  }
+  // Numbers and foreign keys must not cross as strings.
+  for (const key of ['code', 'site_id', 'department_id', 'status_id', 'bus_route_id',
+                     'qualification_degree_id', 'si_basic_wage', 'si_gross_wage']) {
+    if (out[key] != null) out[key] = Number(out[key])
+  }
+  return out
+}
+
+/** Mirrors the database's rules so the page can name the field at fault. */
+function validate(v) {
+  const problems = []
+  if (!v.code || !Number.isInteger(v.code) || v.code < MIN_CODE) {
+    problems.push(`Code must be a whole number of at least 6 digits (${MIN_CODE} or above).`)
+  }
+  if (!v.name) problems.push('Name is required.')
+  if (v.arabic_name && /[A-Za-z0-9]/.test(v.arabic_name)) {
+    problems.push('Arabic name must not contain Latin letters or digits.')
+  }
+  if (v.national_id && !/^[23]\d{13}$/.test(v.national_id)) {
+    problems.push('ID No. must be 14 digits starting with 2 or 3.')
+  }
+  for (const [key, label] of [['company_mobile', 'Company mobile'],
+                              ['personal_mobile', 'Personal mobile'],
+                              ['secondary_mobile', 'Secondary mobile']]) {
+    if (v[key] && !validMobile(v[key])) {
+      problems.push(`${label} must be 11 digits starting with 0, as 000-0000-0000.`)
     }
-    return '';
+  }
+  if (v.si_basic_wage != null && (v.si_basic_wage < 5500 || v.si_basic_wage > 99999)) {
+    problems.push('S.I. basic wage must be between 5,500 and 99,999.')
+  }
+  if (v.si_gross_wage != null && (v.si_gross_wage < 7100 || v.si_gross_wage > 99999)) {
+    problems.push('S.I. gross wage must be between 7,100 and 99,999.')
+  }
+  return problems
+}
+
+$('saveBtn').addEventListener('click', async () => {
+  $('formError').hidden = true
+  $('formNotice').hidden = true
+
+  const values = readForm()
+  const problems = validate(values)
+  if (problems.length) {
+    const el = $('formError')
+    el.textContent = problems.join(' ')
+    el.hidden = false
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return
   }
 
-  function pickFieldKey(row, candidates) {
-    // Same matching strategy as pickField(), but returns the matched column name (key).
-    if (!row) return '';
-
-    // Try exact keys first
-    for (const c of candidates) {
-      if (Object.prototype.hasOwnProperty.call(row, c) && normStr(row[c])) return c;
-    }
-
-    // Try fuzzy keys
-    const keys = Object.keys(row || {});
-    for (const c of candidates) {
-      const cNorm = normKey(c);
-      const k = keys.find(k0 => normKey(k0) === cNorm);
-      if (k && normStr(row[k])) return k;
-    }
-
-    // Try contains
-    for (const c of candidates) {
-      const cNorm = normKey(c);
-      const k = keys.find(k0 => normKey(k0).includes(cNorm));
-      if (k && normStr(row[k])) return k;
-    }
-
-    return '';
-  }
-
-  function excelDateToJsDate(serial) {
-    // Excel 1900 system (best-effort)
-    const s = Number(serial);
-    if (!Number.isFinite(s)) return null;
-    // 25569 = days between 1899-12-30 and 1970-01-01
-    const utc = (s - 25569) * 86400 * 1000;
-    const d = new Date(utc);
-    if (Number.isNaN(d.getTime())) return null;
-    return d;
-  }
-
-  function looksLikeDateKey(key) {
-    const k = normKey(key);
-    return /date|dob|birth|hiring|joining|start|end|issue|expiry|expiration/i.test(k);
-  }
-
-  function pad2(n) { return String(n).padStart(2, '0'); }
-
-  function formatDateDDMMYYYY(d) {
-    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '—';
-    const dd = pad2(d.getDate());
-    const mm = pad2(d.getMonth() + 1);
-    const yy = d.getFullYear();
-    return dd + '/' + mm + '/' + yy;
-  }
-
-  function isNoCommaField(key) {
-    const k = normKey(key).replace(/[^a-z0-9]/g, '');
-    // Exact field names requested (allow for punctuation/spaces): ID No., Mobile No., Sec. Mobile No., SI No.
-    return (
-      k === 'idno' ||
-      k === 'mobileno' ||
-      k === 'secmobileno' ||
-      k === 'sino' ||
-      k === 'sijobcode'
-    );
-  }
-
-  function isMobileField(key) {
-    const k = normKey(key).replace(/[^a-z0-9]/g, '');
-    return (k === 'mobileno' || k === 'secmobileno');
-  }
-
-  function formatMobileNumber(val) {
-    if (val === null || val === undefined) return '—';
-
-    let s = '';
-    if (typeof val === 'number' && Number.isFinite(val)) {
-      s = String(Math.round(val));
+  const btn = $('saveBtn')
+  btn.disabled = true
+  btn.textContent = 'Saving…'
+  try {
+    let saved
+    if (current?.id) {
+      const { data, error } = await supabase
+        .from('employees').update(values).eq('id', current.id).select('id').single()
+      if (error) throw error
+      saved = data
     } else {
-      s = normStr(val);
+      // Role is left at its default of no_access on purpose: creating a
+      // personnel record is not the same as granting somebody access, and
+      // the database refuses an elevated role from anyone but a super
+      // admin in any case.
+      const { data, error } = await supabase
+        .from('employees').insert(values).select('id').single()
+      if (error) throw error
+      saved = data
     }
-
-    // Remove any formatting and keep digits only.
-    s = s.replace(/,/g, '').replace(/\s+/g, '').replace(/[^0-9]/g, '');
-    if (!s) return '—';
-
-    // Add leading zero if missing.
-    if (s[0] !== '0') s = '0' + s;
-    return s;
+    const notice = $('formNotice')
+    notice.textContent = current?.id ? 'Saved.' : 'Employee created.'
+    notice.hidden = false
+    await loadTotals()
+    await openEmployee(saved.id)
+  } catch (err) {
+    const el = $('formError')
+    el.textContent = friendlyError(err)
+    el.hidden = false
+  } finally {
+    btn.disabled = false
+    btn.textContent = 'Save'
   }
+})
 
-  function tryParseDateString(s) {
-    const t = normStr(s);
-    if (!t) return null;
-
-    // ISO-like: YYYY-MM-DD or YYYY/MM/DD
-    let m = t.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:\s|T|$)/);
-    if (m) {
-      const y = Number(m[1]), mo = Number(m[2]), da = Number(m[3]);
-      const d = new Date(y, mo - 1, da);
-      if (!Number.isNaN(d.getTime())) return d;
-    }
-
-    // D/M/YYYY or DD/MM/YYYY (treat as day-first)
-    m = t.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})(?:\s|$)/);
-    if (m) {
-      const da = Number(m[1]), mo = Number(m[2]), y = Number(m[3]);
-      const d = new Date(y, mo - 1, da);
-      if (!Number.isNaN(d.getTime())) return d;
-    }
-
-    return null;
+/** Constraint names mean nothing to the person reading them. */
+function friendlyError(err) {
+  const message = err?.message ?? String(err)
+  const named = {
+    employees_code_key: 'That employee code is already used by someone else.',
+    employees_national_id_uq: 'That ID number is already on another employee.',
+    employees_code_min_six_digits: `Code must be at least 6 digits (${MIN_CODE} or above).`,
+    employees_national_id_format: 'ID No. must be 14 digits starting with 2 or 3.',
+    employees_arabic_name_script: 'Arabic name must not contain Latin letters or digits.',
+    employees_weekend_valid: 'Weekend must be Friday + Saturday, or Friday only.',
+    employees_company_mobile_format: 'Company mobile must look like 000-0000-0000.',
+    employees_personal_mobile_format: 'Personal mobile must look like 000-0000-0000.',
+    employees_secondary_mobile_format: 'Secondary mobile must look like 000-0000-0000.',
+    employees_si_basic_wage_range: 'S.I. basic wage must be between 5,500 and 99,999.',
+    employees_si_gross_wage_range: 'S.I. gross wage must be between 7,100 and 99,999.',
+    employees_si_code_fkey: 'That S.I. code is not in the official list.',
+    employees_military_service_valid: 'Military service must be Served, Postponed or Exempted.',
+    employees_marital_status_valid: 'Marital status must be Single, Married or Divorced.',
+    employees_religion_valid: 'Religion must be Muslim or Christian.',
+    employees_name_unique_idx: 'Another employee already has that name.',
+    employees_email_lower_idx: 'Another employee already has that email.',
+    employees_si_no_unique_idx: 'Another employee already has that S.I. number.',
   }
-
-  function formatValue(key, val) {
-    if (val === null || val === undefined) return '—';
-    if (val === '') return '—';
-
-    // Mobile fields must always be shown as digits without separators, and with a leading 0.
-    if (isMobileField(key)) {
-      return formatMobileNumber(val);
-    }
-
-    if (val instanceof Date && !Number.isNaN(val.getTime())) {
-      return formatDateDDMMYYYY(val);
-    }
-
-    if (typeof val === 'number' && Number.isFinite(val)) {
-      // Heuristic: treat as date serial if key indicates a date and value is in plausible range
-      if (looksLikeDateKey(key) && val > 20000 && val < 70000) {
-        const d = excelDateToJsDate(val);
-        if (d) return formatDateDDMMYYYY(d);
-      }
-      const isInt = Math.abs(val - Math.round(val)) < 1e-9;
-      if (isNoCommaField(key)) return String(Math.round(val));
-      if (isInt) return Math.round(val).toLocaleString();
-      return val.toLocaleString(undefined, { maximumFractionDigits: 4 });
-    }
-
-    const s = normStr(val);
-    if (looksLikeDateKey(key)) {
-      const d = tryParseDateString(s);
-      if (d) return formatDateDDMMYYYY(d);
-    }
-    if (isNoCommaField(key)) {
-      return s.replace(/,/g, '') || '—';
-    }
-    return s || '—';
+  for (const [key, text] of Object.entries(named)) if (message.includes(key)) return text
+  if (message.includes('row-level security')) {
+    return 'Your account is not allowed to change employee records.'
   }
+  return message
+}
 
-  function makeKeySort(keys) {
-    // Keep code/name/position/department close to the top, then alphabetical.
-    const pri = [
-      'employeecode', 'employee code', 'code', 'emp code',
-      'name', 'employee name', 'employee', 'fullname', 'full name',
-      'position', 'job title', 'title',
-      'department', 'dept', 'section'
-    ].map(normKey);
+/* ------------------------------------------------------------------ */
 
-    function score(k) {
-      const kn = normKey(k);
-      const hit = pri.findIndex(p => kn === p || kn.includes(p));
-      return hit === -1 ? 999 : hit;
-    }
-
-    return keys.sort((a, b) => {
-      const sa = score(a), sb = score(b);
-      if (sa !== sb) return sa - sb;
-      return normKey(a).localeCompare(normKey(b));
-    });
+;(async () => {
+  await start()
+  // Governorate names for the live readout under the ID field. Needs a
+  // session, so it runs after start() rather than beside it.
+  if (me) {
+    const { data } = await supabase.from('governorates').select('code, name_ar')
+    lookups.governorates = Object.fromEntries((data ?? []).map((r) => [r.code, r.name_ar]))
   }
-
-  function buildIndex(data) {
-    rows = Array.isArray(data) ? data : [];
-    index = [];
-
-    for (const r of rows) {
-      const code = pickField(r, ['EmployeeCode', 'EmpCode', 'Employee Code', 'Code', 'ID', 'Employee ID', 'Emp ID']);
-      const name = pickField(r, ['EmployeeName', 'Name', 'Full Name', 'FullName', 'Employee', 'Employee Name']);
-      const normCode = normKey(code).replace(/\s+/g, '');
-      const normName = normKey(name);
-
-      if (!normCode && !normName) continue;
-
-      index.push({ row: r, code: normStr(code), name: normStr(name), normCode, normName });
-    }
-
-    // Refresh name suggestions for the autocomplete list.
-    updateNameSuggestions();
-  }
-
-  async function loadXlsx() {
-    // Prefer XlsxPopulate for password-protected workbooks; fall back to SheetJS for unencrypted workbooks.
-    const hasEnsurePop = typeof window.__ensureXlsxPopulate === 'function';
-    const hasEnsureXLSX = typeof window.__ensureXLSX === 'function';
-
-    if (hasEnsurePop) {
-      try { await window.__ensureXlsxPopulate(); } catch (e) { /* ignore */ }
-    }
-    if (hasEnsureXLSX) {
-      try { await window.__ensureXLSX(); } catch (e) { /* ignore */ }
-    }
-
-    const hasPop = !!(window.XlsxPopulate && window.XlsxPopulate.fromDataAsync);
-    const hasSheetJS = !!window.XLSX;
-
-    if (!hasPop && !hasSheetJS) throw new Error('Unable to load Excel parser libraries (XlsxPopulate / SheetJS).');
-
-    setStatus('Excel: loading…');
-
-    let lastErr = null;
-    loadedFrom = null;
-
-    for (const p of FALLBACK_XLSX_PATHS) {
-      try {
-        const resp = await fetch(encodeURI(p), { cache: 'no-store' });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + p);
-        const buf = await resp.arrayBuffer();
-
-        // 1) Try XlsxPopulate (supports password-protected workbooks)
-        if (hasPop) {
-          try {
-            // First try with password. If the file is not encrypted, this also works.
-            const wb = await window.XlsxPopulate.fromDataAsync(buf, { password: EXCEL_PASSWORD });
-
-            const sheet = wb.sheet(0);
-            if (!sheet) throw new Error('No worksheets found in Excel file.');
-
-            const used = sheet.usedRange();
-            const aoa = used ? used.value() : [];
-            const hdr = Array.isArray(aoa) && aoa.length ? aoa[0] : [];
-
-            headerOrder = (hdr || [])
-              .map(h => (h === null || h === undefined) ? '' : String(h).trim())
-              .filter(h => h);
-
-            const data = [];
-            const cols = headerOrder.length;
-
-            for (let r = 1; r < (aoa || []).length; r++) {
-              const rowArr = aoa[r] || [];
-              const obj = {};
-              let any = false;
-
-              for (let c = 0; c < cols; c++) {
-                const key = headerOrder[c];
-                const v = (c < rowArr.length) ? rowArr[c] : '';
-                obj[key] = (v === undefined ? '' : v);
-                if (v !== null && v !== undefined && String(v).trim() !== '') any = true;
-              }
-
-              if (any) data.push(obj);
-            }
-
-            buildIndex(data);
-            updateNameSuggestions();
-
-            loadedFrom = p;
-            setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
-            setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s).', false);
-            return true;
-          } catch (ePop) {
-            // fall through to SheetJS or next path
-            lastErr = ePop;
-          }
-        }
-
-        // 2) Fallback: SheetJS (works for unencrypted xlsx only)
-        if (hasSheetJS) {
-          const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-          const sheetName = wb.SheetNames && wb.SheetNames[0];
-          if (!sheetName) throw new Error('No worksheets found in Excel file.');
-          const ws = wb.Sheets[sheetName];
-
-          // Capture header order exactly as in the sheet (first row)
-          try {
-            const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
-            const hdr = Array.isArray(aoa) && aoa.length ? aoa[0] : [];
-            headerOrder = (hdr || []).map(h => (h === null || h === undefined) ? '' : String(h).trim()).filter(h => h);
-          } catch (e) {
-            headerOrder = [];
-          }
-
-          const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
-          buildIndex(json);
-          updateNameSuggestions();
-
-          loadedFrom = p;
-          setStatus('Excel: loaded (' + index.length.toLocaleString() + ' row(s))');
-          setHint('Loaded ' + index.length.toLocaleString() + ' employee row(s).', false);
-          return true;
-        }
-
-        throw new Error('Excel file could not be parsed.');
-      } catch (e) {
-        lastErr = e;
-      }
-    }
-
-    setStatus('Excel: not loaded');
-    const msg =
-      'Unable to load the employee database Excel file.\n\n' +
-      'Expected file path: ' + DEFAULT_XLSX_PATH + '\n' +
-      'Ensure the file exists and is published to GitHub Pages.\n\n' +
-      'If the workbook is password-protected, the portal must load XlsxPopulate with encryption support.\n\n' +
-      'Tried paths: ' + FALLBACK_XLSX_PATHS.join(', ') + '\n\n' +
-      'Details: ' + (lastErr ? lastErr.message : 'Unknown error');
-    throw new Error(msg);
-  }
-
-  function normalizeCode(s) {
-    return normKey(s).replace(/\s+/g, '');
-  }
-
-  function findExact(q) {
-    const qName = normKey(q);
-    const qCode = normalizeCode(q);
-    if (!qName) return null;
-
-    // Prefer exact code match, then exact name match.
-    const codeHits = index.filter(it => it.normCode && it.normCode === qCode);
-    if (codeHits.length === 1) return { type: 'code', item: codeHits[0] };
-    if (codeHits.length > 1) return { type: 'code', items: codeHits };
-
-    const nameHits = index.filter(it => it.normName && it.normName === qName);
-    if (nameHits.length === 1) return { type: 'name', item: nameHits[0] };
-    if (nameHits.length > 1) return { type: 'name', items: nameHits };
-
-    return null;
-  }
-
-  function findMatches(q, limit = 10) {
-    const qName = normKey(q);
-    const qCode = normalizeCode(q);
-    if (!qName) return [];
-
-    /** @type {Array<{item:any, score:number}>} */
-    const scored = [];
-
-    for (const it of index) {
-      const nCode = it.normCode;
-      const nName = it.normName;
-      if (!nCode && !nName) continue;
-
-      let score = 0;
-      if (nCode && qCode && nCode === qCode) score = 1000;
-      else {
-        if (nCode && qCode && nCode.startsWith(qCode)) score = Math.max(score, 320);
-        else if (nCode && qCode && nCode.includes(qCode)) score = Math.max(score, 220);
-
-        if (nName && nName.startsWith(qName)) score = Math.max(score, 180);
-        else if (nName && nName.includes(qName)) score = Math.max(score, 120);
-
-        const pos = normKey(pickField(it.row, ['Position', 'Job Title', 'Title']));
-        const dept = normKey(pickField(it.row, ['Department', 'Dept', 'Section']));
-        if (pos && pos.includes(qName)) score = Math.max(score, 60);
-        if (dept && dept.includes(qName)) score = Math.max(score, 60);
-      }
-
-      if (score > 0) scored.push({ item: it, score });
-    }
-
-    scored.sort((a, b) => b.score - a.score || (a.item.name || '').localeCompare(b.item.name || ''));
-    return scored.slice(0, limit).map(s => s.item);
-  }
-
-  function selectItem(it) {
-    if (!it) return;
-    renderResult(it);
-    const input = $('searchInput');
-    if (input) input.value = it.name || it.code || '';
-    hideMatches();
-    if (input) input.focus();
-  }
-
-  function hideMatches() {
-    const m = $('matches');
-    const list = $('matchesList');
-    if (list) list.innerHTML = '';
-    if (m) m.hidden = true;
-  }
-
-  function showMatches(items) {
-    const m = $('matches');
-    const list = $('matchesList');
-    if (!m || !list) return;
-
-    list.innerHTML = '';
-    for (const it of items) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'match-item';
-      btn.addEventListener('click', () => selectItem(it));
-
-      const top = document.createElement('div');
-      top.className = 'match-top';
-
-      const name = document.createElement('div');
-      name.className = 'match-name';
-      name.textContent = it.name || '—';
-
-      const code = document.createElement('div');
-      code.className = 'match-code';
-      code.textContent = it.code || '—';
-
-      top.appendChild(name);
-      top.appendChild(code);
-
-      const sub = document.createElement('div');
-      sub.className = 'match-sub';
-      const pos = pickField(it.row, ['Position', 'Job Title', 'Title']);
-      const dept = pickField(it.row, ['Department', 'Dept', 'Section']);
-      sub.textContent = [normStr(pos), normStr(dept)].filter(Boolean).join(' • ') || '—';
-
-      btn.appendChild(top);
-      btn.appendChild(sub);
-
-      list.appendChild(btn);
-    }
-
-    m.hidden = false;
-  }
-
-  function hideResult() {
-    const r = $('result');
-    const body = $('fieldsBody');
-    if (body) body.innerHTML = '';
-    if (r) r.hidden = true;
-  }
-
-  function renderResult(item) {
-    const r = $('result');
-    if (!r) return;
-
-    const row = item.row || {};
-
-    // Summary fields (kept at the top)
-    const codeKey = pickFieldKey(row, ['EmployeeCode', 'EmpCode', 'Employee Code', 'Code', 'ID', 'Employee ID', 'Emp ID']);
-    const nameKey = pickFieldKey(row, ['EmployeeName', 'Name', 'Full Name', 'FullName', 'Employee', 'Employee Name']);
-    const posKey  = pickFieldKey(row, ['Position', 'Job Title', 'Title']);
-    const deptKey = pickFieldKey(row, ['Department', 'Dept', 'Section']);
-
-    const code = item.code || normStr(codeKey ? row[codeKey] : pickField(row, ['EmployeeCode', 'EmpCode', 'Code', 'ID', 'Employee ID']));
-    const name = item.name || normStr(nameKey ? row[nameKey] : pickField(row, ['EmployeeName', 'Name', 'Full Name', 'FullName']));
-    const pos  = normStr(posKey ? row[posKey] : pickField(row, ['Position', 'Job Title', 'Title']));
-    const dept = normStr(deptKey ? row[deptKey] : pickField(row, ['Department', 'Dept', 'Section']));
-
-    const subtitleBits = [];
-    if (loadedFrom) subtitleBits.push('Source: ' + loadedFrom.replace('./',''));
-    subtitleBits.push('Sheet row: ' + (index.indexOf(item) + 1).toLocaleString());
-
-    $('rCode').textContent = code || '—';
-    $('rName').textContent = name || '—';
-    $('rPosition').textContent = pos || '—';
-    $('rDept').textContent = dept || '—';
-
-    const sub = $('rSubtitle');
-    if (sub) sub.textContent = subtitleBits.join(' • ');
-
-    const excludeDetailKeys = new Set([codeKey, nameKey, posKey, deptKey].filter(Boolean).map(normKey));
-
-    const keys = (Array.isArray(headerOrder) && headerOrder.length)
-      ? headerOrder
-      : makeKeySort(Object.keys(row || {}));
-    const body = $('fieldsBody');
-    if (body) {
-      body.innerHTML = '';
-      for (const k of keys) {
-        // Remove the already-shown summary fields from the details table.
-        if (excludeDetailKeys.has(normKey(k))) continue;
-        const tr = document.createElement('tr');
-
-        const tdK = document.createElement('td');
-        tdK.textContent = prettyHeaderLabel(k);
-
-        const tdV = document.createElement('td');
-        const v = row[resolveHeaderKey(row, k)];
-        tdV.textContent = formatValue(k, v);
-
-        tr.appendChild(tdK);
-        tr.appendChild(tdV);
-        body.appendChild(tr);
-      }
-    }
-
-    r.hidden = false;
-  }
-
-  function runSearch() {
-    const input = $('searchInput');
-    const q = input ? normStr(input.value) : '';
-
-    if (!q) {
-      hideMatches();
-      hideResult();
-      setHint('Please type an employee name or code.', true);
-      return;
-    }
-
-    if (!index.length) {
-      hideMatches();
-      hideResult();
-      setHint('Excel data is not loaded yet. Click Reload Excel.', true);
-      return;
-    }
-
-    const exact = findExact(q);
-    if (exact && exact.item) {
-      setHint('1 match found.', false);
-      hideMatches();
-      selectItem(exact.item);
-      return;
-    }
-    if (exact && exact.items && exact.items.length) {
-      hideResult();
-      setHint(exact.items.length.toLocaleString() + ' exact matches found. Please choose one.', false);
-      showMatches(exact.items.slice(0, 50));
-      return;
-    }
-
-    const matches = findMatches(q, 10);
-    if (!matches.length) {
-      hideMatches();
-      hideResult();
-      setHint('No employee found matching: ' + q, true);
-      return;
-    }
-
-    // If the user pressed Search, selecting the first match is faster.
-    if (matches.length === 1) {
-      setHint('1 match found.', false);
-      hideMatches();
-      selectItem(matches[0]);
-      return;
-    }
-
-    setHint(matches.length.toLocaleString() + ' match(es) found. Select from the list below.', false);
-    showMatches(matches);
-  }
-
-  function handleTyping() {
-    const input = $('searchInput');
-    const q = input ? normStr(input.value) : '';
-
-    if (!q) {
-      hideMatches();
-      hideResult();
-      setHint('', false);
-      return;
-    }
-
-    if (!index.length) {
-      hideMatches();
-      hideResult();
-      setHint('Excel data is not loaded yet. Click Reload Excel.', true);
-      return;
-    }
-
-    const exact = findExact(q);
-    if (exact && exact.item) {
-      setHint('1 match found.', false);
-      hideMatches();
-      selectItem(exact.item);
-      return;
-    }
-
-    hideResult();
-    const matches = (exact && exact.items && exact.items.length)
-      ? exact.items.slice(0, 10)
-      : findMatches(q, 10);
-
-    if (!matches.length) {
-      hideMatches();
-      setHint('No matches yet. Keep typing.', true);
-      return;
-    }
-
-    setHint('Select from the Matches list, or press Enter.', false);
-    showMatches(matches);
-  }
-
-  async function initApp() {
-    // UI wiring
-    const bSearch = $('btnSearch');
-    const bReload = $('btnReload');
-    const bClear = $('btnClear');
-    const input = $('searchInput');
-
-    if (bSearch) bSearch.addEventListener('click', runSearch);
-    if (bClear) bClear.addEventListener('click', () => {
-      const i = $('searchInput');
-      if (i) i.value = '';
-      hideMatches();
-      hideResult();
-      setHint('', false);
-      if (i) i.focus();
-    });
-
-    if (bReload) bReload.addEventListener('click', async () => {
-      try {
-        await loadXlsx();
-      } catch (e) {
-        setHint(e.message || 'Failed to load Excel.', true);
-      }
-    });
-
-    if (input) {
-      // Ensure browser-native autocomplete does not show.
-      input.setAttribute('autocomplete', 'off');
-      input.removeAttribute('list');
-
-      input.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter') {
-          ev.preventDefault();
-          // Enter selects exact match; otherwise selects the first match.
-          const q = normStr(input.value);
-          const exact = findExact(q);
-          if (exact && exact.item) {
-            setHint('1 match found.', false);
-            selectItem(exact.item);
-            return;
-          }
-          const matches = findMatches(q, 10);
-          if (matches.length > 0) {
-            setHint('Selected first match.', false);
-            selectItem(matches[0]);
-            return;
-          }
-          runSearch();
-        }
-      });
-
-      // Typeahead suggestions (name or code) using the Matches panel.
-      let typingTimer = null;
-      input.addEventListener('input', () => {
-        if (typingTimer) clearTimeout(typingTimer);
-        typingTimer = setTimeout(handleTyping, 120);
-      });
-    }
-
-    // Initial UI state
-    if (input) input.placeholder = 'Type employee name or code...';
-    hideMatches();
-    hideResult();
-    setHint('', false);
-
-    // Auto-load
-    try {
-      await loadXlsx();
-    } catch (e) {
-      setHint(e.message || 'Failed to load Excel.', true);
-    }
-  }
-// -----------------------------
-  // Boot
-  // -----------------------------
-  document.addEventListener('DOMContentLoaded', () => {
-    const y = $('year');
-    if (y) y.textContent = String(new Date().getFullYear());
-
-    // Public page (no auth gate)
-    const app = $('app');
-    if (app) app.hidden = false;
-
-    initOnce();
-  });
-})();
+})().catch((err) => showAuthError(err.message))
