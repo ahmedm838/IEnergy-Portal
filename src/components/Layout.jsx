@@ -5,6 +5,7 @@ import { Badge, Button, cx } from './ui'
 import ThemeToggle from './ThemeToggle'
 import Logo from './Logo'
 import IdleTimeout from './IdleTimeout'
+import UpdateBanner from './UpdateBanner'
 
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },
@@ -109,6 +110,7 @@ export default function Layout() {
       </header>
 
       <main className="print-full w-full min-w-0 flex-1 px-3 py-6 sm:px-5">
+        <UpdateBanner />
         <Outlet />
       </main>
 

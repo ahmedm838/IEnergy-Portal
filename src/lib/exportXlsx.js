@@ -8,9 +8,34 @@
  * It is also around 900 kB, and most sessions never export anything, so it
  * is loaded on first use rather than bundled into the initial payload.
  */
+
+import { looksLikeStaleBuild, markUpdateAvailable } from './appUpdate'
+
 let excelPromise = null
+
 function loadExcelJS() {
-  if (!excelPromise) excelPromise = import('exceljs').then((m) => m.default ?? m)
+  if (!excelPromise) {
+    excelPromise = import('exceljs').then(
+      (m) => m.default ?? m,
+      async (err) => {
+        // Do not keep a rejected promise: it would be handed to every
+        // later attempt, so one dropped connection used to break Export
+        // for the rest of the session even after the network came back.
+        excelPromise = null
+
+        if (await looksLikeStaleBuild()) {
+          markUpdateAvailable()
+          throw new Error(
+            'The tracker was updated since this page was opened, so part of it is no longer ' +
+              'available. Reload the page and the export will work.',
+          )
+        }
+        throw new Error(
+          `The Excel component could not be downloaded (${err.message}). Check your connection and try again.`,
+        )
+      },
+    )
+  }
   return excelPromise
 }
 
