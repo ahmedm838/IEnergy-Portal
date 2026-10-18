@@ -42,8 +42,9 @@ employees table and could otherwise simply promote themselves:
   An admin may still move people between `user` and `no_access`. Direct
   database access (SQL editor, service role) is exempt, which is also the
   recovery path if the last super admin is ever lost.
-- New employees default to `user`, so nobody has to be granted anything
-  to start work.
+- New employees default to `no_access`. An employee record is payroll data,
+  not a grant of access: somebody decides a person may sign in, and until
+  then the row exists and nothing can be read with it.
 - A trigger refuses any change that would leave zero active super admins.
 
 ## The calculations

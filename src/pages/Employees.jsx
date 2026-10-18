@@ -30,7 +30,7 @@ const BLANK = {
   site_id: '',
   department_id: '',
   status_id: '',
-  role: 'user',
+  role: 'no_access',
   // Every payroll component is on for a new employee; HR turns off the
   // ones that do not apply. Matches the column defaults in the database.
   has_meal: true,
