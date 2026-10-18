@@ -168,7 +168,7 @@ export default function Employees() {
         <EmployeeForm
           value={editing}
           lookups={lookups}
-          canGrantSuperAdmin={isSuperAdmin}
+          canGrantElevated={isSuperAdmin}
           onCancel={() => setEditing(null)}
           onSave={handleSave}
         />
@@ -305,7 +305,7 @@ export default function Employees() {
   )
 }
 
-function EmployeeForm({ value, lookups, canGrantSuperAdmin, onCancel, onSave }) {
+function EmployeeForm({ value, lookups, canGrantElevated, onCancel, onSave }) {
   const [form, setForm] = useState(value)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
@@ -411,21 +411,29 @@ function EmployeeForm({ value, lookups, canGrantSuperAdmin, onCancel, onSave }) 
         <Field
           label="Role"
           hint={
-            form.role === 'super_admin'
-              ? 'Everything an admin can do, plus editing Settings.'
-              : form.role === 'admin'
-                ? 'Manages employees, attendance and adjustments. Settings are read-only.'
-                : undefined
+            !canGrantElevated
+              ? 'Only a super admin can grant or remove the admin and super admin roles.'
+              : form.role === 'super_admin'
+                ? 'Everything an admin can do, plus editing Settings.'
+                : form.role === 'admin'
+                  ? 'Manages employees, attendance and adjustments. Settings are read-only.'
+                  : undefined
           }
         >
+          {/* Admin and super admin are offered only to a super admin. The
+              database refuses either grant from anyone else, so leaving them
+              selectable would just produce a save that fails. */}
           <Select value={form.role} onChange={(e) => set({ role: e.target.value })}>
             <option value="user">User — read own department (default)</option>
-            <option value="admin">Admin — manage staff and attendance</option>
-            <option value="super_admin" disabled={!canGrantSuperAdmin && form.role !== 'super_admin'}>
-              Super admin — also edits Settings
-              {!canGrantSuperAdmin && form.role !== 'super_admin' ? ' (super admin only)' : ''}
-            </option>
             <option value="no_access">No access — blocked entirely</option>
+            <option value="admin" disabled={!canGrantElevated && form.role !== 'admin'}>
+              Admin — manage staff and attendance
+              {!canGrantElevated && form.role !== 'admin' ? ' (super admin only)' : ''}
+            </option>
+            <option value="super_admin" disabled={!canGrantElevated && form.role !== 'super_admin'}>
+              Super admin — also edits Settings
+              {!canGrantElevated && form.role !== 'super_admin' ? ' (super admin only)' : ''}
+            </option>
           </Select>
         </Field>
         <Field label="Annual leave balance">
@@ -505,7 +513,7 @@ function EmployeeForm({ value, lookups, canGrantSuperAdmin, onCancel, onSave }) 
 function duplicateMessage(message) {
   if (!message) return null
   if (message.includes('super admin')) {
-    return 'Only a super admin can grant or remove the super admin role.'
+    return 'Only a super admin can grant or remove the admin and super admin roles.'
   }
   if (!message.includes('duplicate key') && !message.includes('unique constraint')) return null
 

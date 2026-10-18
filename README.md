@@ -36,9 +36,14 @@ convenience; the policies are the real boundary.
 Two guards back this up at the database level, because admins can write the
 employees table and could otherwise simply promote themselves:
 
-- A trigger refuses to grant or remove `super_admin` unless the caller is
-  already one. Direct database access (SQL editor, service role) is exempt,
-  which is also the recovery path if the last super admin is ever lost.
+- A trigger refuses to grant or remove **either** `admin` or `super_admin`
+  unless the caller is already a super admin, so an admin cannot promote a
+  colleague as a way of promoting themselves, nor demote the super admin.
+  An admin may still move people between `user` and `no_access`. Direct
+  database access (SQL editor, service role) is exempt, which is also the
+  recovery path if the last super admin is ever lost.
+- New employees default to `user`, so nobody has to be granted anything
+  to start work.
 - A trigger refuses any change that would leave zero active super admins.
 
 ## The calculations
