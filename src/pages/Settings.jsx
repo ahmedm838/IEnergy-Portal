@@ -4,6 +4,7 @@ import { useLookups } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
 import { absenceDeduction } from '../lib/calc'
 import LockedPeriods from '../components/LockedPeriods'
+import DepartmentsCard from '../components/DepartmentsCard'
 import {
   Alert,
   Badge,
@@ -413,27 +414,7 @@ export default function Settings() {
         </div>
       </Card>
 
-      <Card>
-        <CardHeader title="Departments" subtitle={`${lookups.departments?.length ?? 0} across ${lookups.sectors?.length ?? 0} sectors`} />
-        <div className="max-h-96 overflow-auto">
-          <table className="sticky-head w-full">
-            <thead>
-              <tr>
-                <Th>Department</Th>
-                <Th>Sector</Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {lookups.departments?.map((d) => (
-                <tr key={d.id}>
-                  <Td className="font-medium text-ink">{d.name}</Td>
-                  <Td className="text-ink-3">{d.sectors?.name}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <DepartmentsCard lookups={lookups} readOnly={readOnly} />
     </div>
   )
 }
