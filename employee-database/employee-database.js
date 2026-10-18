@@ -48,6 +48,22 @@ const filterValue = (q) => String(q).replace(/[\\"*%]/g, ' ').replace(/\s+/g, ' 
 /* The record, described once and rendered from the description        */
 /* ------------------------------------------------------------------ */
 
+/**
+ * What the monthly report pays this employee.
+ *
+ * These lost their editor when the tracker Employees page stopped
+ * editing, so they live here now with the rest of the record. All five
+ * start on for a new employee and HR turns off the ones that do not
+ * apply, matching the column defaults in the database.
+ */
+const PAYROLL = [
+  ['has_meal', 'Meal'],
+  ['has_allowance', 'Allowance'],
+  ['has_overtime', 'Overtime'],
+  ['has_incentive', 'Incentive'],
+  ['has_deductions', 'Deductions'],
+]
+
 const DOCUMENTS = [
   ['doc_graduation_certificate', 'Graduation certificate'],
   ['doc_military_certificate', 'Military certificate'],
@@ -130,6 +146,7 @@ const GROUPS = [
 const WRITABLE = [
   ...GROUPS.flatMap((g) => g.fields.map((f) => f.key)),
   ...DOCUMENTS.map(([key]) => key),
+  ...PAYROLL.map(([key]) => key),
 ]
 
 /* ------------------------------------------------------------------ */
@@ -664,10 +681,37 @@ function renderForm(employee) {
     form.appendChild(section)
   }
 
+  // Payroll switches: one row of five, in their own section. What the
+  // monthly report pays is a different question from what is in the
+  // personnel file, so they do not share a block with the documents.
+  const pay = document.createElement('fieldset')
+  pay.className = 'db-group db-group-wide'
+  const payLegend = document.createElement('legend')
+  payLegend.textContent = 'Payroll'
+  pay.appendChild(payLegend)
+  const payGrid = document.createElement('div')
+  payGrid.className = 'db-switches'
+  for (const [key, label] of PAYROLL) {
+    const wrap = document.createElement('label')
+    wrap.className = 'db-doc'
+    const box = document.createElement('input')
+    box.type = 'checkbox'
+    box.id = `f_${key}`
+    box.dataset.key = key
+    box.checked = !!employee[key]
+    const text = document.createElement('span')
+    text.textContent = label
+    wrap.appendChild(box)
+    wrap.appendChild(text)
+    payGrid.appendChild(wrap)
+  }
+  pay.appendChild(payGrid)
+  form.appendChild(pay)
+
   // The eleven tick boxes decide whether the file counts as complete, so
   // they read better as one block than scattered through the rest.
   const docs = document.createElement('fieldset')
-  docs.className = 'db-group'
+  docs.className = 'db-group db-group-wide'
   const legend = document.createElement('legend')
   legend.textContent = 'Personnel file'
   docs.appendChild(legend)
@@ -733,7 +777,13 @@ $('newBtn').addEventListener('click', () => {
   $('formNotice').hidden = true
   $('formError').hidden = true
   derivedSiTitle = null
-  renderForm({ weekend: 'fri_sat', is_active: true })
+  renderForm({
+    weekend: 'fri_sat',
+    is_active: true,
+    // Every payroll component starts on; HR turns off the ones that do
+    // not apply. Same as the column defaults in the database.
+    ...Object.fromEntries(PAYROLL.map(([key]) => [key, true])),
+  })
 })
 
 $('cancelBtn').addEventListener('click', () => {

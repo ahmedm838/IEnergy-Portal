@@ -429,7 +429,8 @@ body:has(#app) .container { max-width: 1500px; }
     gap: 12px;
     align-items: start;
   }
-  #employeeForm > fieldset:last-child { grid-column: 1 / -1; }
+  /* Payroll and Personnel file run the full width of the form. */
+  #employeeForm > .db-group-wide { grid-column: 1 / -1; }
 }
 
 /* Tighter vertical rhythm everywhere on this page: the same content in
@@ -505,3 +506,12 @@ body:has(#app:not([hidden])) .container { padding-top: 58px; }
 @media (max-width: 900px)  { .db-docs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 640px)  { .db-docs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px)  { .db-docs { grid-template-columns: 1fr; } }
+
+/* The five payroll switches, one row of equal columns. */
+.db-switches {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px 14px;
+}
+@media (max-width: 900px) { .db-switches { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .db-switches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
