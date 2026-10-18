@@ -482,3 +482,26 @@ body:has(#app) .container { max-width: 1500px; }
 /* Save and Cancel sit at the right, under the end of the form, where the
    eye lands after reading across the last row of fields. */
 .form-actions { justify-content: flex-end; }
+
+/* ---------------------------------------------------------------------
+   Room for the theme switch.
+
+   It sits at the top right of the page, and the header's own Sign out
+   button is in the same corner, so without a band of its own the two
+   overlap. The page starts below it instead.
+   --------------------------------------------------------------------- */
+body:has(#app:not([hidden])) .container { padding-top: 58px; }
+
+/* ---------------------------------------------------------------------
+   Ten documents, laid out evenly rather than packed.
+
+   auto-fit left a ragged last row whose width depended on how many
+   documents there happened to be. A fixed count divides them evenly: five
+   across makes two full rows of ten.
+   --------------------------------------------------------------------- */
+.db-docs { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+@media (max-width: 1200px) { .db-docs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 900px)  { .db-docs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px)  { .db-docs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px)  { .db-docs { grid-template-columns: 1fr; } }

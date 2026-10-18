@@ -705,11 +705,13 @@ function renderForm(employee) {
   $('editor').scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+/**
+ * The file status is reported once, in the calculated panel, alongside
+ * the other things the system works out. It was repeated beside the
+ * employee name as well, which said the same thing twice and put it
+ * furthest from the checklist it describes.
+ */
 function updateFileStatus() {
-  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).length
-  const el = $('fileStatus')
-  el.textContent = missing ? `Missing (${missing})` : 'Complete'
-  el.className = `file-status ${missing ? 'bad' : 'good'}`
   renderDerived()
 }
 
