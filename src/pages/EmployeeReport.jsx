@@ -301,8 +301,9 @@ export default function EmployeeReport() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-flow-col auto-cols-[minmax(148px,1fr)] gap-2 overflow-x-auto pb-1">
             <Stat
+              dense
               label="Required hours"
               value={hoursNotRequired ? 'Not required' : num(summary.required_hours)}
               sub={
@@ -312,11 +313,13 @@ export default function EmployeeReport() {
               }
             />
             <Stat
+              dense
               label="Total working hours"
               value={hoursNotRequired ? 'Not required' : num(summary.worked_hours)}
               sub={hoursNotRequired ? 'Overtime is paid' : undefined}
             />
             <Stat
+              dense
               label="Excess / shortage"
               value={
                 hoursNotRequired
@@ -328,13 +331,15 @@ export default function EmployeeReport() {
                 hoursNotRequired ? undefined : Number(summary.hours_variance) >= 0 ? 'good' : 'bad'
               }
             />
-            <Stat label="Total late hours" value={minutesToHHMM(summary.late_minutes)} />
+            <Stat dense label="Total late hours" value={minutesToHHMM(summary.late_minutes)} />
             <Stat
+              dense
               label="Total transport"
               value={`${num(summary.transport_total)} ${currency}`}
             />
-            <Stat label="Overtime hours" value={num(summary.overtime_hours)} />
+            <Stat dense label="Overtime hours" value={num(summary.overtime_hours)} />
             <Stat
+              dense
               label="Average clock in"
               value={hoursNotRequired ? 'Not required' : summary.avg_clock_in ?? '—'}
               sub={
@@ -344,6 +349,7 @@ export default function EmployeeReport() {
               }
             />
             <Stat
+              dense
               label="Absence penalty"
               value={`${num(summary.absence_penalty)} days`}
               sub={`${summary.absence_days} unauthorised absence${
