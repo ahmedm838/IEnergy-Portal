@@ -66,18 +66,6 @@ export default function Employees() {
     )
   }, [employees, search])
 
-  async function toggleActive(employee) {
-    try {
-      await run(
-        supabase.from('employees').update({ is_active: !employee.is_active }).eq('id', employee.id),
-      )
-      reload()
-    } catch (err) {
-      setNotice(null)
-      setFormError(err.message)
-    }
-  }
-
   if (lookups.loading || loading) return <Spinner />
 
   return (
@@ -229,9 +217,8 @@ export default function Employees() {
                             Set password
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" onClick={() => toggleActive(e)}>
-                          {e.is_active ? 'Deactivate' : 'Restore'}
-                        </Button>
+                        {/* Active is not a switch any more: it follows the
+                            status, which is set in the Database page. */}
                       </div>
                     </Td>
                   </tr>

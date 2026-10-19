@@ -134,6 +134,29 @@ export default function Settings() {
   // Which statuses an employee may be recorded against. The guard in the
   // database reads this column, so turning one on here is all it takes --
   // there is no list of status names in the code to keep in step.
+  // Which statuses mean somebody is still with the company. Drives
+  // employees.is_active, which no longer has a switch of its own.
+  async function toggleActiveStatus(status) {
+    setError(null)
+    setNotice(null)
+    try {
+      await run(
+        supabase
+          .from('employee_statuses')
+          .update({ counts_as_active: !status.counts_as_active })
+          .eq('id', status.id),
+      )
+      setNotice(
+        status.counts_as_active
+          ? `Employees with the status “${status.name}” no longer count as active.`
+          : `Employees with the status “${status.name}” now count as active.`,
+      )
+      lookups.reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   async function toggleRecordable(status) {
     setError(null)
     setNotice(null)
@@ -333,7 +356,7 @@ export default function Settings() {
         <Card>
           <CardHeader
             title="Employee statuses"
-            subtitle="Only payable statuses appear in the monthly report. Only recordable statuses can have attendance or adjustments saved."
+            subtitle="Payable statuses appear in the monthly report, recordable ones can have attendance saved, and active ones mean the employee is still with the company."
           />
           <table className="w-full">
             <tbody className="divide-y divide-line">
@@ -354,6 +377,14 @@ export default function Settings() {
                       checked={s.allows_records}
                       disabled={readOnly}
                       onChange={() => toggleRecordable(s)}
+                    />
+                  </Td>
+                  <Td className="text-right">
+                    <Checkbox
+                      label="Counts as active"
+                      checked={s.counts_as_active}
+                      disabled={readOnly}
+                      onChange={() => toggleActiveStatus(s)}
                     />
                   </Td>
                 </tr>
