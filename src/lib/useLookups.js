@@ -134,7 +134,7 @@ export function useEmployees({ activeOnly = true } = {}) {
       let query = supabase
         .from('employees')
         .select(
-          `id, code, name, title, email, username, role, is_active, si_no, auth_user_id,
+          `id, code, name, arabic_name, title, email, username, role, is_active, si_no, auth_user_id,
            company_mobile, office_number, weekend,
            site_id, department_id, status_id,
            has_meal, has_allowance, has_overtime, has_incentive, has_deductions,

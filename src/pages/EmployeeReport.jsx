@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import EmployeeSearch from '../components/EmployeeSearch'
 import PeriodLabel from '../components/PeriodLabel'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
@@ -227,16 +228,12 @@ export default function EmployeeReport() {
 
       <Card className="no-print">
         <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5">
-          <Field label="Employee" className="sm:col-span-2 lg:col-span-1">
-            <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-              <option value="">Select an employee…</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  #{emp.code} — {emp.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <EmployeeSearch
+            className="sm:col-span-2 lg:col-span-1"
+            employees={employees}
+            value={employeeId}
+            onChange={setEmployeeId}
+          />
           <Field label="From date">
             <Input
               type="date"

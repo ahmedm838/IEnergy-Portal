@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import EmployeeSearch from '../components/EmployeeSearch'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useLocks, lockRangeLabel } from '../lib/useLocks'
@@ -12,7 +13,6 @@ import {
   EmptyState,
   Field,
   Input,
-  Select,
   Spinner,
   Td,
   Th,
@@ -149,20 +149,13 @@ export default function Adjustments() {
           title="Recorded adjustments"
           actions={
             <div className="flex flex-wrap items-end gap-2">
-              <Field label="Employee">
-                <Select
-                  value={employeeFilter}
-                  onChange={(e) => setEmployeeFilter(e.target.value)}
-                  className="w-56"
-                >
-                  <option value="">All employees</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      #{emp.code} — {emp.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              <EmployeeSearch
+                className="w-56"
+                employees={employees}
+                value={employeeFilter}
+                onChange={setEmployeeFilter}
+                emptyLabel="All employees"
+              />
               <Field label="From">
                 <Input
                   type="date"
@@ -310,20 +303,13 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
             </Alert>
           </div>
         )}
-        <Field label="Employee" className="sm:col-span-2">
-          <Select
-            required
-            value={form.employee_id}
-            onChange={(e) => set({ employee_id: e.target.value })}
-          >
-            <option value="">Select…</option>
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                #{emp.code} — {emp.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <EmployeeSearch
+          className="sm:col-span-2"
+          employees={employees}
+          value={form.employee_id}
+          onChange={(id) => set({ employee_id: id })}
+          required
+        />
         <Field label="Date">
           <Input
             type="date"
