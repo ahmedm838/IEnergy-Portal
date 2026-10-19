@@ -515,3 +515,58 @@ body:has(#app:not([hidden])) .container { padding-top: 58px; }
 }
 @media (max-width: 900px) { .db-switches { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .db-switches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------------------------------------------------------------------
+   The page bar.
+
+   Title, who is signed in, and the three actions, pinned to the top the
+   way the Attendance Tracker's own header is. New employee and Export
+   Database used to live inside the Find section, which put them out of
+   reach the moment you scrolled into a record.
+
+   Sticky rather than fixed: it keeps its place in the flow, so nothing
+   has to be padded out of the way, and it stops at the top instead of
+   covering the first section.
+   --------------------------------------------------------------------- */
+.page-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--surface-strong);
+  backdrop-filter: blur(8px);
+  border-radius: 0 0 16px 16px;
+  box-shadow: 0 10px 24px var(--shadow);
+}
+
+.bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .page-bar { position: static; }
+  .bar-actions { width: 100%; }
+}
+
+/* ---------------------------------------------------------------------
+   The record reads as one block.
+
+   The sections were separated by gaps, which made a form of fifty fields
+   look like nine loose cards. They sit flush now, their borders meeting
+   as a single line, so the groups read as divisions of one record rather
+   than as separate things.
+   --------------------------------------------------------------------- */
+/* align-items: start left a short section with empty row beneath it, so
+   the next one began well below however small the gap was. Stretching
+   makes each pair fill its row and the borders actually meet. */
+#employeeForm { gap: 0; align-items: stretch; }
+
+#employeeForm > .db-group {
+  margin: 0 -1px -1px 0;
+  border-radius: 0;
+}
+
+#employeeForm > .db-group:first-of-type { border-top-left-radius: 14px; }
+#employeeForm > .db-group:last-of-type  { border-bottom-right-radius: 14px; border-bottom-left-radius: 14px; }

@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=5" />
-  <link rel="stylesheet" href="employee-database.css?v=29" />
+  <link rel="stylesheet" href="employee-database.css?v=32" />
   <script src="../theme.js?v=1"></script>
 </head>
 <body>
@@ -49,13 +49,17 @@
   </div>
 
   <main class="container" id="app" hidden>
-    <header class="hero hero-compact">
+    <header class="hero hero-compact page-bar">
       <div class="hero-text">
         <a class="link" href="../index.html">&larr; iEnergy Home</a>
         <h1>Employee Database</h1>
         <p class="tagline" id="whoami"></p>
       </div>
-      <button class="btn" type="button" id="signOutBtn">Sign out</button>
+      <div class="bar-actions">
+        <button class="btn" type="button" id="exportBtn">Export Database</button>
+        <button class="btn primary" type="button" id="newBtn">New employee</button>
+        <button class="btn" type="button" id="signOutBtn">Sign out</button>
+      </div>
     </header>
 
     <section class="section">
@@ -80,13 +84,7 @@
     </section>
 
     <section class="section">
-      <div class="row-between">
-        <h2>Find an employee</h2>
-        <div class="row-actions">
-          <button class="btn" type="button" id="exportBtn">Export Database</button>
-          <button class="btn primary" type="button" id="newBtn">New employee</button>
-        </div>
-      </div>
+      <h2>Find an employee</h2>
       <p class="section-sub">Search by code, or by name in English or Arabic.</p>
       <div class="search-row">
         <input class="input" id="searchInput" type="text" placeholder="Code or name&hellip;" autocomplete="off" />
@@ -125,6 +123,6 @@
     <div class="footer">&copy; <span id="year"></span> iEnergy. Internal use.</div>
   </main>
 
-  <script type="module" src="employee-database.js?v=30"></script>
+  <script type="module" src="employee-database.js?v=31"></script>
 </body>
 </html>
