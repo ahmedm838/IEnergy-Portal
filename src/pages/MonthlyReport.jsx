@@ -95,7 +95,9 @@ export default function MonthlyReport() {
       // allowances is a recording gap, not a payroll figure.
       { header: 'Records', key: 'records', numFmt: '0' },
       { header: 'Meals', key: 'meals', numFmt: '#,##0.00' },
-      { header: `Transport (${currency})`, key: 'transport', numFmt: '#,##0.00' },
+      // Transport is not listed on its own. It is money, and the money it
+      // makes up is the next column; the per-day figures are on the
+      // employee report, beside the days that earned them.
       { header: `Total Allowances (${currency})`, key: 'total_allowances', numFmt: '#,##0.00' },
       { header: `Incentive (${currency})`, key: 'incentive', numFmt: '#,##0.00' },
       { header: `Bonus (${currency})`, key: 'bonus', numFmt: '#,##0.00' },
@@ -134,7 +136,6 @@ export default function MonthlyReport() {
           code: Number(r.code),
           records: Number(r.records),
           meals: Number(r.meals),
-          transport: Number(r.transport),
           total_allowances: Number(r.total_allowances),
           incentive: Number(r.incentive),
           bonus: Number(r.bonus),
@@ -284,7 +285,6 @@ export default function MonthlyReport() {
                     <Td>{r.department}</Td>
                     <Td className="tabular text-right">{num(r.records, 0)}</Td>
                     <Td className="tabular text-right">{num(r.meals)}</Td>
-                    <Td className="tabular text-right">{num(r.transport)}</Td>
                     <Td className="tabular text-right font-semibold">{num(r.total_allowances)}</Td>
                     <Td className="tabular text-right">{num(r.incentive)}</Td>
                     <Td className="tabular text-right">{num(r.bonus)}</Td>

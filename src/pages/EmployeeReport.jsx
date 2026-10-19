@@ -179,12 +179,14 @@ export default function EmployeeReport() {
           'Excess / shortage (hours)',
           hoursNotRequired ? 'Not required' : Number(summary.hours_variance),
         ],
+        ['Average clock in', hoursNotRequired ? 'Not required' : summary.avg_clock_in ?? '—'],
+        ['Average clock out', hoursNotRequired ? 'Not required' : summary.avg_clock_out ?? '—'],
         ['Total late', minutesToHHMM(summary.late_minutes)],
         [`Total transport (${currency})`, Number(summary.transport_total)],
         ['Overtime hours', Number(summary.overtime_hours)],
         ['Meal units', Number(summary.meal_units)],
-        ['Average clock in', hoursNotRequired ? 'Not required' : summary.avg_clock_in ?? '—'],
-        ['Average clock out', hoursNotRequired ? 'Not required' : summary.avg_clock_out ?? '—'],
+        ['Deducted leaves (days)', Number(summary.deducted_leaves)],
+        ['Deducted leaves (hours)', Number(summary.deducted_leave_hours)],
         ['Absence days', summary.absence_days],
         ['Absence penalty (days)', Number(summary.absence_penalty)],
         ...(filterLabel ? [['Rows below filtered to', filterLabel]] : []),
@@ -328,13 +330,9 @@ export default function EmployeeReport() {
                 hoursNotRequired ? undefined : Number(summary.hours_variance) >= 0 ? 'good' : 'bad'
               }
             />
-            <Stat dense label="Total late hours" value={minutesToHHMM(summary.late_minutes)} />
-            <Stat
-              dense
-              label="Total transport"
-              value={`${num(summary.transport_total)} ${currency}`}
-            />
-            <Stat dense label="Overtime hours" value={num(summary.overtime_hours)} />
+            {/* Beside the excess or shortage it explains: a shortage next
+                to a late average is a different conversation from a
+                shortage next to an on-time one. */}
             <Stat
               dense
               label="Average clock in"
@@ -344,6 +342,33 @@ export default function EmployeeReport() {
                   ? 'Overtime is paid'
                   : `Average clock out ${summary.avg_clock_out ?? '—'}`
               }
+            />
+            <Stat dense label="Total late hours" value={minutesToHHMM(summary.late_minutes)} />
+            <Stat
+              dense
+              label="Total transport"
+              value={`${num(summary.transport_total)} ${currency}`}
+            />
+            <Stat dense label="Overtime hours" value={num(summary.overtime_hours)} />
+            {/* Meal units, not money: a day can earn more than one, and the
+                rate is set on the monthly report, where it is applied. */}
+            <Stat
+              dense
+              label="Meals"
+              value={num(summary.meal_units)}
+              sub={`× ${num(lookups.mealRate)} ${currency} on the monthly report`}
+            />
+            {/* What the deducted days are worth. The monthly report charges
+                them at the same rate; whether they reach pay depends on the
+                employee's Deductions switch, which is applied there. */}
+            <Stat
+              dense
+              label="Deducted leaves"
+              value={`${num(summary.deducted_leave_hours)} h`}
+              sub={`${num(summary.deducted_leaves, 0)} day${
+                Number(summary.deducted_leaves) === 1 ? '' : 's'
+              } × ${lookups.requiredHoursPerDay} h`}
+              tone={Number(summary.deducted_leaves) > 0 ? 'bad' : 'neutral'}
             />
             <Stat
               dense
