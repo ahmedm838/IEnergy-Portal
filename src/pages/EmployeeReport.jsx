@@ -300,7 +300,7 @@ export default function EmployeeReport() {
             </p>
           </div>
 
-          <div className="grid grid-flow-col auto-cols-[minmax(148px,1fr)] gap-2 overflow-x-auto pb-1">
+          <div className="grid grid-flow-col auto-cols-[minmax(124px,1fr)] gap-1.5 overflow-x-auto pb-1">
             <Stat
               dense
               label="Required hours"
@@ -308,12 +308,12 @@ export default function EmployeeReport() {
               sub={
                 hoursNotRequired
                   ? 'Overtime is paid'
-                  : `${summary.working_days} working days × ${lookups.requiredHoursPerDay} h`
+                  : `${summary.working_days} days × ${lookups.requiredHoursPerDay} h`
               }
             />
             <Stat
               dense
-              label="Total working hours"
+              label="Worked hours"
               value={hoursNotRequired ? 'Not required' : num(summary.worked_hours)}
               sub={hoursNotRequired ? 'Overtime is paid' : undefined}
             />
@@ -340,13 +340,13 @@ export default function EmployeeReport() {
               sub={
                 hoursNotRequired
                   ? 'Overtime is paid'
-                  : `Average clock out ${summary.avg_clock_out ?? '—'}`
+                  : `Clock out ${summary.avg_clock_out ?? '—'}`
               }
             />
-            <Stat dense label="Total late hours" value={minutesToHHMM(summary.late_minutes)} />
+            <Stat dense label="Late hours" value={minutesToHHMM(summary.late_minutes)} />
             <Stat
               dense
-              label="Total transport"
+              label="Transport"
               value={`${num(summary.transport_total)} ${currency}`}
             />
             <Stat dense label="Overtime hours" value={num(summary.overtime_hours)} />
@@ -356,7 +356,7 @@ export default function EmployeeReport() {
               dense
               label="Meals"
               value={num(summary.meal_units)}
-              sub={`× ${num(lookups.mealRate)} ${currency} on the monthly report`}
+              sub={`at ${num(lookups.mealRate)} ${currency}`}
             />
             {/* What the deducted days are worth. The monthly report charges
                 them at the same rate; whether they reach pay depends on the
@@ -376,7 +376,7 @@ export default function EmployeeReport() {
               value={`${num(summary.absence_penalty)} days`}
               sub={`${summary.absence_days} unauthorised absence${
                 summary.absence_days === 1 ? '' : 's'
-              } in range`}
+              }`}
               tone={Number(summary.absence_penalty) > 0 ? 'bad' : 'neutral'}
             />
           </div>
