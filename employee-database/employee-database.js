@@ -1011,10 +1011,12 @@ $('newBtn').addEventListener('click', () => {
     // Every payroll component starts on; HR turns off the ones that do
     // not apply. Same as the column defaults in the database.
     ...Object.fromEntries(PAYROLL.map(([key]) => [key, true])),
-    // The standard entitlement. Zero would be wrong for almost everyone
-    // and easy not to notice.
-    annual_leave_balance: 14,
-    unplanned_leave_balance: 7,
+    // Both start at zero, which is also what the columns default to, so
+    // a record created any other way reads the same. An entitlement
+    // nobody typed is a number nobody checked, and days get consumed
+    // against it from the first leave recorded.
+    annual_leave_balance: 0,
+    unplanned_leave_balance: 0,
   })
 })
 
