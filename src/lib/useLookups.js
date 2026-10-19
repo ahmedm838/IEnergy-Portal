@@ -22,7 +22,7 @@ export function clearLookupsCache() {
 }
 
 async function fetchLookups() {
-  const [sites, sectors, departments, statuses, types, settings] = await Promise.all([
+  const [sites, sectors, departments, statuses, types, busRoutes, settings] = await Promise.all([
     run(supabase.from('sites').select('*').order('sort_order')),
     run(supabase.from('sectors').select('*').order('sort_order')),
     run(
@@ -39,11 +39,12 @@ async function fetchLookups() {
         .eq('is_active', true)
         .order('sort_order'),
     ),
+    run(supabase.from('bus_routes').select('*').order('sort_order')),
     run(supabase.from('app_settings').select('*')),
   ])
 
   const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]))
-  return { sites, sectors, departments, statuses, types, settings: settingsMap }
+  return { sites, sectors, departments, statuses, types, busRoutes, settings: settingsMap }
 }
 
 /**

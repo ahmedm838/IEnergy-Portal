@@ -6,6 +6,7 @@ import { absenceDeduction } from '../lib/calc'
 import LockedPeriods from '../components/LockedPeriods'
 import DepartmentsCard from '../components/DepartmentsCard'
 import AccessCard from '../components/AccessCard'
+import BusRoutesCard from '../components/BusRoutesCard'
 import {
   Alert,
   Badge,
@@ -447,6 +448,8 @@ export default function Settings() {
       </Card>
 
       <DepartmentsCard lookups={lookups} readOnly={readOnly} />
+
+      <BusRoutesCard lookups={lookups} readOnly={readOnly} />
 
       <AccessCard readOnly={readOnly} />
     </div>
