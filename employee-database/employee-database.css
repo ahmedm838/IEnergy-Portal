@@ -574,9 +574,38 @@ body:has(#app) .container { max-width: 1500px; }
 
 /* New employee and Export sit with the search box now, so the bar holds
    only who you are and the way out. */
+/* The search box takes whatever is left; the two actions sit at the
+   right end of the row, where the eye arrives last. */
+/* flex-basis 0, not auto: .input carries width 100%, so an auto basis
+   makes the box claim the whole line and pushes the buttons onto a
+   second one. From zero it simply takes what is left. */
+.search-row .input { flex: 1 1 0; width: auto; max-width: none; min-width: 220px; }
 .search-row .btn { white-space: nowrap; flex: 0 0 auto; }
-.search-row .input { flex: 1 1 280px; max-width: 420px; }
 .search-note-line { margin-top: 8px; }
+
+/* ---------------------------------------------------------------------
+   The whole page at nine tenths.
+
+   The tracker does this with the root font size, which works there
+   because almost everything in it is a rem. This stylesheet is written
+   in pixels, so a root font size would move the type and leave every box
+   the size it was. zoom scales the lot: it is the one property that
+   still means draw this smaller rather than pretend the text is smaller.
+
+   It is what puts the calculated panel on one row on a laptop. Eight
+   items need 1350px; a 1366 screen leaves 1302 for them, and 1350 drawn
+   at nine tenths is 1215.
+   --------------------------------------------------------------------- */
+#app { zoom: 0.9; }
+
+/* Buttons at the tracker's small size. Declared at the tracker's own
+   numbers and then drawn through the zoom above, so the two pages match
+   on screen rather than only in the stylesheet. */
+#app .btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+}
 
 
 
@@ -600,11 +629,4 @@ body:has(#app) .container { max-width: 1500px; }
   .db-field-half { grid-column: auto; }
 }
 
-/* Save and Cancel at nine tenths of the usual button: the base is 16px
-   text in a 10 by 14 box, so 14.4px in a 9 by 12.6 one, with the corner
-   radius scaled to match. */
-.form-actions .btn {
-  font-size: 14.4px;
-  padding: 9px 12.6px;
-  border-radius: 10.8px;
-}
+/* Save and Cancel take the same size as every other button here. */
