@@ -581,3 +581,12 @@ body:has(#app) .container { max-width: 1500px; }
   .db-grid[data-cols] { grid-template-columns: 1fr; }
   .db-field-half { grid-column: auto; }
 }
+
+/* Save and Cancel at nine tenths of the usual button: the base is 16px
+   text in a 10 by 14 box, so 14.4px in a 9 by 12.6 one, with the corner
+   radius scaled to match. */
+.form-actions .btn {
+  font-size: 14.4px;
+  padding: 9px 12.6px;
+  border-radius: 10.8px;
+}
