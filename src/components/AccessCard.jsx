@@ -6,7 +6,7 @@ import { Alert, Badge, Button, Card, CardHeader, Input, Select, Td, Th } from '.
 const ROLES = [
   ['no_access', 'No access', 'Cannot sign in to anything.'],
   ['user', 'User', 'Read-only, and only their own department.'],
-  ['admin', 'Administrator', 'Attendance, adjustments, employees and reports.'],
+  ['admin', 'Admin', 'Attendance, adjustments, employees and reports.'],
   ['super_admin', 'Super admin', 'Everything, including this page.'],
 ]
 
@@ -56,10 +56,10 @@ export default function AccessCard({ readOnly }) {
     if (
       (role === 'admin' || role === 'super_admin') &&
       !window.confirm(
-        `Give ${name} the ${LABEL[role]} role?\n\n` +
+        `Give  the  role?\n\n` +
           (role === 'super_admin'
             ? 'A super admin can change every setting here, lock and unlock payroll periods, and grant this role to others.'
-            : 'An administrator can record attendance and adjustments for everyone and edit employee records.'),
+            : 'An admin can record attendance and adjustments for everyone and edit employee records.'),
       )
     ) {
       return
@@ -176,7 +176,7 @@ export default function AccessCard({ readOnly }) {
 function explain(err) {
   const message = err?.message ?? String(err)
   if (message.includes('super admin')) {
-    return 'Only a super admin can grant or remove the administrator and super admin roles.'
+    return 'Only a super admin can grant or remove the admin and super admin roles.'
   }
   if (message.includes('active admin') || message.includes('ensure_admin_remains')) {
     return 'That would leave the system with no super admin, which nothing could undo from inside the app.'
