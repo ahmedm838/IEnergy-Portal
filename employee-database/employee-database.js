@@ -1029,58 +1029,128 @@ async function fetchAllProfiles() {
 
 const nameFrom = (pairs, id) => (pairs ?? []).find(([value]) => value === id)?.[1] ?? ''
 
-/** One row per employee, stored and calculated columns side by side. */
+/**
+ * A number Excel can add up, or a blank cell. Never the string "16700.00",
+ * which Excel treats as text and refuses to total. Blank is null rather
+ * than an empty string, so the cell is genuinely empty in a column that is
+ * meant to be summed.
+ */
+const asNumber = (v) => (v == null || v === '' ? null : Number(v))
+
+/** Whole years since a day, for an age or a length of service. */
+function yearsSince(iso) {
+  const from = new Date(`${iso}T00:00:00Z`)
+  if (Number.isNaN(from.getTime())) return ''
+  const now = new Date()
+  let years = now.getUTCFullYear() - from.getUTCFullYear()
+  const before =
+    now.getUTCMonth() < from.getUTCMonth() ||
+    (now.getUTCMonth() === from.getUTCMonth() && now.getUTCDate() < from.getUTCDate())
+  if (before) years -= 1
+  return years < 0 ? '' : years
+}
+
+/** "Expired 40d ago" / "120d left" / "" -- how a dated thing stands today. */
+function expiryStatus(iso) {
+  if (!iso) return ''
+  const left = daysUntil(iso)
+  if (left == null) return ''
+  return left < 0 ? `Expired ${Math.abs(left)}d ago` : `${left}d left`
+}
+
+/**
+ * One row per employee: every column of the record, with the values the
+ * system works out beside the ones they are worked out from.
+ *
+ * Every derived value is taken from the view rather than recomputed here.
+ * The page used to read the birth date and gender out of the national ID
+ * itself, which meant two pieces of code deciding the same thing and a
+ * file that could disagree with the screen that produced it.
+ */
 function exportRow(e) {
-  const id = readNationalId(e.national_id)
-  // contract_expiry comes from the view, so the file and the page can
-  // never disagree about when a contract ends.
-  const expiry = e.contract_expiry ? new Date(e.contract_expiry + 'T00:00:00Z') : null
-  const idLeft = e.id_expiry_date ? daysUntil(e.id_expiry_date) : null
   const missing = e.missing_documents ?? []
+  const yn = (v) => (v ? 'Yes' : 'No')
 
   return {
+    /* Identity, and what the ID says */
     'Code': e.code,
     'Name': e.name,
     'Arabic name': e.arabic_name ?? '',
     'ID No.': e.national_id ?? '',
-    'Birth date': id?.birthDate ? asDMY(id.birthDate) : '',
-    'Gender': id?.gender ?? '',
+    'Birth date': isoToDMY(e.birth_date),
+    'Age': e.birth_date ? yearsSince(e.birth_date) : '',
+    'Gender': e.gender ?? '',
+    'Governorate code': e.governorate_code ?? '',
     'Governorate': e.governorate ?? '',
     'ID expiry': isoToDMY(e.id_expiry_date),
-    'ID expiry status': idLeft == null ? '' : idLeft < 0 ? `Expired ${Math.abs(idLeft)}d ago` : `${idLeft}d left`,
-    'S.I. No.': e.si_no ?? '',
+    'ID expiry status': expiryStatus(e.id_expiry_date),
+
+    /* Employment */
     'Job title': e.title ?? '',
     'Site': nameFrom(lookups.sites, e.site_id),
     'Department': nameFrom(lookups.departments, e.department_id),
     'Status': nameFrom(lookups.statuses, e.status_id),
-    'Active': e.is_active ? 'Yes' : 'No',
+    // Active is not stored any more: it follows the status.
+    'Active': yn(e.is_active),
     'Hiring date': isoToDMY(e.hired_on),
     'Working period': e.hired_on ? spanFrom(e.hired_on) ?? '' : '',
-    'Contract expiry': expiry ? asDMY(expiry) : '',
+    'Years of service': e.hired_on ? yearsSince(e.hired_on) : '',
+    'Contract expiry': isoToDMY(e.contract_expiry),
+    'Contract status': expiryStatus(e.contract_expiry),
     'Weekend': e.weekend === 'fri' ? 'Friday only' : 'Friday + Saturday',
     'Bus route': e.bus_route ?? '',
+
+    /* Leave balances */
+    'Annual leave (days)': asNumber(e.annual_leave_balance),
+    'Un-planned leave (days)': asNumber(e.unplanned_leave_balance),
+
+    /* Social insurance */
+    'S.I. No.': e.si_no ?? '',
     'S.I. date': isoToDMY(e.si_date),
+    // The same test as the Non insured tile on the page.
+    'Insured': yn(e.si_date),
     'S.I. code': e.si_code ?? '',
     'S.I. title': e.si_title ?? '',
-    'S.I. basic wage': e.si_basic_wage ?? '',
-    'S.I. gross wage': e.si_gross_wage ?? '',
+    'S.I. basic wage': asNumber(e.si_basic_wage),
+    'S.I. gross wage': asNumber(e.si_gross_wage),
+
+    /* What the monthly report pays */
+    ...Object.fromEntries(PAYROLL.map(([key, label]) => [label, yn(e[key])])),
+
+    /* Contact */
     'Email': e.email ?? '',
     'Company mobile': e.company_mobile ?? '',
     'Personal mobile': e.personal_mobile ?? '',
     'Secondary mobile': e.secondary_mobile ?? '',
     'Secondary number belongs to': e.secondary_mobile_name ?? '',
     'Office number': e.office_number ?? '',
+
+    /* Personal */
     'Military service': e.military_service ?? '',
     'Marital status': e.marital_status ?? '',
     'Religion': e.religion ?? '',
     'Qualification degree': e.qualification_degree ?? '',
+    'Qualification degree (Arabic)': e.qualification_degree_ar ?? '',
     'Education field': e.education_field ?? '',
-    ...Object.fromEntries(DOCUMENTS.map(([key, label]) => [label, e[key] ? 'Yes' : 'No'])),
+
+    /* Personnel file */
+    ...Object.fromEntries(DOCUMENTS.map(([key, label]) => [label, yn(e[key])])),
     'File status': e.file_complete ? 'Complete' : `Missing (${missing.length})`,
     'Missing documents': missing.join(', '),
+
+    /* Leaving */
     'Notice date': isoToDMY(e.notice_date),
     'Resignation date': isoToDMY(e.resignation_date),
     'Resignation reason': e.resignation_reason ?? '',
+
+    /* The account, which is a different question from the person */
+    'Username': e.username ?? '',
+    'Role': { super_admin: 'Super admin', admin: 'Admin', user: 'User', no_access: 'No access' }[e.role] ?? e.role ?? '',
+    'Can sign in': yn(e.auth_user_id),
+
+    /* When the record itself was touched */
+    'Added on': isoToDMY(String(e.created_at ?? '').slice(0, 10)),
+    'Last changed': isoToDMY(String(e.updated_at ?? '').slice(0, 10)),
   }
 }
 
