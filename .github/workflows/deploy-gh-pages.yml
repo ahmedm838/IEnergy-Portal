@@ -69,10 +69,24 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
-      - name: Setup Node (for Leave Manager build)
+      - name: Setup Node (for the app builds)
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Install Attendance Tracker dependencies
+        working-directory: apps/attendance-tracker
+        run: npm ci
+
+      - name: Build Attendance Tracker
+        working-directory: apps/attendance-tracker
+        env:
+          # The anon key is a public, publishable key -- it is meant to ship
+          # in the browser bundle. Row Level Security is what protects the
+          # data. Never put the service_role key here.
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: npm run build
 
       - name: Install Leave Manager dependencies
         working-directory: apps/leave-manager/frontend
@@ -93,6 +107,11 @@ jobs:
 
           # Copy portal static files (exclude dev-only folders)
           rsync -av             --exclude '.github'             --exclude '_site'             --exclude 'apps'             ./ _site/
+
+          # Add Attendance Tracker build output under /attendance-tracker/
+          rm -rf _site/attendance-tracker
+          mkdir -p _site/attendance-tracker
+          rsync -av apps/attendance-tracker/dist/ _site/attendance-tracker/
 
           # Add Leave Manager build output under /leave-manager/
           rm -rf _site/leave-manager
