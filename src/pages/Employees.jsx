@@ -1,20 +1,14 @@
 import { useMemo, useState } from 'react'
-import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
-import { setTemporaryPassword, generateTemporaryPassword } from '../lib/invites'
 import { mobileDigits } from '../lib/format'
 import {
   Alert,
   Badge,
-  Button,
   Card,
   CardHeader,
-  Checkbox,
   EmptyState,
-  Field,
   Input,
-  Select,
   Spinner,
   Td,
   Th,
@@ -23,29 +17,9 @@ import {
 export default function Employees() {
   const lookups = useLookups()
   const { isSuperAdmin } = useAuth()
-  const { employees, loading, error, reload } = useEmployees({ activeOnly: false })
+  const { employees, loading, error } = useEmployees({ activeOnly: false })
 
   const [search, setSearch] = useState('')
-  const [formError, setFormError] = useState(null)
-  const [notice, setNotice] = useState(null)
-  const [busyId, setBusyId] = useState(null)
-  const [passwordFor, setPasswordFor] = useState(null)
-
-  async function handleSetPassword(employee, password) {
-    setFormError(null)
-    setNotice(null)
-    setBusyId(employee.id)
-    try {
-      const result = await setTemporaryPassword(employee.id, password)
-      setNotice(result.message)
-      setPasswordFor(null)
-      reload()
-    } catch (err) {
-      setFormError(err.message)
-    } finally {
-      setBusyId(null)
-    }
-  }
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -76,11 +50,11 @@ export default function Employees() {
           <p className="mt-0.5 text-sm text-ink-3">
             {employees.length} records. Role and the Y/N switches drive access and payroll.
           </p>
-          {!isSuperAdmin && (
-            <p className="mt-1 text-xs text-ink-4">
-              Passwords are set by a super admin. There is no email reset.
-            </p>
-          )}
+          <p className="mt-1 text-xs text-ink-4">
+            {isSuperAdmin
+              ? 'Roles and passwords are set in Settings, under Access.'
+              : 'Roles and passwords are set by a super admin, in Settings. There is no email reset.'}
+          </p>
         </div>
         {/* Adding an employee happens in the portal's Database page, which
             holds the full personnel record -- national ID, insurance
@@ -98,17 +72,6 @@ export default function Employees() {
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
-      {formError && <Alert tone="error" onDismiss={() => setFormError(null)}>{formError}</Alert>}
-      {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
-
-      {passwordFor && (
-        <TemporaryPasswordForm
-          employee={passwordFor}
-          busy={busyId === passwordFor.id}
-          onCancel={() => setPasswordFor(null)}
-          onSave={(password) => handleSetPassword(passwordFor, password)}
-        />
-      )}
 
       <Card>
         <CardHeader
@@ -143,7 +106,6 @@ export default function Employees() {
                   <Th>Login</Th>
                   <Th>Switches</Th>
                   <Th>Leaves</Th>
-                  <Th className="sticky right-0 bg-panel text-right">Actions</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -201,26 +163,6 @@ export default function Employees() {
                     <Td className="tabular text-xs text-ink-3">
                       {e.annual_leave_balance} / {e.unplanned_leave_balance}
                     </Td>
-                    <Td className="sticky right-0 z-[1] bg-panel text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]">
-                      <div className="flex justify-end gap-1">
-                        {/* Editing lives in the portal's Database page, which
-                            holds the whole personnel record. Two forms
-                            writing the same row from different places is how
-                            fields quietly diverge. */}
-                        {isSuperAdmin && e.email && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busyId === e.id}
-                            onClick={() => setPasswordFor(e)}
-                          >
-                            Set password
-                          </Button>
-                        )}
-                        {/* Active is not a switch any more: it follows the
-                            status, which is set in the Database page. */}
-                      </div>
-                    </Td>
                   </tr>
                 ))}
               </tbody>
@@ -229,72 +171,5 @@ export default function Employees() {
         )}
       </Card>
     </div>
-  )
-}
-
-
-
-/**
- * Hands an administrator a temporary password to pass on in person.
- *
- * It is shown in plain text on purpose -- the whole point is that it has to
- * be read out -- and it is useless after first sign-in, because the account
- * is flagged to force the employee to choose their own.
- */
-function TemporaryPasswordForm({ employee, busy, onCancel, onSave }) {
-  const [password, setPassword] = useState(() => generateTemporaryPassword())
-  const [copied, setCopied] = useState(false)
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(password)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard access can be refused; the password is on screen anyway.
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader
-        title={`Temporary password for ${employee.name}`}
-        subtitle={`They sign in as ${employee.username ?? employee.email} and must choose their own password immediately.`}
-      />
-      <form
-        className="grid gap-4 p-5 sm:grid-cols-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          onSave(password)
-        }}
-      >
-        <Field label="Temporary password" className="sm:col-span-2" hint="At least 8 characters. Write it down before saving — it is not shown again.">
-          <Input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="font-mono"
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </Field>
-        <div className="flex items-end gap-2">
-          <Button type="button" variant="secondary" onClick={() => setPassword(generateTemporaryPassword())}>
-            Regenerate
-          </Button>
-          <Button type="button" variant="secondary" onClick={copy}>
-            {copied ? 'Copied' : 'Copy'}
-          </Button>
-        </div>
-
-        <div className="flex gap-2 sm:col-span-3">
-          <Button type="submit" disabled={busy || password.length < 8}>
-            {busy ? 'Saving…' : 'Set password'}
-          </Button>
-          <Button type="button" variant="secondary" onClick={onCancel}>
-            Cancel
-          </Button>
-        </div>
-      </form>
-    </Card>
   )
 }

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useEmployees } from '../lib/useLookups'
-import { Alert, Badge, Button, Card, CardHeader, Input, Select, Td, Th } from './ui'
+import { setTemporaryPassword, generateTemporaryPassword } from '../lib/invites'
+import { Alert, Badge, Button, Card, CardHeader, Field, Input, Select, Td, Th } from './ui'
 
 const ROLES = [
   ['no_access', 'No access', 'Cannot sign in to anything.'],
@@ -24,6 +25,11 @@ const LABEL = Object.fromEntries(ROLES.map(([value, label]) => [value, label]))
  * The database has the final say regardless: granting or removing admin
  * and super admin is refused to anyone who is not a super admin, and the
  * last active super admin cannot be demoted.
+ *
+ * Passwords are set from here too. Handing somebody a password is the
+ * same act as giving them a role -- it is what turns a personnel record
+ * into an account that can sign in -- so the two belong on one page
+ * rather than one here and one on a list of employees.
  */
 export default function AccessCard({ readOnly }) {
   const { employees, loading, reload } = useEmployees({ activeOnly: false })
@@ -31,6 +37,7 @@ export default function AccessCard({ readOnly }) {
   const [busyId, setBusyId] = useState(null)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [passwordFor, setPasswordFor] = useState(null)
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -56,7 +63,7 @@ export default function AccessCard({ readOnly }) {
     if (
       (role === 'admin' || role === 'super_admin') &&
       !window.confirm(
-        `Give  the  role?\n\n` +
+        `Give ${name} the ${LABEL[role]} role?\n\n` +
           (role === 'super_admin'
             ? 'A super admin can change every setting here, lock and unlock payroll periods, and grant this role to others.'
             : 'An admin can record attendance and adjustments for everyone and edit employee records.'),
@@ -71,6 +78,22 @@ export default function AccessCard({ readOnly }) {
     try {
       await run(supabase.from('employees').update({ role }).eq('id', employee.id))
       setNotice(`${name} is now ${LABEL[role]}.`)
+      reload()
+    } catch (err) {
+      setError(explain(err))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function savePassword(employee, password) {
+    setBusyId(employee.id)
+    setError(null)
+    setNotice(null)
+    try {
+      const result = await setTemporaryPassword(employee.id, password)
+      setNotice(result.message)
+      setPasswordFor(null)
       reload()
     } catch (err) {
       setError(explain(err))
@@ -105,6 +128,15 @@ export default function AccessCard({ readOnly }) {
         {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
       </div>
 
+      {passwordFor && (
+        <TemporaryPassword
+          employee={passwordFor}
+          busy={busyId === passwordFor.id}
+          onCancel={() => setPasswordFor(null)}
+          onSave={(password) => savePassword(passwordFor, password)}
+        />
+      )}
+
       <div className="flex flex-wrap gap-2 px-5 pb-3 pt-1">
         {ROLES.map(([value, label]) => (
           <Badge key={value} tone={value === 'no_access' ? 'slate' : value === 'user' ? 'blue' : 'amber'}>
@@ -124,6 +156,7 @@ export default function AccessCard({ readOnly }) {
                 <Th>Name</Th>
                 <Th>Can sign in</Th>
                 <Th className="w-56">Role</Th>
+                <Th className="w-32 text-right">Password</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -155,6 +188,21 @@ export default function AccessCard({ readOnly }) {
                       ))}
                     </Select>
                   </Td>
+                  <Td className="text-right">
+                    {/* No email, no account to give a password to. */}
+                    {e.email ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={readOnly || busyId === e.id}
+                        onClick={() => setPasswordFor(e)}
+                      >
+                        Set password
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-ink-4">no email</span>
+                    )}
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -170,6 +218,77 @@ export default function AccessCard({ readOnly }) {
         ))}
       </p>
     </Card>
+  )
+}
+
+/**
+ * Hands a super admin a temporary password to pass on in person.
+ *
+ * It is shown in plain text on purpose -- the whole point is that it has
+ * to be read out -- and it is useless after first sign-in, because the
+ * account is flagged to force the employee to choose their own.
+ */
+function TemporaryPassword({ employee, busy, onCancel, onSave }) {
+  const [password, setPassword] = useState(() => generateTemporaryPassword())
+  const [copied, setCopied] = useState(false)
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(password)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard access can be refused; the password is on screen anyway.
+    }
+  }
+
+  return (
+    <div className="mx-5 mb-4 rounded-xl border border-line bg-subtle/60 p-4">
+      <div className="mb-3 text-sm font-semibold text-ink">
+        Temporary password for {employee.name}
+      </div>
+      <p className="mb-3 text-xs text-ink-3">
+        They sign in as {employee.username ?? employee.email} and must choose their own
+        password immediately.
+      </p>
+      <form
+        className="grid gap-3 sm:grid-cols-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          onSave(password)
+        }}
+      >
+        <Field
+          label="Temporary password"
+          className="sm:col-span-2"
+          hint="At least 8 characters. Write it down before saving — it is not shown again."
+        >
+          <Input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </Field>
+        <div className="flex items-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => setPassword(generateTemporaryPassword())}>
+            Regenerate
+          </Button>
+          <Button type="button" variant="secondary" onClick={copy}>
+            {copied ? 'Copied' : 'Copy'}
+          </Button>
+        </div>
+        <div className="flex gap-2 sm:col-span-3">
+          <Button type="submit" disabled={busy || password.length < 8}>
+            {busy ? 'Saving…' : 'Set password'}
+          </Button>
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </div>
   )
 }
 
