@@ -7,10 +7,10 @@
   <title>IEnergy Portal</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="stylesheet" href="responsive.css?v=1" />
-  <link rel="stylesheet" href="home.css?v=6" />
-  <script src="theme.js?v=1"></script>
+  <link rel="stylesheet" href="home.css?v=7" />
+  <script src="theme.js?v=3"></script>
 </head>
-<body>
+<body class="home">
   <!-- Password gate (client-side convenience only) -->
   <div id="auth" class="auth">
     <div class="auth-card">
@@ -94,11 +94,6 @@
           <div class="tile-desc">Daily attendance, leave balances and monthly payroll reports.</div>
         </a>
 
-        <a class="tile" href="attendance-tracker/?v=3&amp;only=report#/employee-report">
-          <div class="tile-title">Employee Report</div>
-          <div class="tile-desc">One employee, day by day, with hours, leave balances and totals for any period.</div>
-        </a>
-
         <!-- Personnel records: admins only. The tile is hidden from a user
              and the page refuses them in any case, which is the half that
              matters -- a hidden link is a tidier screen, not a lock. -->
@@ -132,7 +127,13 @@
     </footer>
   </main>
 
-  <button id="logoutBtn" class="btn logout-btn" type="button">Logout</button>
+  <!-- Theme first, then the way out: the same order as the tracker's
+       header, so the two apps do not put the same two controls in
+       opposite places. theme.js drops the toggle into the slot. -->
+  <div class="top-bar">
+    <span id="themeSlot"></span>
+    <button id="logoutBtn" class="btn logout-btn" type="button">Sign out</button>
+  </div>
 
   <script src="auth.js?v=4"></script>
   <script src="dashboard.js?v=1"></script>

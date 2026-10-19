@@ -221,7 +221,10 @@ const GROUPS = [
  */
 const OPTIONAL = new Set([
   'si_date', 'si_code', 'si_basic_wage', 'si_gross_wage',
-  'email', 'office_number',
+  // A company line and a company email are issued, not collected: a new
+  // starter has neither on their first day, and the personal mobile is
+  // the number that actually reaches them.
+  'email', 'office_number', 'company_mobile',
   'notice_date', 'resignation_date', 'resignation_reason',
 ])
 

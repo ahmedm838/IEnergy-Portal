@@ -396,46 +396,37 @@ body {
 }
 
 
-/* Logout button (main page) */
-.logout-btn {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 1000;
-}
+/* Logout sits in the control bar now, not pinned to a corner. */
+.logout-btn { padding: 7px 12px; font-size: 12px; border-radius: 10px; }
 
 /* ---------------------------------------------------------------------
-   Theme toggle.
+   Theme toggle, matching the one in the Attendance Tracker: a bordered
+   button with a square-ish corner and an SVG icon, not a shadowed pill
+   with a glyph. Two apps on one site should not have two toggles.
 
-   Sits at the top right of the page and scrolls away with it, rather
-   than riding along over the content. Absolute with no positioned
-   ancestor anchors it to the document, so it still sits above the
-   sign-in gate, which is itself fixed across the viewport.
+   It no longer positions itself. The pages that have a control bar put
+   it in one; anything else gets the bar's own fallback position.
    --------------------------------------------------------------------- */
 .theme-toggle {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 2000;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font: inherit;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1;
-  padding: 8px 12px;
-  border-radius: 999px;
+  padding: 7px 10px;
+  border-radius: 10px;
   border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--text);
+  background: transparent;
+  color: var(--text-80);
   cursor: pointer;
-  box-shadow: 0 6px 18px var(--shadow);
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
 }
 
 .theme-toggle:hover {
-  border-color: var(--line-strong);
+  background: var(--fill-2);
+  color: var(--text);
 }
 
 .theme-toggle:focus-visible {
@@ -445,18 +436,42 @@ body {
 }
 
 .theme-toggle .theme-toggle-icon {
-  font-size: 14px;
-  line-height: 1;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+}
+.theme-toggle .theme-toggle-icon svg { width: 16px; height: 16px; }
+
+/* ---------------------------------------------------------------------
+   The control bar: theme first, then the way out. Top right of the page,
+   scrolling with it rather than riding over the content.
+   --------------------------------------------------------------------- */
+.top-bar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* No bar on the page: the toggle anchors itself, as it used to. */
+body > .theme-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2000;
+  background: var(--surface);
 }
 
 @media (max-width: 520px) {
-  /* Just the icon, so it does not crowd a narrow header. */
   .theme-toggle .theme-toggle-label { display: none; }
-  .theme-toggle { padding: 9px; }
+  .theme-toggle { padding: 8px; }
 }
 
 @media print {
-  .theme-toggle { display: none; }
+  .theme-toggle, .top-bar { display: none; }
 }
 
 /* ---------------------------------------------------------------------
@@ -541,3 +556,15 @@ body {
 @media (max-width: 560px) {
   .dash-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---------------------------------------------------------------------
+   The home page uses the full width, as the Attendance Tracker does.
+
+   responsive.css sets .container to min(var(--container-max), 100%), so
+   raising the variable is what widens it -- a max-width here would lose
+   to that rule. Scoped to the home page: the calculators and documents
+   read better in a column, and a line of text the width of a desk is
+   hard to follow.
+   --------------------------------------------------------------------- */
+body.home { --container-max: 100%; }
+body.home .container { max-width: none; padding-left: 20px; padding-right: 20px; }
