@@ -235,59 +235,34 @@ const WRITABLE = [
 ]
 
 /* ------------------------------------------------------------------ */
-/* Sign in                                                             */
+/* Access                                                              */
 /* ------------------------------------------------------------------ */
 
-function showAuthError(message) {
+/**
+ * Show the gate panel with something that explains itself.
+ *
+ * There is no sign-in on this page any more -- the portal has the only
+ * one -- so everything that lands here is either "not signed in" or "not
+ * allowed", and both have somewhere to go rather than a dead end.
+ */
+function showGate(message, error) {
+  const note = $('gateMessage')
+  if (note) note.textContent = message || ''
   const el = $('authError')
-  el.textContent = message || ''
-  el.hidden = !message
+  if (el) {
+    el.textContent = error || ''
+    el.hidden = !error
+  }
+  $('gate').hidden = false
+  $('app').hidden = true
+}
+
+function showAuthError(message) {
   // Anything that fails after the gate is hidden would otherwise write its
   // message into an element nobody can see, which is exactly what "I
-  // signed in and nothing happened" looks like from the outside.
-  if (message) {
-    $('gate').hidden = false
-    $('app').hidden = true
-  }
+  // opened it and nothing happened" looks like from the outside.
+  showGate('Something went wrong opening this page.', message)
 }
-
-async function resolveEmail(identifier) {
-  const value = String(identifier ?? '').trim()
-  if (!value || value.includes('@')) return value
-  // Usernames are the part before @ on the company domain. If that domain
-  // cannot be read before signing in, say so rather than guessing one and
-  // failing with "invalid credentials", which blames the password.
-  const { data, error } = await supabase.rpc('default_email_domain')
-  if (error || !data) throw new Error('Enter your full email address.')
-  return `${value}@${data}`
-}
-
-$('signInForm').addEventListener('submit', async (e) => {
-  e.preventDefault()
-  showAuthError('')
-  const btn = $('signInBtn')
-  btn.disabled = true
-  btn.textContent = 'Signing in…'
-  try {
-    const email = await resolveEmail($('emailInput').value)
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: $('passwordInput').value,
-    })
-    if (error) throw error
-    $('passwordInput').value = ''
-    await start()
-  } catch (err) {
-    showAuthError(
-      err.message === 'Invalid login credentials'
-        ? 'That email and password do not match an account.'
-        : err.message,
-    )
-  } finally {
-    btn.disabled = false
-    btn.textContent = 'Sign in'
-  }
-})
 
 $('signOutBtn').addEventListener('click', async () => {
   // Same reasoning as the tracker: ask the server to revoke, but never
@@ -379,8 +354,10 @@ async function loadTotals() {
 async function start() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    $('gate').hidden = false
-    $('app').hidden = true
+    // No session: there is one sign-in and it is not here. Send them to
+    // it rather than showing a second one.
+    showGate('You are not signed in. Sign in at iEnergy Home and come back.')
+    setTimeout(() => { location.replace('../index.html') }, 1200)
     return
   }
 
@@ -392,21 +369,29 @@ async function start() {
 
   if (error || !data) {
     showAuthError(
-      'That account signed in but is not linked to an employee record, so it cannot read the database.',
+      'That account is not linked to an employee record, so it cannot read the database.',
     )
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
-    $('gate').hidden = false
-    $('app').hidden = true
     return
   }
 
+  // Personnel records are an administrator's job. A user could only ever
+  // read them, and the whole file -- national IDs, wages, documents -- is
+  // not something to put in front of somebody who has no business editing
+  // it. Row level security says the same thing from the other side.
+  if (data.role !== 'admin' && data.role !== 'super_admin') {
+    showGate(
+      `Signed in as ${data.name}, but the Employee Database is open to administrators only.`,
+    )
+    return
+  }
+
+  // Everyone who gets this far may edit: the check above turned the rest
+  // away, so there is no read-only state left to describe.
   me = data
-  const canEdit = me.role === 'admin' || me.role === 'super_admin'
-  $('whoami').textContent = canEdit
-    ? `Signed in as ${me.name} (${me.role === 'super_admin' ? 'super admin' : 'admin'}).`
-    : `Signed in as ${me.name}. Your role is read-only here — the database refuses changes.`
-  $('newBtn').hidden = !canEdit
-  $('saveBtn').hidden = !canEdit
+  $('whoami').textContent =
+    `Signed in as ${me.name} (${me.role === 'super_admin' ? 'super admin' : 'admin'}).`
+  $('newBtn').hidden = false
+  $('saveBtn').hidden = false
 
   $('gate').hidden = true
   $('app').hidden = false

@@ -12,39 +12,27 @@
   <script src="../theme.js?v=2"></script>
 </head>
 <body>
-  <!-- Unlike the rest of the portal this is a real sign-in. The page reads
-       and writes the employees table, so the account is the one from the
-       Attendance Tracker and the database decides what it may do from the
-       role on that person's own record. A password in the page source,
-       which is what guards the other pages, would be no guard at all here. -->
+  <!-- No sign-in here. There is one sign-in on this site, at the portal,
+       and this page uses the session it leaves behind. What this panel is
+       for is the two things that can go wrong: arriving without a session,
+       and arriving with one that is not allowed in. -->
   <div class="auth" id="gate">
     <div class="auth-card">
       <div class="auth-top">
         <div class="auth-title">
           <a class="back-link" href="../index.html">&larr; iEnergy Home</a>
           <h1>Employee Database</h1>
-          <p>Sign in with your Attendance Tracker account.</p>
+          <p id="gateMessage">Checking your access&hellip;</p>
         </div>
       </div>
-
-      <form id="signInForm">
-        <label class="field">
-          <span>Email or username</span>
-          <input id="emailInput" class="auth-input" type="text" autocomplete="username"
-                 placeholder="name@ienergyegypt.com" required />
-        </label>
-        <label class="field">
-          <span>Password</span>
-          <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" required />
-        </label>
-        <div class="auth-actions">
-          <button class="btn primary" type="submit" id="signInBtn">Sign in</button>
-        </div>
-        <div id="authError" class="auth-error" hidden></div>
-        <p class="auth-note">
-          The same account as the Attendance Tracker. Only an administrator can change records here.
-        </p>
-      </form>
+      <div id="authError" class="auth-error" hidden></div>
+      <div class="auth-actions">
+        <a class="btn primary" href="../index.html">Go to iEnergy Home</a>
+      </div>
+      <p class="auth-note">
+        Personnel records are open to administrators only. If you need access,
+        ask a super admin to change your role in the tracker&rsquo;s Settings page.
+      </p>
     </div>
   </div>
 
@@ -131,6 +119,6 @@
   </main>
   </div>
 
-  <script type="module" src="employee-database.js?v=48"></script>
+  <script type="module" src="employee-database.js?v=49"></script>
 </body>
 </html>

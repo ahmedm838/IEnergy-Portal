@@ -18,29 +18,32 @@
         <div class="auth-title">
           <div class="pill">Tools Portal</div>
           <h1>iEnergy</h1>
-          <p>Please sign in to continue.</p>
+          <p>Sign in with your Attendance Tracker account.</p>
         </div>
         <img class="hero-logo auth-logo" src="logo.png" alt="iEnergy logo" />
       </div>
 
       <label class="field">
         <span>Username</span>
-        <input id="usernameInput" type="text" autocomplete="username" placeholder="admin or user" />
+        <input id="usernameInput" type="text" autocomplete="username" placeholder="name.surname or full email" />
       </label>
 
       <label class="field">
         <span>Password</span>
-        <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Enter password" />
+        <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Your tracker password" />
       </label>
 
       <div class="auth-actions">
-        <button id="btnLogin" class="btn primary" type="button">Unlock</button>
+        <button id="btnLogin" class="btn primary" type="button">Sign in</button>
       </div>
 
       <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
 
       <p class="auth-note">
-        Note: This is a client-side password gate for convenience. It is not a substitute for real access control.
+        The same account as the Attendance Tracker, and the only sign-in on this
+        site: every page here uses it. What you can see and change is decided by
+        the database, from your role on your own employee record. No account
+        yet? Ask a super admin to set one up for you.
       </p>
     </div>
   </div>
@@ -62,14 +65,22 @@
           <div class="tile-desc">Calculate gross, tax, SI, and net salary.</div>
         </a>
 
-        <a class="tile" href="https://ahmedm838.github.io/ienergy-attendance-tracker/">
+        <a class="tile" href="attendance-tracker/">
           <div class="tile-title">Attendance Tracker</div>
           <div class="tile-desc">Daily attendance, leave balances and monthly payroll reports.</div>
         </a>
 
-        <a class="tile" href="employee-database/">
+        <a class="tile" href="attendance-tracker/#/employee-report">
+          <div class="tile-title">Employee Report</div>
+          <div class="tile-desc">One employee, day by day, with hours, leave balances and totals for any period.</div>
+        </a>
+
+        <!-- Personnel records: admins only. The tile is hidden from a user
+             and the page refuses them in any case, which is the half that
+             matters -- a hidden link is a tidier screen, not a lock. -->
+        <a class="tile" href="employee-database/" data-role="admin">
           <div class="tile-title">Employee Database</div>
-          <div class="tile-desc">Add and edit employee records. Administrators sign in with their tracker account.</div>
+          <div class="tile-desc">Add and edit employee records.</div>
         </a>
 
         <a class="tile" href="contacts-list/">
@@ -99,7 +110,7 @@
 
   <button id="logoutBtn" class="btn logout-btn" type="button">Logout</button>
 
-  <script src="auth.js?v=2"></script>
+  <script src="auth.js?v=3"></script>
   <script>
     (function () {
       'use strict';
