@@ -786,12 +786,40 @@ async function openEmployee(id) {
   if (data.si_code) siCodeLookup(data.si_code)
   $('formError').hidden = true
   renderForm(data)
+  settleSearchOn(data)
+}
+
+/**
+ * After a choice, the search box holds the chosen name and the list of
+ * matches goes away -- the same way the contacts page behaves. Leaving
+ * the list open underneath invites a second click on the record that is
+ * already open, and leaving the typed fragment in the box makes it hard
+ * to tell which employee is being edited.
+ */
+function settleSearchOn(employee) {
+  // A search still in flight would otherwise reopen the list behind us.
+  searchSeq++
+  clearTimeout(searchTimer)
+
+  const input = $('searchInput')
+  if (input) input.value = employee.name || employee.arabic_name || String(employee.code ?? '')
+
+  $('matchesList').innerHTML = ''
+  $('matches').hidden = true
+  $('searchHint').textContent = 'Editing #' + employee.code + (employee.name ? ' - ' + employee.name : '')
 }
 
 $('newBtn').addEventListener('click', () => {
   $('formNotice').hidden = true
   $('formError').hidden = true
   derivedSiTitle = null
+  // A blank record is not the employee that was searched for, so the box
+  // should not still be naming them.
+  searchSeq++
+  clearTimeout(searchTimer)
+  $('searchInput').value = ''
+  $('matches').hidden = true
+  $('searchHint').textContent = 'Type to search.'
   renderForm({
     weekend: 'fri_sat',
     is_active: true,
