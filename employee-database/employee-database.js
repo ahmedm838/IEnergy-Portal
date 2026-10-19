@@ -255,6 +255,21 @@ async function loadLookups() {
   }
 }
 
+/**
+ * The same day n months from today, as YYYY-MM-DD.
+ *
+ * Clamped to the end of the target month, so asking for four months
+ * from the 31st of October gives the 28th of February rather than
+ * rolling into March.
+ */
+function monthsAhead(n) {
+  const today = new Date()
+  const y = today.getFullYear(), m = today.getMonth(), d = today.getDate()
+  const lastOfTarget = new Date(Date.UTC(y, m + n + 1, 0)).getUTCDate()
+  const when = new Date(Date.UTC(y, m + n, Math.min(d, lastOfTarget)))
+  return when.toISOString().slice(0, 10)
+}
+
 async function loadTotals() {
   const count = async (apply) => {
     const { count: n, error } = await apply(
@@ -262,7 +277,7 @@ async function loadTotals() {
     )
     return error ? null : n
   }
-  const [listed, onBoard, uninsured, complete] = await Promise.all([
+  const [listed, onBoard, uninsured, contracts, complete] = await Promise.all([
     count((q) => q),
     count((q) => q.eq('is_active', true)),
     // On board with no insurance date on file. "On board" is the same
@@ -270,11 +285,17 @@ async function loadTotals() {
     // always read against each other rather than against two different
     // populations.
     count((q) => q.eq('is_active', true).is('si_date', null)),
+    // Expired, or expiring within four months. Scoped to active
+    // employees: nobody chases a renewal for somebody who has left.
+    count((q) =>
+      q.eq('is_active', true).not('contract_expiry', 'is', null).lte('contract_expiry', monthsAhead(4)),
+    ),
     count((q) => q.eq('file_complete', true)),
   ])
   $('totalListed').textContent = listed ?? '—'
   $('totalOnBoard').textContent = onBoard ?? '—'
   $('totalUninsured').textContent = uninsured ?? '—'
+  $('totalContracts').textContent = contracts ?? '—'
   $('totalComplete').textContent = complete ?? '—'
 }
 
@@ -864,8 +885,9 @@ const nameFrom = (pairs, id) => (pairs ?? []).find(([value]) => value === id)?.[
 /** One row per employee, stored and calculated columns side by side. */
 function exportRow(e) {
   const id = readNationalId(e.national_id)
-  const contract = e.hired_on ? new Date(`${e.hired_on}T00:00:00Z`) : null
-  if (contract && !Number.isNaN(contract.getTime())) contract.setUTCFullYear(contract.getUTCFullYear() + 1)
+  // contract_expiry comes from the view, so the file and the page can
+  // never disagree about when a contract ends.
+  const expiry = e.contract_expiry ? new Date(e.contract_expiry + 'T00:00:00Z') : null
   const idLeft = e.id_expiry_date ? daysUntil(e.id_expiry_date) : null
   const missing = e.missing_documents ?? []
 
@@ -887,7 +909,7 @@ function exportRow(e) {
     'Active': e.is_active ? 'Yes' : 'No',
     'Hiring date': e.hired_on ?? '',
     'Working period': e.hired_on ? spanFrom(e.hired_on) ?? '' : '',
-    'Contract expiry': contract && !Number.isNaN(contract.getTime()) ? asDMY(contract) : '',
+    'Contract expiry': expiry ? asDMY(expiry) : '',
     'Weekend': e.weekend === 'fri' ? 'Friday only' : 'Friday + Saturday',
     'Bus route': e.bus_route ?? '',
     'S.I. date': e.si_date ?? '',
