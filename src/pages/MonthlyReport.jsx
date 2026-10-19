@@ -79,7 +79,7 @@ export default function MonthlyReport() {
       overtime: sum('overtime'),
       total_deductions: sum('total_deductions'),
       salary_advance: sum('salary_advance'),
-      absence_penalties: sum('absence_penalties'),
+      records: sum('records'),
     }
   }, [rows])
 
@@ -91,6 +91,9 @@ export default function MonthlyReport() {
       { header: 'Title', key: 'title' },
       { header: 'Site', key: 'site' },
       { header: 'Department', key: 'department' },
+      // How many days this row was built from. A low count beside full
+      // allowances is a recording gap, not a payroll figure.
+      { header: 'Records', key: 'records', numFmt: '0' },
       { header: 'Meals', key: 'meals', numFmt: '#,##0.00' },
       { header: `Transport (${currency})`, key: 'transport', numFmt: '#,##0.00' },
       { header: `Total Allowances (${currency})`, key: 'total_allowances', numFmt: '#,##0.00' },
@@ -98,10 +101,11 @@ export default function MonthlyReport() {
       { header: `Bonus (${currency})`, key: 'bonus', numFmt: '#,##0.00' },
       { header: `Adjustments (${currency})`, key: 'adjustments', numFmt: '#,##0.00' },
       { header: 'Overtime (hrs)', key: 'overtime', numFmt: '#,##0.00' },
-      { header: 'Late (hrs)', key: 'late_hours', numFmt: '#,##0.00' },
-      { header: 'Deducted Hours', key: 'deducted_hours', numFmt: '#,##0.00' },
-      { header: 'Deducted Leaves', key: 'deducted_leaves', numFmt: '#,##0.00' },
-      { header: 'Absence Penalties (days)', key: 'absence_penalties', numFmt: '#,##0.00' },
+      // Late hours, deducted hours, deducted leaves and absence penalties
+      // are no longer listed separately. They still make up Total
+      // Deductions, which is the figure payroll acts on; the breakdown
+      // belongs to the employee report, where the days that produced it
+      // are on screen beside it.
       { header: 'Total Deductions (hrs)', key: 'total_deductions', numFmt: '#,##0.00' },
       { header: `Salary Advance (${currency})`, key: 'salary_advance', numFmt: '#,##0.00' },
     ],
@@ -128,6 +132,7 @@ export default function MonthlyReport() {
         rows: rows.map((r) => ({
           ...r,
           code: Number(r.code),
+          records: Number(r.records),
           meals: Number(r.meals),
           transport: Number(r.transport),
           total_allowances: Number(r.total_allowances),
@@ -135,10 +140,6 @@ export default function MonthlyReport() {
           bonus: Number(r.bonus),
           adjustments: Number(r.adjustments),
           overtime: Number(r.overtime),
-          late_hours: Number(r.late_hours),
-          deducted_hours: Number(r.deducted_hours),
-          deducted_leaves: Number(r.deducted_leaves),
-          absence_penalties: Number(r.absence_penalties),
           total_deductions: Number(r.total_deductions),
           salary_advance: Number(r.salary_advance),
         })),
@@ -220,7 +221,11 @@ export default function MonthlyReport() {
       {error && <Alert tone="error">{error}</Alert>}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat label="Employees" value={num(totals.employees, 0)} sub="with activity in range" />
+        <Stat
+          label="Employees"
+          value={num(totals.employees, 0)}
+          sub={`${num(totals.records, 0)} records in range`}
+        />
         <Stat label="Total allowances" value={`${num(totals.total_allowances)} ${currency}`} />
         <Stat label="Total overtime" value={`${num(totals.overtime)} h`} />
         <Stat
@@ -277,6 +282,7 @@ export default function MonthlyReport() {
                     <Td>{r.title}</Td>
                     <Td>{r.site}</Td>
                     <Td>{r.department}</Td>
+                    <Td className="tabular text-right">{num(r.records, 0)}</Td>
                     <Td className="tabular text-right">{num(r.meals)}</Td>
                     <Td className="tabular text-right">{num(r.transport)}</Td>
                     <Td className="tabular text-right font-semibold">{num(r.total_allowances)}</Td>
@@ -285,27 +291,19 @@ export default function MonthlyReport() {
                     <Td className="tabular text-right">{num(r.adjustments)}</Td>
                     <Td className="tabular text-right">{num(r.overtime)}</Td>
                     <Td
-                      className="tabular text-right"
-                      title={`${num(r.late_hours)} h late; the first ${lookups.lateGraceHours} h are ignored, the excess is subtracted from Deducted Hours`}
-                    >
-                      {num(r.late_hours)}
-                    </Td>
-                    <Td
-                      className={`tabular text-right ${
-                        Number(r.deducted_hours) < 0 ? 'text-on-success' : ''
+                      className={`tabular text-right font-semibold ${
+                        Number(r.total_deductions) > 0 ? 'text-on-danger' : ''
                       }`}
+                      title={`${num(r.deducted_leaves, 0)} deducted leave(s) + ${num(
+                        r.absence_penalties,
+                      )} absence penalty day(s), at ${lookups.requiredHoursPerDay} h, plus ${num(
+                        r.deducted_hours,
+                      )} h deducted — including late beyond ${lookups.lateGraceHours} h (${num(
+                        r.late_hours,
+                      )} h late in total)`}
                     >
-                      {num(r.deducted_hours)}
+                      {num(r.total_deductions)}
                     </Td>
-                    <Td className="tabular text-right">{num(r.deducted_leaves, 0)}</Td>
-                    <Td
-                      className={`tabular text-right ${
-                        Number(r.absence_penalties) > 0 ? 'text-on-danger' : ''
-                      }`}
-                    >
-                      {num(r.absence_penalties)}
-                    </Td>
-                    <Td className="tabular text-right font-semibold">{num(r.total_deductions)}</Td>
                     <Td className="tabular text-right">{num(r.salary_advance)}</Td>
                   </tr>
                 ))}
@@ -316,11 +314,14 @@ export default function MonthlyReport() {
       </Card>
 
       <p className="no-print text-xs text-ink-4">
-        Deducted Hours = (Penalties × {lookups.requiredHoursPerDay}) − (Adjusted Days ×{' '}
-        {lookups.requiredHoursPerDay}) − Adjusted Hours − any late hours beyond{' '}
-        {lookups.lateGraceHours} h for the period. Adjusted days, adjusted hours and late hours all
-        reduce the deduction, so this can be negative. Total Deductions = (Deducted Leaves + Absence Penalties) ×{' '}
-        {lookups.requiredHoursPerDay} + Deducted Hours.
+        Records is the number of attendance days recorded for that employee in the period; every
+        other figure on the row is built from them, so a low count beside full allowances means
+        days are missing rather than money is owed. Total Deductions = (Deducted Leaves + Absence
+        Penalties) × {lookups.requiredHoursPerDay} + Deducted Hours, where Deducted Hours =
+        (Penalties × {lookups.requiredHoursPerDay}) − (Adjusted Days ×{' '}
+        {lookups.requiredHoursPerDay}) − Adjusted Hours − any late beyond {lookups.lateGraceHours} h
+        for the period; hover the figure for that breakdown, or open the employee report for the
+        days behind it.
       </p>
     </div>
   )
