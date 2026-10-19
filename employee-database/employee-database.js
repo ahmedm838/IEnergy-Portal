@@ -701,6 +701,29 @@ function spanFrom(fromISO) {
   return `${Math.floor(months / 12)}y ${months % 12}m`
 }
 
+/**
+ * The last day of a one-year contract: the day before the anniversary.
+ *
+ * Hired 11 Nov 2025, expires 10 Nov 2026.
+ *
+ * This has to give the same answer as contract_expiry on the view, which
+ * is what the totals and the export read -- and the two languages do not
+ * agree about a date that overshoots its month. Postgres clamps 29 Feb
+ * plus a year to 28 Feb; JavaScript rolls it forward to 1 March. So the
+ * clamp is done here by hand rather than left to setUTCFullYear, which
+ * for a hire on 1 Mar 2024 is the difference between ending on 28 Feb
+ * 2025 and claiming another year.
+ */
+function contractExpiry(hiredISO) {
+  const from = new Date(`${hiredISO}T00:00:00Z`)
+  if (Number.isNaN(from.getTime())) return null
+  const less = new Date(from.getTime() - 86400000)
+  const year = less.getUTCFullYear() + 1
+  const month = less.getUTCMonth()
+  const lastOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(year, month, Math.min(less.getUTCDate(), lastOfMonth)))
+}
+
 function daysUntil(iso) {
   const when = new Date(`${iso}T00:00:00Z`)
   if (Number.isNaN(when.getTime())) return null
@@ -746,9 +769,8 @@ function renderDerived() {
   const hired = val('hired_on')
   if (hired) {
     items.push(['Working period', spanFrom(hired) ?? 'starts in the future', 'muted'])
-    const contract = new Date(`${hired}T00:00:00Z`)
-    if (!Number.isNaN(contract.getTime())) {
-      contract.setUTCFullYear(contract.getUTCFullYear() + 1)
+    const contract = contractExpiry(hired)
+    if (contract) {
       const left = daysUntil(contract.toISOString().slice(0, 10))
       items.push([
         'Contract expiry',
