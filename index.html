@@ -7,7 +7,7 @@
   <title>IEnergy Portal</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="stylesheet" href="responsive.css?v=1" />
-  <link rel="stylesheet" href="home.css?v=8" />
+  <link rel="stylesheet" href="home.css?v=10" />
   <script src="theme.js?v=4"></script>
 </head>
 <body class="home">
@@ -68,7 +68,7 @@
     <header class="page-bar">
       <div class="page-bar-inner">
         <div class="page-bar-brand">
-          <img class="page-bar-logo" src="logo.png" alt="" />
+          <img class="page-bar-logo" src="logo-mark.png?v=1" alt="" />
           <span class="page-bar-name">iEnergy Portal</span>
         </div>
         <div class="page-bar-right">
@@ -140,8 +140,8 @@
     </div>
   </main>
 
-  <script src="auth.js?v=5"></script>
-  <script src="dashboard.js?v=1"></script>
+  <script src="auth.js?v=6"></script>
+  <script src="dashboard.js?v=2"></script>
   <script>
     (function () {
       'use strict';
@@ -221,8 +221,12 @@
           // Show only when an authenticated session exists.
           logoutBtn.style.display = (IEnergyAuth && IEnergyAuth.isSessionValid && IEnergyAuth.isSessionValid()) ? '' : 'none';
           logoutBtn.addEventListener('click', () => {
-            try { IEnergyAuth.logout(); } catch (e) {}
-            window.location.href = 'index.html';
+            logoutBtn.disabled = true;
+            logoutBtn.textContent = 'Signing out…';
+            /* Waits for the token to be gone before leaving. Navigating
+               first reloaded this page while the session was still in
+               storage, and the gate signed the person straight back in. */
+            IEnergyAuth.signOutAndLeave('index.html');
           });
         }
 

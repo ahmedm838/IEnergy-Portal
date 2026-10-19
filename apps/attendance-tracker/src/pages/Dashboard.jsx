@@ -77,6 +77,11 @@ export default function Dashboard() {
 
   if (loading || lookups.loading) return <Spinner />
 
+  /* Down a column of the leave balances. Safe before mySummary arrives
+     because the table it feeds only renders once it has. */
+  const sumOf = (key) =>
+    (mySummary?.balances ?? []).reduce((total, row) => total + Number(row[key] || 0), 0)
+
   return (
     <div className="grid grid-cols-1 gap-5">
       <div>
@@ -175,6 +180,29 @@ export default function Dashboard() {
                 <Td className="tabular text-right text-ink-4">—</Td>
               </tr>
             </tbody>
+            {/* The totals. Consumed includes the other leaves, because
+                those days were taken; balance and remaining do not,
+                because there is no entitlement behind a sick or deducted
+                day to add up. Folding a dash into a sum would leave a row
+                that does not add up. */}
+            <tfoot>
+              <tr className="border-t-2 border-line font-semibold">
+                <Td className="text-ink">Total</Td>
+                <Td className="tabular text-right">
+                  {num(sumOf('balance'), 1)}
+                </Td>
+                <Td className="tabular text-right">
+                  {num(sumOf('consumed') + Number(mySummary.other_leaves || 0), 1)}
+                </Td>
+                <Td
+                  className={`tabular text-right ${
+                    sumOf('remaining') < 0 ? 'text-on-danger' : 'text-on-success'
+                  }`}
+                >
+                  {num(sumOf('remaining'), 1)}
+                </Td>
+              </tr>
+            </tfoot>
           </table>
         </Card>
       )}

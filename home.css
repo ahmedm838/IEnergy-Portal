@@ -655,3 +655,29 @@ body.home .container { max-width: none; padding-left: 20px; padding-right: 20px;
   .page-bar-who .who-title { display: none; }
 }
 @media print { .page-bar { display: none; } }
+
+/* The page bar carries its own border, so the container's 28px top
+   padding and the first section's 18px margin stacked into a band of
+   nothing underneath it.
+
+   Spacing between sections comes from a flex gap rather than each
+   section's own margin, because a flex gap skips a child that is
+   display:none. The dashboard is the first section and is hidden until
+   somebody signs in -- with margins, it left its spacing behind when it
+   went, and a :first-child rule aimed at the section below it missed,
+   because the hidden one is still the first child. */
+body.home .container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 14px;
+}
+body.home .container > .section { margin-top: 0; }
+
+/* The totals line under the balances. */
+.dash-table tfoot td {
+  border-top: 2px solid var(--line);
+  border-bottom: 0;
+  padding-top: 9px;
+  font-weight: 750;
+}

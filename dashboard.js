@@ -160,6 +160,24 @@
       body.appendChild(other);
 
       table.appendChild(body);
+
+      /* The totals.
+         Consumed includes the other leaves, because those days were
+         taken. Balance and remaining do not: there is no entitlement
+         behind a sick or deducted day to add up, and quietly folding a
+         dash into a sum would make the row stop adding up. */
+      const totals = document.createElement('tfoot');
+      const sum = (key) => mine.balances.reduce((acc, b) => acc + Number(b[key] || 0), 0);
+      const consumed = sum('consumed') + Number(mine.other_leaves || 0);
+      const foot = document.createElement('tr');
+      foot.className = 'dash-total-row';
+      foot.innerHTML =
+        '<td>Total</td>' +
+        `<td>${num(sum('balance'), 1)}</td>` +
+        `<td>${num(consumed, 1)}</td>` +
+        `<td class="${sum('remaining') < 0 ? 'bad' : 'good'}">${num(sum('remaining'), 1)}</td>`;
+      totals.appendChild(foot);
+      table.appendChild(totals);
       balancesEl.appendChild(table);
 
       const note = document.createElement('p');

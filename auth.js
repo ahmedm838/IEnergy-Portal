@@ -218,12 +218,28 @@
     btn.addEventListener('click', function () {
       btn.disabled = true;
       btn.textContent = 'Signing out…';
-      logout().then(function () { window.location.replace(homeHref); });
+      signOutAndLeave(homeHref);
     });
     bar.appendChild(btn);
     return btn;
   }
 
+
+  /* Sign out, then leave -- in that order.
+   *
+   * logout() is asynchronous: it revokes the token with the server and,
+   * whatever the server says, clears the stored one. Navigating without
+   * waiting for it lets the page reload while the token is still in
+   * storage, so the gate finds a session and signs the person straight
+   * back in. That is precisely what the home page's own handler did.
+   *
+   * It lives here so there is one copy of the order of operations rather
+   * than one per button.
+   */
+  async function signOutAndLeave(href) {
+    await logout();
+    window.location.replace(href || 'index.html');
+  }
 
   function isSessionValid() { return !!(profile && profile.role); }
   function getRole() { return profile ? profile.role || '' : ''; }
@@ -387,6 +403,7 @@
     ensureAuth,
     login,
     logout,
+    signOutAndLeave,
     isSessionValid,
     getRole,
     getUser,
