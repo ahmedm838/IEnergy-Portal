@@ -444,7 +444,11 @@ export default function EmployeeReport() {
                   : `${records.length} days recorded`
               }
               actions={
-                <div className="no-print flex flex-wrap items-end gap-2">
+                /* One row, always. With flex-wrap the type filter dropped
+                   onto a line of its own as soon as the subtitle grew --
+                   and the subtitle grows exactly when a filter is on, so
+                   the section got taller the moment it was used. */
+                <div className="no-print flex shrink-0 flex-nowrap items-center gap-2">
                   {[
                     ['all', 'All'],
                     ['attended', 'Attended'],
@@ -461,7 +465,12 @@ export default function EmployeeReport() {
                   ))}
                   <Select
                     aria-label="Filter by attendance type"
-                    className="w-52"
+                    // Narrower than it was, so the whole row clears the
+                    // subtitle. Left at the standard control height every
+                    // other dropdown in the app uses -- shrinking it saves
+                    // nothing, because the card's own padding sets the
+                    // height of this row.
+                    className="w-44 text-sm"
                     value={dayFilter.startsWith('type:') ? dayFilter : ''}
                     onChange={(e) => setDayFilter(e.target.value || 'all')}
                   >
