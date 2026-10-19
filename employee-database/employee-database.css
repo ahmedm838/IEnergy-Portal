@@ -356,6 +356,45 @@
 
 .db-field .db-check { width: 18px; height: 18px; align-self: flex-start; margin-top: 4px; }
 
+/* A date box: the text everybody reads, with the browser's own calendar
+   kept behind the small button. The native input is not display:none,
+   because a hidden input cannot be asked to open its picker. */
+.db-date { position: relative; display: block; }
+.db-date-text { width: 100%; padding-right: 30px; }
+.db-date-text.bad { border-color: var(--danger-text); }
+.db-date-native {
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.db-date-btn {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.db-date-btn:hover { color: var(--text); background: var(--fill-2); }
+.db-date-text:disabled ~ .db-date-btn { display: none; }
+
 .db-docs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));

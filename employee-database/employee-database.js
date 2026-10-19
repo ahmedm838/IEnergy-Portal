@@ -44,6 +44,65 @@ function formatMobile(v) {
 const validMobile = (v) => /^0\d{2}-\d{4}-\d{4}$/.test(String(v ?? ''))
 const filterValue = (q) => String(q).replace(/[\\"*%]/g, ' ').replace(/\s+/g, ' ').trim()
 
+/* Wages are whole pounds. The column is numeric(10,2) because that is
+   what money columns usually are, but a piastre in an insurance wage is
+   always a typo, so nothing here offers a decimal point. */
+const WAGE_LIMITS = { si_basic_wage: [5500, 55000], si_gross_wage: [7100, 71000] }
+
+const onlyDigits = (v, max) => String(v ?? '').replace(/\D/g, '').slice(0, max)
+/**
+ * Digits as they are typed, grouped: 55000 reads as 55,000.
+ *
+ * Anything after a decimal point is dropped rather than run together with
+ * the pounds, so a pasted 5500.75 becomes 5,500 and not 550,075.
+ */
+function formatMoney(v) {
+  const d = onlyDigits(String(v ?? '').split('.')[0], 9).replace(/^0+(?=\d)/, '')
+  return d ? Number(d).toLocaleString('en-US') : ''
+}
+
+/* Dates are written the way the forms they are copied onto write them --
+   15-Jan-2026 -- because a date input shows whatever the browser's locale
+   decides, and 03-04-2026 means two different days on two machines. */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** 2026-01-15 -> 15-Jan-2026. Empty string for anything that is not a date. */
+function isoToDMY(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? '').trim())
+  if (!m) return ''
+  const month = Number(m[2])
+  if (month < 1 || month > 12) return ''
+  return `${m[3]}-${MONTHS[month - 1]}-${m[1]}`
+}
+
+/**
+ * What somebody typed into a date box, as YYYY-MM-DD.
+ *
+ * Accepts the form it is shown in and the forms people paste: 15-Jan-2026,
+ * 15 jan 2026, 15/01/2026, 15-01-2026 and 2026-01-15. Returns null when it
+ * is not a real day, so 31-Feb is refused rather than silently rolled into
+ * March the way the Date constructor would.
+ */
+function parseDateInput(text) {
+  const value = String(text ?? '').trim()
+  if (!value) return ''
+  let y, mo, d
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value)
+  if (m) { [, y, mo, d] = m }
+  if (!m && (m = /^(\d{1,2})[-/ ]([A-Za-z]{3,})[-/ ](\d{4})$/.exec(value))) {
+    const i = MONTHS.findIndex((name) => name.toLowerCase() === m[2].slice(0, 3).toLowerCase())
+    if (i < 0) return null
+    ;[, d, , y] = m
+    mo = i + 1
+  }
+  if (!m && (m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(value))) { [, d, mo, y] = m }
+  if (!m) return null
+  y = Number(y); mo = Number(mo); d = Number(d)
+  const when = new Date(Date.UTC(y, mo - 1, d))
+  if (when.getUTCFullYear() !== y || when.getUTCMonth() !== mo - 1 || when.getUTCDate() !== d) return null
+  return when.toISOString().slice(0, 10)
+}
+
 /* ------------------------------------------------------------------ */
 /* The record, described once and rendered from the description        */
 /* ------------------------------------------------------------------ */
@@ -81,10 +140,10 @@ const GROUPS = [
   {
     title: 'Identity',
     fields: [
-      { key: 'code', label: 'Code', type: 'number', required: true, hint: 'At least 6 digits.' },
-      { key: 'name', label: 'Name (English)', type: 'text', required: true },
-      { key: 'arabic_name', label: 'Arabic name as in ID', type: 'text', dir: 'rtl', hint: 'Arabic letters only.' },
-      { key: 'national_id', label: 'ID No.', type: 'text', derives: true },
+      { key: 'code', label: 'Code', type: 'digits', maxLength: 6, required: true, placeholder: 'enter 6 numbers' },
+      { key: 'name', label: 'Name (English)', type: 'text', required: true, placeholder: '3 English names only' },
+      { key: 'arabic_name', label: 'Arabic name as in ID', type: 'text', dir: 'rtl', placeholder: 'As in ID arabic only' },
+      { key: 'national_id', label: 'ID No.', type: 'digits', maxLength: 14, placeholder: '14 numbers' },
       { key: 'id_expiry_date', label: 'ID expiry date', type: 'date' },
     ],
   },
@@ -114,8 +173,8 @@ const GROUPS = [
       { key: 'si_no', label: 'S.I. No.', type: 'text' },
       { key: 'si_date', label: 'S.I. date', type: 'date' },
       { key: 'si_code', label: 'S.I. code', type: 'sicode' },
-      { key: 'si_basic_wage', label: 'S.I. basic wage', type: 'number', hint: '5,500 to 99,999.' },
-      { key: 'si_gross_wage', label: 'S.I. gross wage', type: 'number', hint: '7,100 to 99,999.' },
+      { key: 'si_basic_wage', label: 'S.I. basic wage', type: 'money', placeholder: '5,500 to 55,000' },
+      { key: 'si_gross_wage', label: 'S.I. gross wage', type: 'money', placeholder: '7,100 to 71,000' },
     ],
   },
   {
@@ -326,7 +385,7 @@ async function start() {
   me = data
   const canEdit = me.role === 'admin' || me.role === 'super_admin'
   $('whoami').textContent = canEdit
-    ? `Signed in as ${me.name} (${me.role === 'super_admin' ? 'super admin' : 'administrator'}).`
+    ? `Signed in as ${me.name} (${me.role === 'super_admin' ? 'super admin' : 'admin'}).`
     : `Signed in as ${me.name}. Your role is read-only here — the database refuses changes.`
   $('newBtn').hidden = !canEdit
   $('saveBtn').hidden = !canEdit
@@ -433,7 +492,9 @@ $('clearBtn').addEventListener('click', () => {
 /* ------------------------------------------------------------------ */
 
 function fieldControl(field, value) {
-  const wrap = document.createElement('label')
+  // A date is a text box with a picker button beside it, and the button
+  // inside a <label> would steal the click, so dates get a plain div.
+  const wrap = document.createElement(field.type === 'date' ? 'div' : 'label')
   wrap.className = field.half ? 'db-field db-field-half' : 'db-field'
   const label = document.createElement('span')
   label.className = 'db-label'
@@ -469,12 +530,27 @@ function fieldControl(field, value) {
     input.placeholder = 'Code or title…'
     input.value = value ?? ''
     input.addEventListener('input', () => siCodeLookup(input.value))
+  } else if (field.type === 'date') {
+    input = dateControl(value)
   } else {
     input = document.createElement('input')
     input.className = 'input'
-    input.type = field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'
+    input.type = field.type === 'number' ? 'number' : 'text'
     if (field.dir) input.dir = field.dir
+    if (field.placeholder) input.placeholder = field.placeholder
     input.value = value ?? ''
+    if (field.type === 'digits') {
+      input.inputMode = 'numeric'
+      input.maxLength = field.maxLength ?? 20
+      input.addEventListener('input', () => {
+        input.value = onlyDigits(input.value, field.maxLength ?? 20)
+      })
+    }
+    if (field.type === 'money') {
+      input.inputMode = 'numeric'
+      input.value = value == null || value === '' ? '' : formatMoney(Math.round(Number(value)))
+      input.addEventListener('input', () => { input.value = formatMoney(input.value) })
+    }
     if (field.type === 'mobile') {
       input.type = 'tel'
       input.inputMode = 'numeric'
@@ -486,6 +562,7 @@ function fieldControl(field, value) {
   }
   input.id = `f_${field.key}`
   input.dataset.key = field.key
+  input.dataset.kind = field.type
 
   // The fields the calculated panel is built from, kept live as they are
   // typed rather than only refreshed on save.
@@ -497,15 +574,10 @@ function fieldControl(field, value) {
     input.addEventListener('input', () => { derivedSiTitle = null; renderDerived() })
   }
 
-  wrap.appendChild(input)
+  // A date input lives inside its row, next to the picker button.
+  wrap.appendChild(field.type === 'date' ? input.parentNode : input)
 
-  if (field.derives) {
-    const derived = document.createElement('span')
-    derived.className = 'db-derived'
-    derived.id = 'derivedFromId'
-    wrap.appendChild(derived)
-    input.addEventListener('input', showDerived)
-  } else if (field.hint) {
+  if (field.hint) {
     const hint = document.createElement('span')
     hint.className = 'db-hint'
     hint.textContent = field.hint
@@ -514,12 +586,98 @@ function fieldControl(field, value) {
   return wrap
 }
 
+/**
+ * A date box that reads 15-Jan-2026 whoever is looking at it.
+ *
+ * The browser's own date input is formatted by the machine's locale, so
+ * the same record shows 03-04-2026 to one person and 04-03-2026 to
+ * another, and the empty box reads dd-----yyyy. This is a text box that
+ * always writes the month in letters, with the native picker kept beside
+ * it -- hidden, but still doing the calendar work. The day it holds is on
+ * the box as data-iso, which is what the form reads and the database
+ * stores; the text is only how it is shown.
+ */
+function dateControl(value) {
+  const row = document.createElement('span')
+  row.className = 'db-date'
+
+  const input = document.createElement('input')
+  input.className = 'input db-date-text'
+  input.type = 'text'
+  input.autocomplete = 'off'
+  input.placeholder = 'dd-mmm-yyyy'
+  input.dataset.iso = isoToDMY(value) ? String(value).slice(0, 10) : ''
+  input.value = isoToDMY(value)
+
+  const native = document.createElement('input')
+  native.type = 'date'
+  native.className = 'db-date-native'
+  native.tabIndex = -1
+  native.setAttribute('aria-hidden', 'true')
+  native.value = input.dataset.iso
+
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'db-date-btn'
+  button.title = 'Pick a date'
+  button.setAttribute('aria-label', 'Pick a date')
+  button.textContent = '▾'
+
+  const settle = (iso) => {
+    input.dataset.iso = iso || ''
+    input.value = iso ? isoToDMY(iso) : ''
+    native.value = iso || ''
+    input.classList.remove('bad')
+    renderDerived()
+  }
+
+  // Typed text is left exactly as typed while it is being typed -- a box
+  // that rewrites itself under the cursor is unusable -- and tidied when
+  // the field is left.
+  input.addEventListener('blur', () => {
+    const iso = parseDateInput(input.value)
+    if (iso === null) {
+      input.dataset.iso = ''
+      input.classList.add('bad')
+      renderDerived()
+      return
+    }
+    settle(iso)
+  })
+  input.addEventListener('input', () => {
+    const iso = parseDateInput(input.value)
+    input.dataset.iso = iso || ''
+    input.classList.toggle('bad', iso === null && input.value.trim() !== '')
+    renderDerived()
+  })
+
+  native.addEventListener('change', () => settle(native.value))
+  button.addEventListener('click', () => {
+    native.value = input.dataset.iso || ''
+    // showPicker is the only way to open the calendar without showing the
+    // input; where it is missing the native box is focused instead, which
+    // opens it in every browser that lacks it.
+    if (typeof native.showPicker === 'function') {
+      try { native.showPicker(); return } catch { /* refused outside a gesture */ }
+    }
+    native.focus()
+    native.click()
+  })
+
+  row.appendChild(input)
+  row.appendChild(native)
+  row.appendChild(button)
+  return input
+}
+
 /* ------------------------------------------------------------------ */
 /* Values the system works out for itself                              */
 /* ------------------------------------------------------------------ */
 
 const pad2 = (n) => String(n).padStart(2, '0')
-const asDMY = (d) => `${pad2(d.getUTCDate())}-${pad2(d.getUTCMonth() + 1)}-${d.getUTCFullYear()}`
+// Same shape as the date boxes: the month in letters, so a day never
+// reads as a different day depending on who opens the file.
+const asDMY = (d) => `${pad2(d.getUTCDate())}-${MONTHS[d.getUTCMonth()]}-${d.getUTCFullYear()}`
 
 /** The parts of an Egyptian national ID, or null when it is not one. */
 function readNationalId(id) {
@@ -566,7 +724,13 @@ function daysUntil(iso) {
 function renderDerived() {
   const panel = $('derivedPanel')
   if (!panel) return
-  const val = (key) => $(`f_${key}`)?.value?.trim() || ''
+  // A date box shows 15-Jan-2026 and carries the day it means as data-iso;
+  // everything downstream here wants the ISO day.
+  const val = (key) => {
+    const el = $(`f_${key}`)
+    if (!el) return ''
+    return String((el.dataset.kind === 'date' ? el.dataset.iso : el.value) ?? '').trim()
+  }
   const items = []
 
   const id = readNationalId(val('national_id'))
@@ -644,29 +808,9 @@ function renderDerived() {
 
 let derivedSiTitle = null
 
-/** Birth date, gender and governorate, shown as the ID is typed. */
-function showDerived() {
-  const el = $('derivedFromId')
-  if (!el) return
-  const id = String($('f_national_id')?.value ?? '').trim()
-  if (!/^[23]\d{13}$/.test(id)) {
-    el.textContent = id ? '14 digits starting with 2 or 3.' : 'Birth date, gender and governorate are read from this.'
-    el.classList.toggle('bad', !!id)
-    return
-  }
-  el.classList.remove('bad')
-  const year = (id[0] === '2' ? 1900 : 2000) + Number(id.slice(1, 3))
-  const month = Number(id.slice(3, 5))
-  const day = Number(id.slice(5, 7))
-  const gov = lookups.governorates?.[Number(id.slice(7, 9))]
-  const gender = Number(id[12]) % 2 === 1 ? 'Male' : 'Female'
-  const date = new Date(Date.UTC(year, month - 1, day))
-  const real = date.getUTCMonth() === month - 1 && date.getUTCDate() === day
-  const shown = real
-    ? `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`
-    : 'birth date not a real day'
-  el.textContent = `${shown} · ${gender}${gov ? ` · ${gov}` : ''}`
-}
+/* What used to sit under the ID box -- birth date, gender, governorate --
+   is in the calculated panel above the form, which is where every other
+   derived value already was. Saying it twice only made the ID field tall. */
 
 /** The official title for a code, for the calculated panel. */
 async function resolveSiTitle(code) {
@@ -777,7 +921,6 @@ function renderForm(employee) {
     form.querySelectorAll('input, select').forEach((el) => { el.disabled = true })
   }
 
-  showDerived()
   updateFileStatus()
   renderDerived()
   $('editorTitle').textContent = employee.id
@@ -844,13 +987,17 @@ $('newBtn').addEventListener('click', () => {
   $('matches').hidden = true
   $('searchHint').textContent = 'Type to search.'
   renderForm({
-    weekend: 'fri_sat',
+    // What almost every new record is: somebody starting work, off on
+    // Fridays. Anything else is a correction, and correcting a wrong
+    // default is quicker than filling an empty one every time.
+    status_id: (lookups.statuses ?? []).find(([, name]) => name === 'On Board')?.[0] ?? null,
+    weekend: 'fri',
     // Every payroll component starts on; HR turns off the ones that do
     // not apply. Same as the column defaults in the database.
     ...Object.fromEntries(PAYROLL.map(([key]) => [key, true])),
-    // The entitlement the tracker form used to start people on. Zero
-    // would be wrong for almost everyone and easy not to notice.
-    annual_leave_balance: 21,
+    // The standard entitlement. Zero would be wrong for almost everyone
+    // and easy not to notice.
+    annual_leave_balance: 14,
     unplanned_leave_balance: 7,
   })
 })
@@ -899,7 +1046,7 @@ function exportRow(e) {
     'Birth date': id?.birthDate ? asDMY(id.birthDate) : '',
     'Gender': id?.gender ?? '',
     'Governorate': e.governorate ?? '',
-    'ID expiry': e.id_expiry_date ?? '',
+    'ID expiry': isoToDMY(e.id_expiry_date),
     'ID expiry status': idLeft == null ? '' : idLeft < 0 ? `Expired ${Math.abs(idLeft)}d ago` : `${idLeft}d left`,
     'S.I. No.': e.si_no ?? '',
     'Job title': e.title ?? '',
@@ -907,12 +1054,12 @@ function exportRow(e) {
     'Department': nameFrom(lookups.departments, e.department_id),
     'Status': nameFrom(lookups.statuses, e.status_id),
     'Active': e.is_active ? 'Yes' : 'No',
-    'Hiring date': e.hired_on ?? '',
+    'Hiring date': isoToDMY(e.hired_on),
     'Working period': e.hired_on ? spanFrom(e.hired_on) ?? '' : '',
     'Contract expiry': expiry ? asDMY(expiry) : '',
     'Weekend': e.weekend === 'fri' ? 'Friday only' : 'Friday + Saturday',
     'Bus route': e.bus_route ?? '',
-    'S.I. date': e.si_date ?? '',
+    'S.I. date': isoToDMY(e.si_date),
     'S.I. code': e.si_code ?? '',
     'S.I. title': e.si_title ?? '',
     'S.I. basic wage': e.si_basic_wage ?? '',
@@ -931,8 +1078,8 @@ function exportRow(e) {
     ...Object.fromEntries(DOCUMENTS.map(([key, label]) => [label, e[key] ? 'Yes' : 'No'])),
     'File status': e.file_complete ? 'Complete' : `Missing (${missing.length})`,
     'Missing documents': missing.join(', '),
-    'Notice date': e.notice_date ?? '',
-    'Resignation date': e.resignation_date ?? '',
+    'Notice date': isoToDMY(e.notice_date),
+    'Resignation date': isoToDMY(e.resignation_date),
     'Resignation reason': e.resignation_reason ?? '',
   }
 }
@@ -976,7 +1123,20 @@ function readForm() {
     const el = $(`f_${key}`)
     if (!el) continue
     if (el.type === 'checkbox') { out[key] = el.checked; continue }
-    const raw = String(el.value ?? '').trim()
+    // A date box carries the day it means separately from the text that
+    // shows it; text that is not a date carries nothing, which validate
+    // reports against the box rather than saving a blank over it.
+    if (el.dataset.kind === 'date') {
+      const typed = String(el.value ?? '').trim()
+      out[key] = typed === '' ? null : (el.dataset.iso || BAD_DATE)
+      continue
+    }
+    let raw = String(el.value ?? '').trim()
+    if (el.dataset.kind === 'money') raw = onlyDigits(raw.split('.')[0], 9)
+    // One space between names, whatever was pasted in -- a no-break space
+    // between two names is invisible and makes the name fail every test
+    // that counts words.
+    if (key === 'name' || key === 'arabic_name') raw = raw.replace(/\s+/g, ' ')
     out[key] = raw === '' ? null : raw
   }
   // Numbers and foreign keys must not cross as strings.
@@ -988,19 +1148,55 @@ function readForm() {
   return out
 }
 
+const BAD_DATE = 'not-a-date'
+
+/**
+ * Is this value new, or the one that was loaded?
+ *
+ * The rules below are tightenings: six digits from 2, three names, the
+ * wage caps. Applying them to every save would make the records that
+ * predate them unsavable -- somebody correcting a phone number would be
+ * told to renumber the employee first -- so a value that nobody touched
+ * is left as it was found, and anything typed must meet the rule.
+ */
+function touched(key, value) {
+  if (!current?.id) return true
+  const was = current[key]
+  if (was == null && value == null) return false
+  if (was == null || value == null) return true
+  if (typeof value === 'number') return Number(was) !== value
+  return String(was) !== String(value)
+}
+
 /** Mirrors the database's rules so the page can name the field at fault. */
 function validate(v) {
   const problems = []
-  if (!v.code || !Number.isInteger(v.code) || v.code < MIN_CODE) {
-    problems.push(`Code must be a whole number of at least 6 digits (${MIN_CODE} or above).`)
+
+  if (v.code == null || !Number.isInteger(v.code)) {
+    problems.push('Code is required.')
+  } else if (touched('code', v.code) && (v.code < 200000 || v.code > 299999)) {
+    problems.push('Code must be exactly 6 numbers starting with 2 (200000 to 299999).')
   }
-  if (!v.name) problems.push('Name is required.')
-  if (v.arabic_name && /[A-Za-z0-9]/.test(v.arabic_name)) {
-    problems.push('Arabic name must not contain Latin letters or digits.')
+
+  if (!v.name) {
+    problems.push('Name (English) is required.')
+  } else if (touched('name', v.name)) {
+    if (!/^[A-Za-z][A-Za-z'.-]*( [A-Za-z'.-]+)*$/.test(v.name)) {
+      problems.push('Name (English) must be English letters only.')
+    } else if (v.name.split(' ').length < 3) {
+      problems.push('Name (English) must be three names, as written in the ID.')
+    }
   }
+
+  if (v.arabic_name && touched('arabic_name', v.arabic_name) &&
+      !/^[ء-ْ]+( [ء-ْ]+)*$/.test(v.arabic_name)) {
+    problems.push('Arabic name must be Arabic letters only.')
+  }
+
   if (v.national_id && !/^[23]\d{13}$/.test(v.national_id)) {
-    problems.push('ID No. must be 14 digits starting with 2 or 3.')
+    problems.push('ID No. must be 14 numbers, starting with 2 or 3.')
   }
+
   for (const [key, label] of [['company_mobile', 'Company mobile'],
                               ['personal_mobile', 'Personal mobile'],
                               ['secondary_mobile', 'Secondary mobile']]) {
@@ -1008,12 +1204,21 @@ function validate(v) {
       problems.push(`${label} must be 11 digits starting with 0, as 000-0000-0000.`)
     }
   }
-  if (v.si_basic_wage != null && (v.si_basic_wage < 5500 || v.si_basic_wage > 99999)) {
-    problems.push('S.I. basic wage must be between 5,500 and 99,999.')
+
+  for (const [key, [low, high]] of Object.entries(WAGE_LIMITS)) {
+    const label = key === 'si_basic_wage' ? 'S.I. basic wage' : 'S.I. gross wage'
+    if (v[key] == null || !touched(key, v[key])) continue
+    if (v[key] < low || v[key] > high) {
+      problems.push(`${label} must be between ${low.toLocaleString('en-US')} and ${high.toLocaleString('en-US')}.`)
+    }
   }
-  if (v.si_gross_wage != null && (v.si_gross_wage < 7100 || v.si_gross_wage > 99999)) {
-    problems.push('S.I. gross wage must be between 7,100 and 99,999.')
+
+  for (const field of GROUPS.flatMap((g) => g.fields)) {
+    if (field.type === 'date' && v[field.key] === BAD_DATE) {
+      problems.push(`${field.label} is not a real date. Write it as dd-mmm-yyyy, for example 15-Jan-2026.`)
+    }
   }
+
   return problems
 }
 
@@ -1087,7 +1292,8 @@ function friendlyError(err) {
     employees_code_key: 'That employee code is already used by someone else.',
     employees_national_id_uq: 'That ID number is already on another employee.',
     employees_code_min_six_digits: `Code must be at least 6 digits (${MIN_CODE} or above).`,
-    employees_national_id_format: 'ID No. must be 14 digits starting with 2 or 3.',
+    employees_code_band: 'Code must be exactly 6 numbers starting with 2 (200000 to 299999).',
+    employees_national_id_format: 'ID No. must be 14 numbers, starting with 2 or 3.',
     employees_arabic_name_script: 'Arabic name must not contain Latin letters or digits.',
     employees_weekend_valid: 'Weekend must be Friday + Saturday, or Friday only.',
     employees_company_mobile_format: 'Company mobile must look like 000-0000-0000.',
