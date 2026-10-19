@@ -86,6 +86,18 @@ export function dayLabel(iso) {
   return `${WEEKDAYS[d.getDay()]}, ${dd}-${mm}-${yy}`
 }
 
+/**
+ * 'YYYY-MM-DD' the way it is written here: 15-01-2026.
+ *
+ * The database stores and returns ISO, which sorts correctly and reads as
+ * nobody's convention. Anything shown to a person goes through this.
+ */
+export function dateLabel(iso) {
+  if (!iso) return ''
+  const [y, m, d] = String(iso).slice(0, 10).split('-')
+  return y && m && d ? `${d}-${m}-${y}` : String(iso)
+}
+
 export function isFriday(iso) {
   return fromISODate(iso).getDay() === 5
 }

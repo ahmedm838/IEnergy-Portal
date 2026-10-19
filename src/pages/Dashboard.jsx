@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase, run } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useLookups } from '../lib/useLookups'
-import { dayLabel, payrollPeriod, payrollPeriodLabel, num, toISODate } from '../lib/format'
+import { dateLabel, dayLabel, payrollPeriod, payrollPeriodLabel, num, toISODate } from '../lib/format'
 import {
   Alert,
   Button,
@@ -122,7 +122,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader
             title="Your leave balances"
-            subtitle={`Calendar year ${mySummary.leave_year.from} to ${mySummary.leave_year.to}`}
+            subtitle={`Calendar year ${dateLabel(mySummary.leave_year.from)} to ${dateLabel(mySummary.leave_year.to)}`}
             actions={
               <Link to="/employee-report">
                 <Button variant="secondary" size="sm">
@@ -155,6 +155,25 @@ export default function Dashboard() {
                   </Td>
                 </tr>
               ))}
+              {/* Leave days none of the three rows above account for --
+                  sick, deducted, granted. There is no entitlement to count
+                  them against, so only the consumed column has a figure,
+                  and what is in it is named rather than left to trust. */}
+              <tr>
+                <Td className="font-medium text-ink">
+                  Other leaves
+                  <span className="ml-2 text-xs font-normal text-ink-4">
+                    {mySummary.other_leaves > 0
+                      ? (mySummary.other_leave_types ?? [])
+                          .map((t) => `${t.name_en} ${t.days}`)
+                          .join(' · ')
+                      : 'sick, deducted, granted'}
+                  </span>
+                </Td>
+                <Td className="tabular text-right text-ink-4">—</Td>
+                <Td className="tabular text-right">{num(mySummary.other_leaves, 1)}</Td>
+                <Td className="tabular text-right text-ink-4">—</Td>
+              </tr>
             </tbody>
           </table>
         </Card>

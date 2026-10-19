@@ -5,6 +5,7 @@ import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { exportEmployeeReport, prefetchExcel } from '../lib/exportXlsx'
 import {
+  dateLabel,
   dayLabel,
   minutesToHHMM,
   payrollPeriod,
@@ -404,7 +405,7 @@ export default function EmployeeReport() {
             <Card>
               <CardHeader
                 title="Leave balances"
-                subtitle={`Calendar year ${summary.leave_year.from} to ${summary.leave_year.to}`}
+                subtitle={`Calendar year ${dateLabel(summary.leave_year.from)} to ${dateLabel(summary.leave_year.to)}`}
               />
               <table className="w-full">
                 <thead>
