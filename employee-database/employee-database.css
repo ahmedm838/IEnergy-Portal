@@ -338,9 +338,13 @@
   letter-spacing: 0.4px;
 }
 
+/* 200px rather than 230: inside a third of the page, a 230px minimum
+   left room for only one field per row, which made every section taller
+   and the whole record longer than it was at two columns. Measured: 1226px
+   at three columns with 230, 739px with 200. */
 .db-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
 }
 
@@ -419,19 +423,32 @@ select.input optgroup {
 body:has(#app) { --container-max: 1500px; }
 body:has(#app) .container { max-width: 1500px; }
 
-@media (min-width: 1100px) {
-  /* Two groups side by side, so the record reads as columns rather than
-     one long strip. Personnel file spans both: it is eleven tick boxes
-     and wants the room. */
-  #employeeForm {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    align-items: start;
-  }
-  /* Payroll and Personnel file run the full width of the form. */
-  #employeeForm > .db-group-wide { grid-column: 1 / -1; }
+/* ---------------------------------------------------------------------
+   The record, packed by height rather than laid out in a rigid grid.
+
+   A two-column grid aligned the sections in rows, so a short one sat
+   beside a tall one and left a hole the height of the difference. CSS
+   columns flow each section in under the one above it, which closes
+   those holes without the sections having to be the same height -- the
+   gaps come back, but there are far fewer of them, and the whole record
+   is a good deal shorter.
+
+   Three columns on a wide screen, two at laptop width, one on a phone.
+   Payroll and Personnel file span the lot: they are rows of switches and
+   tick boxes and want the width.
+   --------------------------------------------------------------------- */
+#employeeForm { column-gap: 12px; }
+
+#employeeForm > .db-group {
+  break-inside: avoid;          /* never split a section across columns */
+  -webkit-column-break-inside: avoid;
+  width: 100%;
 }
+
+#employeeForm > .db-group-wide { column-span: all; }
+
+@media (min-width: 1300px) { #employeeForm { column-count: 3; } }
+@media (min-width: 900px) and (max-width: 1299px) { #employeeForm { column-count: 2; } }
 
 /* Tighter vertical rhythm everywhere on this page: the same content in
    noticeably less height. */
@@ -484,14 +501,8 @@ body:has(#app) .container { max-width: 1500px; }
    eye lands after reading across the last row of fields. */
 .form-actions { justify-content: flex-end; }
 
-/* ---------------------------------------------------------------------
-   Room for the theme switch.
-
-   It sits at the top right of the page, and the header's own Sign out
-   button is in the same corner, so without a band of its own the two
-   overlap. The page starts below it instead.
-   --------------------------------------------------------------------- */
-body:has(#app:not([hidden])) .container { padding-top: 58px; }
+/* The theme switch no longer floats over this page -- it is moved into
+   the page bar on sign-in -- so the band that was reserved for it goes. */
 
 /* ---------------------------------------------------------------------
    Ten documents, laid out evenly rather than packed.
@@ -550,23 +561,13 @@ body:has(#app:not([hidden])) .container { padding-top: 58px; }
   .bar-actions { width: 100%; }
 }
 
-/* ---------------------------------------------------------------------
-   The record reads as one block.
 
-   The sections were separated by gaps, which made a form of fifty fields
-   look like nine loose cards. They sit flush now, their borders meeting
-   as a single line, so the groups read as divisions of one record rather
-   than as separate things.
-   --------------------------------------------------------------------- */
-/* align-items: start left a short section with empty row beneath it, so
-   the next one began well below however small the gap was. Stretching
-   makes each pair fill its row and the borders actually meet. */
-#employeeForm { gap: 0; align-items: stretch; }
+/* The switch is moved into the page bar once somebody is signed in. The
+   slot disappears so the button becomes a flex item of the bar itself. */
+#themeSlot { display: contents; }
 
-#employeeForm > .db-group {
-  margin: 0 -1px -1px 0;
-  border-radius: 0;
+.page-bar .theme-toggle {
+  position: static;
+  box-shadow: none;
+  background: var(--fill-4);
 }
-
-#employeeForm > .db-group:first-of-type { border-top-left-radius: 14px; }
-#employeeForm > .db-group:last-of-type  { border-bottom-right-radius: 14px; border-bottom-left-radius: 14px; }

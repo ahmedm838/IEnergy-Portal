@@ -67,6 +67,7 @@
     });
 
     label(btn);
+
     document.body.appendChild(btn);
   }
 

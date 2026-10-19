@@ -313,6 +313,14 @@ async function start() {
   $('app').hidden = false
   $('year').textContent = new Date().getFullYear()
 
+  // Bring the theme switch into the page bar now that the bar is on
+  // screen. It is left floating at the top right until then, so the
+  // sign-in screen still has one -- a slot inside the hidden app would
+  // have swallowed it.
+  const slot = $('themeSlot')
+  const toggle = document.querySelector('.theme-toggle')
+  if (slot && toggle) slot.appendChild(toggle)
+
   await loadLookups()
   await loadTotals()
 }
