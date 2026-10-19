@@ -561,3 +561,21 @@ body:has(#app) .container { max-width: 1500px; }
 #themeSlot { display: contents; }
 
 
+
+/* ---------------------------------------------------------------------
+   A section holding a half-width field.
+
+   auto-fit gives whatever column count the width allows, so "half" has
+   no meaning against it. This section is pinned to four columns, which
+   makes the two dates a quarter each and the reason exactly half.
+   --------------------------------------------------------------------- */
+.db-grid-quarters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.db-field-half { grid-column: span 2; }
+
+@media (max-width: 900px) {
+  .db-grid-quarters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .db-grid-quarters { grid-template-columns: 1fr; }
+  .db-field-half { grid-column: auto; }
+}

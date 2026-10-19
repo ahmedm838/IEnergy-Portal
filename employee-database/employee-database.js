@@ -86,7 +86,6 @@ const GROUPS = [
       { key: 'arabic_name', label: 'Arabic name as in ID', type: 'text', dir: 'rtl', hint: 'Arabic letters only.' },
       { key: 'national_id', label: 'ID No.', type: 'text', derives: true },
       { key: 'id_expiry_date', label: 'ID expiry date', type: 'date' },
-      { key: 'si_no', label: 'S.I. No.', type: 'text' },
     ],
   },
   {
@@ -99,7 +98,6 @@ const GROUPS = [
       { key: 'hired_on', label: 'Hiring date', type: 'date' },
       { key: 'weekend', label: 'Weekend', type: 'select', options: [['fri_sat', 'Friday + Saturday'], ['fri', 'Friday only']] },
       { key: 'bus_route_id', label: 'Bus route', type: 'select', source: 'busRoutes' },
-      { key: 'is_active', label: 'Active', type: 'checkbox' },
     ],
   },
   {
@@ -112,6 +110,7 @@ const GROUPS = [
   {
     title: 'Social insurance',
     fields: [
+      { key: 'si_no', label: 'S.I. No.', type: 'text' },
       { key: 'si_date', label: 'S.I. date', type: 'date' },
       { key: 'si_code', label: 'S.I. code', type: 'sicode' },
       { key: 'si_basic_wage', label: 'S.I. basic wage', type: 'number', hint: '5,500 to 99,999.' },
@@ -144,7 +143,7 @@ const GROUPS = [
     fields: [
       { key: 'notice_date', label: 'Notice date', type: 'date' },
       { key: 'resignation_date', label: 'Resignation date', type: 'date' },
-      { key: 'resignation_reason', label: 'Resignation reason', type: 'text' },
+      { key: 'resignation_reason', label: 'Resignation reason', type: 'text', half: true },
     ],
   },
 ]
@@ -412,7 +411,7 @@ $('clearBtn').addEventListener('click', () => {
 
 function fieldControl(field, value) {
   const wrap = document.createElement('label')
-  wrap.className = 'db-field'
+  wrap.className = field.half ? 'db-field db-field-half' : 'db-field'
   const label = document.createElement('span')
   label.className = 'db-label'
   label.textContent = field.label + (field.required ? ' *' : '')
@@ -690,7 +689,7 @@ function renderForm(employee) {
     legend.textContent = group.title
     section.appendChild(legend)
     const grid = document.createElement('div')
-    grid.className = 'db-grid'
+    grid.className = group.fields.some((f) => f.half) ? 'db-grid db-grid-quarters' : 'db-grid'
     for (const field of group.fields) grid.appendChild(fieldControl(field, employee[field.key]))
     section.appendChild(grid)
     form.appendChild(section)
@@ -822,7 +821,6 @@ $('newBtn').addEventListener('click', () => {
   $('searchHint').textContent = 'Type to search.'
   renderForm({
     weekend: 'fri_sat',
-    is_active: true,
     // Every payroll component starts on; HR turns off the ones that do
     // not apply. Same as the column defaults in the database.
     ...Object.fromEntries(PAYROLL.map(([key]) => [key, true])),
