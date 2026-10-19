@@ -157,7 +157,7 @@ const GROUPS = [
       { key: 'status_id', label: 'Status', type: 'select', source: 'statuses' },
       { key: 'hired_on', label: 'Hiring date', type: 'date' },
       { key: 'weekend', label: 'Weekend', type: 'select', options: [['fri_sat', 'Friday + Saturday'], ['fri', 'Friday only']] },
-      { key: 'bus_route_id', label: 'Bus route', type: 'select', source: 'busRoutes' },
+      { key: 'bus_route_id', label: 'Bus route', type: 'select', source: 'busRoutes', noBlank: true },
     ],
   },
   {
@@ -518,10 +518,15 @@ function fieldControl(field, value) {
     input = document.createElement('select')
     input.className = 'input'
     const options = field.options ?? lookups[field.source] ?? []
-    const blank = document.createElement('option')
-    blank.value = ''
-    blank.textContent = '—'
-    input.appendChild(blank)
+    // Bus route offers no blank: None is one of the routes, so "does not
+    // take the bus" is a choice somebody made rather than a field they
+    // skipped. Every employee holds one, which the column now enforces.
+    if (!field.noBlank) {
+      const blank = document.createElement('option')
+      blank.value = ''
+      blank.textContent = '—'
+      input.appendChild(blank)
+    }
     for (const [val, text] of options) {
       const opt = document.createElement('option')
       opt.value = String(val)
@@ -529,6 +534,10 @@ function fieldControl(field, value) {
       input.appendChild(opt)
     }
     input.value = value == null ? '' : String(value)
+    // A value the list does not hold -- nothing chosen yet on a blankless
+    // select -- would leave the box showing nothing at all. Fall to the
+    // first option, which for the bus route is None.
+    if (field.noBlank && !input.value && input.options.length) input.selectedIndex = 0
   } else if (field.type === 'checkbox') {
     input = document.createElement('input')
     input.type = 'checkbox'
@@ -1026,6 +1035,13 @@ $('newBtn').addEventListener('click', () => {
     // default is quicker than filling an empty one every time.
     status_id: (lookups.statuses ?? []).find(([, name]) => name === 'On Board')?.[0] ?? null,
     weekend: 'fri',
+    // Most people do not take the bus, and the field has no blank to
+    // leave it on. Seeded explicitly so the form and the database agree
+    // about what an untouched new record holds.
+    bus_route_id:
+      (lookups.busRoutes ?? []).find(([, name]) => String(name).toLowerCase() === 'none')?.[0] ??
+      (lookups.busRoutes ?? [])[0]?.[0] ??
+      null,
     // Every payroll component starts on; HR turns off the ones that do
     // not apply. Same as the column defaults in the database.
     ...Object.fromEntries(PAYROLL.map(([key]) => [key, true])),
