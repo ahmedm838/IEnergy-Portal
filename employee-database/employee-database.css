@@ -563,54 +563,20 @@ body:has(#app) .container { max-width: 1500px; }
 @media (max-width: 560px) { .db-switches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ---------------------------------------------------------------------
-   The page bar, matched to the Attendance Tracker's.
+   The page bar comes from home.css now, so this page, the portal home
+   and the tracker all draw the same one. What was here was a second
+   copy of the same idea, already drifting: a different logo, a different
+   name size, its own button sizing.
 
-   Full width rather than inside the column, a hairline underneath rather
-   than a rounded card, and the same measurements: 12px of padding, a
-   14px semibold name, and small buttons at 12px.
+   Only the bits this page adds remain.
    --------------------------------------------------------------------- */
-.page-bar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-  backdrop-filter: blur(8px);
-}
-
-.page-bar-inner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px;
-}
-@media (min-width: 640px) { .page-bar-inner { padding: 12px 20px; } }
-
-.page-bar-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.page-bar-home { color: var(--muted); text-decoration: none; font-size: 12.5px; white-space: nowrap; }
-.page-bar-home:hover { color: var(--text); }
-.page-bar-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
-
-.page-bar-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-.page-bar-who { font-size: 12.5px; color: var(--muted); }
-
-/* The tracker's small button: 12px text in a 10px by 6px box. */
-.page-bar .btn,
-.page-bar .theme-toggle {
-  padding: 6px 10px;
-  font-size: 12px;
-  border-radius: 10px;
-}
-.page-bar .theme-toggle { position: static; box-shadow: none; background: var(--fill-4); }
-
 #themeSlot { display: contents; }
+
+/* New employee and Export sit with the search box now, so the bar holds
+   only who you are and the way out. */
+.search-row .btn { white-space: nowrap; flex: 0 0 auto; }
+.search-row .input { flex: 1 1 280px; max-width: 420px; }
+.search-note-line { margin-top: 8px; }
 
 
 

@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=10" />
-  <link rel="stylesheet" href="employee-database.css?v=44" />
+  <link rel="stylesheet" href="employee-database.css?v=52" />
   <script src="../theme.js?v=4"></script>
 </head>
 <body>
@@ -37,16 +37,18 @@
   </div>
 
   <div id="app" hidden>
+    <!-- The portal's page bar, drawn from home.css so this page, the home
+         page and the tracker all have the same one. The logo links home,
+         which is where the back link used to go. -->
     <header class="page-bar">
       <div class="page-bar-inner">
-        <div class="page-bar-title">
-          <a class="page-bar-home" href="../index.html">&larr; iEnergy Home</a>
+        <a class="page-bar-brand" href="../index.html" title="iEnergy Home">
+          <img class="page-bar-logo" src="../logo-mark.png?v=1" alt="" />
           <span class="page-bar-name">Employee Database</span>
-        </div>
+        </a>
         <div class="page-bar-right">
           <span class="page-bar-who" id="whoami"></span>
-          <button class="btn primary" type="button" id="newBtn">New employee</button>
-          <button class="btn" type="button" id="exportBtn">Export Database</button>
+          <span class="role-badge" id="roleBadge" hidden></span>
           <span id="themeSlot"></span>
           <button class="btn" type="button" id="signOutBtn">Sign out</button>
         </div>
@@ -81,10 +83,16 @@
     </section>
 
     <section class="section">
+      <!-- The two actions sit with the search box: both are things you do
+           to the list, and the bar is for who you are, not what you are
+           doing. The note moves to its own line so the row is controls
+           rather than controls and prose. -->
       <div class="search-row">
         <input class="input" id="searchInput" type="text" placeholder="Code or name&hellip;" autocomplete="off" />
-        <span class="search-note">Search by code, or by name in English or Arabic.</span>
+        <button class="btn primary" type="button" id="newBtn">New employee</button>
+        <button class="btn" type="button" id="exportBtn">Export Database</button>
       </div>
+      <div class="hint search-note-line">Search by code, or by name in English or Arabic.</div>
       <div class="hint" id="searchHint">Type to search.</div>
       <div id="matches" class="matches" hidden>
         <div id="matchesList" class="matches-list"></div>
@@ -119,6 +127,6 @@
   </main>
   </div>
 
-  <script type="module" src="employee-database.js?v=51"></script>
+  <script type="module" src="employee-database.js?v=52"></script>
 </body>
 </html>
