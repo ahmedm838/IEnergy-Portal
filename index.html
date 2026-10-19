@@ -7,11 +7,12 @@
   <title>IEnergy Portal</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="stylesheet" href="responsive.css?v=1" />
-  <link rel="stylesheet" href="home.css?v=7" />
-  <script src="theme.js?v=3"></script>
+  <link rel="stylesheet" href="home.css?v=8" />
+  <script src="theme.js?v=4"></script>
 </head>
 <body class="home">
-  <!-- Password gate (client-side convenience only) -->
+  <!-- The sign-in. One account for the whole site; the database decides
+       what it may do. -->
   <div id="auth" class="auth">
     <div class="auth-card">
       <div class="auth-top">
@@ -59,16 +60,27 @@
     </div>
   </div>
 
-  <main id="app" class="container" hidden>
-    <header class="hero">
-      <div class="hero-text">
-        <div class="pill">Tools Portal</div>
-        <h1>iEnergy</h1>
-        <p class="tagline">Quick access to iEnergy internal documents and calculators.</p>
+  <main id="app" hidden>
+    <!-- The Attendance Tracker's header, on the portal: stuck to the top
+         while the page scrolls, the full width of the window, and the
+         same controls in the same order. Who you are on the left, then
+         your role, the theme, and the way out. -->
+    <header class="page-bar">
+      <div class="page-bar-inner">
+        <div class="page-bar-brand">
+          <img class="page-bar-logo" src="logo.png" alt="" />
+          <span class="page-bar-name">iEnergy Portal</span>
+        </div>
+        <div class="page-bar-right">
+          <span class="page-bar-who" id="whoami"></span>
+          <span class="role-badge" id="roleBadge" hidden></span>
+          <span id="themeSlot"></span>
+          <button id="logoutBtn" class="btn logout-btn" type="button">Sign out</button>
+        </div>
       </div>
-      <img class="hero-logo" src="logo.png" alt="iEnergy logo" />
     </header>
 
+    <div class="container">
     <!-- The figures the tracker's dashboard shows, for whoever is signed
          in. Filled in by script once the session is known, and hidden
          until then: an empty dashboard reads as "you have no hours"
@@ -125,17 +137,10 @@
       </div>
       <small>© <span id="year"></span> iEnergy. Internal use.</small>
     </footer>
+    </div>
   </main>
 
-  <!-- Theme first, then the way out: the same order as the tracker's
-       header, so the two apps do not put the same two controls in
-       opposite places. theme.js drops the toggle into the slot. -->
-  <div class="top-bar">
-    <span id="themeSlot"></span>
-    <button id="logoutBtn" class="btn logout-btn" type="button">Sign out</button>
-  </div>
-
-  <script src="auth.js?v=4"></script>
+  <script src="auth.js?v=5"></script>
   <script src="dashboard.js?v=1"></script>
   <script>
     (function () {
@@ -158,6 +163,45 @@
           btn.setAttribute('aria-label', label);
           btn.title = label;
         });
+      }
+
+      /* Name, code and title on one line, with the role beside it in the
+         tracker's colours. It all comes from the profile the gate has
+         already loaded, so nothing is asked for twice. */
+      function fillPageBar() {
+        const me = IEnergyAuth.getProfile && IEnergyAuth.getProfile();
+        const who = $('whoami');
+        const badge = $('roleBadge');
+        if (!me || !who || !badge) return;
+
+        who.textContent = '';
+        const name = document.createElement('span');
+        name.className = 'who-name';
+        name.textContent = me.name || '';
+        who.appendChild(name);
+
+        const extras = [];
+        if (me.code) extras.push({ text: '#' + me.code, cls: '' });
+        if (me.title) extras.push({ text: me.title, cls: 'who-title' });
+        for (const extra of extras) {
+          const sep = document.createElement('span');
+          sep.className = 'who-sep';
+          sep.textContent = '·';
+          const span = document.createElement('span');
+          if (extra.cls) span.className = extra.cls;
+          span.textContent = extra.text;
+          who.appendChild(sep);
+          who.appendChild(span);
+        }
+
+        const LABEL = {
+          super_admin: 'Super admin', admin: 'Admin', user: 'User', no_access: 'No access',
+        };
+        badge.textContent = LABEL[me.trackerRole] || me.trackerRole || '';
+        badge.className = 'role-badge' +
+          (me.trackerRole === 'super_admin' ? ' is-super'
+            : me.trackerRole === 'admin' ? ' is-admin' : '');
+        badge.hidden = false;
       }
 
       function applyRoleUI() {
@@ -189,6 +233,7 @@
           homeHref: 'index.html',
           onAuthed: function () {
             applyRoleUI();
+            fillPageBar();
             const lb = $('logoutBtn');
             if (lb) lb.style.display = '';
             // The dashboard needs a session, so it waits for one. A

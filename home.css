@@ -568,3 +568,90 @@ body > .theme-toggle {
    --------------------------------------------------------------------- */
 body.home { --container-max: 100%; }
 body.home .container { max-width: none; padding-left: 20px; padding-right: 20px; }
+
+/* ---------------------------------------------------------------------
+   The page bar, as the Attendance Tracker draws it.
+
+   Sticky rather than fixed: it keeps its place in the flow, so the page
+   below starts underneath it rather than beginning behind it and needing
+   a padding guess to compensate. Full width of the window, not of the
+   column, which is why it sits outside .container.
+
+   The blur needs the background to be partly transparent to show, and a
+   browser without backdrop-filter simply gets the solid colour.
+   --------------------------------------------------------------------- */
+.page-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1500;
+  width: 100%;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.page-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+}
+@media (min-width: 640px) { .page-bar-inner { padding: 11px 20px; } }
+
+.page-bar-brand { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+.page-bar-logo { height: 26px; width: auto; }
+.page-bar-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.page-bar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Name, code and title on one line. It truncates rather than wrapping:
+   a two-line name would make the whole bar taller on every page. */
+.page-bar-who {
+  font-size: 12.5px;
+  color: var(--text-80);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46vw;
+}
+.page-bar-who .who-name { font-weight: 650; color: var(--text); }
+.page-bar-who .who-sep { opacity: 0.5; margin: 0 5px; }
+
+/* The role, in the tracker's colours: green for a super admin, blue for
+   an admin, grey for everyone else. */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  background: var(--fill-2);
+  color: var(--text-80);
+}
+.role-badge.is-super { background: rgba(34, 160, 90, 0.16); color: #22a05a; }
+.role-badge.is-admin { background: rgba(43, 124, 233, 0.16); color: #5b9bf3; }
+:root[data-theme='light'] .role-badge.is-super { color: #1b7a44; }
+:root[data-theme='light'] .role-badge.is-admin { color: #1f5fbf; }
+
+@media (max-width: 720px) {
+  .page-bar-who { max-width: 34vw; }
+  .page-bar-name { display: none; }
+}
+@media (max-width: 520px) {
+  .page-bar-who .who-title { display: none; }
+}
+@media print { .page-bar { display: none; } }

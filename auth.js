@@ -80,7 +80,7 @@
 
     const { data, error } = await supabase
       .from('employees')
-      .select('id, code, name, role')
+      .select('id, code, name, title, role')
       .eq('auth_user_id', user.id)
       .maybeSingle();
 
@@ -90,6 +90,7 @@
       id: data.id,
       code: data.code,
       name: data.name,
+      title: data.title,
       email: user.email,
       trackerRole: data.role,
       role: PORTAL_ROLE[data.role] ?? null,
@@ -164,6 +165,65 @@
       } catch (_) {}
     }
   }
+
+  /* Signing out in one tab signs out the others.
+
+     There is one session, so ending it anywhere ends it everywhere --
+     but a tab already open does not find out on its own. It carries on
+     showing a page the viewer is no longer entitled to until they click
+     something, which on a shared machine is exactly the gap that
+     matters.
+
+     The browser fires a storage event in every OTHER tab of this origin
+     when the token is written or removed, so each one reloads and meets
+     the gate. The tab that did the signing out is not told, which is
+     fine: it is already on its way to the sign-in page. */
+  window.addEventListener('storage', function (event) {
+    if (!event.key || !/^sb-.*-auth-token$/.test(event.key)) return;
+    if (event.newValue) return;   // signed IN elsewhere; nothing to undo
+    profile = null;
+    window.location.reload();
+  });
+
+  /* Every page gets a way out.
+
+     Seven of these pages had no sign-out on them at all, so signing out
+     was only possible from the home page and the two apps. Injecting it
+     here rather than editing each page is the reasoning theme.js already
+     uses for its toggle: one copy to keep in step, and the sign-in gate
+     replaces the body on some of these pages anyway.
+
+     A page that already has one -- the home page, which puts it in its
+     page bar -- is left alone. */
+  function mountSignOut(homeHref) {
+    if (document.getElementById('logoutBtn')) return null;
+
+    var bar = document.querySelector('.top-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'top-bar';
+      document.body.appendChild(bar);
+      // Loose on the page the toggle anchors itself; inside a bar it
+      // should sit in the flow, like the button beside it.
+      var toggle = document.querySelector('.theme-toggle');
+      if (toggle) bar.appendChild(toggle);
+    }
+
+    var btn = document.createElement('button');
+    btn.id = 'logoutBtn';
+    btn.type = 'button';
+    btn.className = 'btn logout-btn';
+    btn.textContent = 'Sign out';
+    btn.hidden = true;            // until we know somebody is signed in
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      btn.textContent = 'Signing out…';
+      logout().then(function () { window.location.replace(homeHref); });
+    });
+    bar.appendChild(btn);
+    return btn;
+  }
+
 
   function isSessionValid() { return !!(profile && profile.role); }
   function getRole() { return profile ? profile.role || '' : ''; }
@@ -249,9 +309,15 @@
       if (deniedEl) deniedEl.hidden = true;
       if (appEl) appEl.hidden = false;
 
+      // There is somebody to sign out now, so offer it.
+      const out = $('logoutBtn');
+      if (out) { out.hidden = false; out.style.display = ''; }
+
       startIdleTimer(async () => {
+        // The idle rule and the button do the same thing and land in the
+        // same place: the sign-in page.
         await logout();
-        window.location.reload();
+        window.location.replace(homeHref);
       });
 
       if (onAuthed && !authedCallbackFired) {
@@ -305,6 +371,10 @@
     };
     if (userInput) userInput.addEventListener('keydown', onEnter);
     if (passInput) passInput.addEventListener('keydown', onEnter);
+
+    // Pages that do not carry a sign-out get one, hidden until there is
+    // a session to end.
+    mountSignOut(homeHref);
 
     // Until the server answers, the login panel is what is on screen. It
     // is the honest thing to show: we do not yet know that anybody is

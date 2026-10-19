@@ -29,18 +29,46 @@
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
   }
 
+  /* What the person chose: light, dark, or follow the machine.
+     Anything else stored -- nothing yet, or a value from an older
+     version -- counts as system. */
+  function choice() {
+    var saved = stored();
+    return saved === 'light' || saved === 'dark' ? saved : 'system';
+  }
+
+  /* What is actually on screen, which for 'system' is whatever the
+     machine says right now. */
   function current() {
     return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   }
 
+  function resolve(pick) {
+    return pick === 'system' ? (systemPrefersLight() ? 'light' : 'dark') : pick;
+  }
+
   function apply(theme) {
-    if (theme === 'light') root.setAttribute('data-theme', 'light');
+    if (resolve(theme) === 'light') root.setAttribute('data-theme', 'light');
     else root.removeAttribute('data-theme');
   }
 
   // Runs now, at parse time, before the body exists.
-  var saved = stored();
-  apply(saved === 'light' || saved === 'dark' ? saved : (systemPrefersLight() ? 'light' : 'dark'));
+  apply(choice());
+
+  /* On 'system', follow the machine while the page is open -- that is
+     the whole point of the setting, and a page that only noticed at
+     load would sit in yesterday's theme until reloaded. */
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: light)');
+    var onSystemChange = function () {
+      if (choice() !== 'system') return;
+      apply('system');
+      var btn = document.querySelector('.theme-toggle');
+      if (btn) label(btn);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onSystemChange);
+    else if (mq.addListener) mq.addListener(onSystemChange);
+  }
 
   /* The same two icons the tracker draws, as inline SVG rather than a
      glyph: a moon rendered from a font lands at a different size and
@@ -52,14 +80,22 @@
      the same state with opposite words. */
   var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
   var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  var SYSTEM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
 
+  var ICON = { light: SUN, dark: MOON, system: SYSTEM };
+  var LABEL = { light: 'Light', dark: 'Dark', system: 'System' };
+  var NEXT = { light: 'dark', dark: 'system', system: 'light' };
+
+  /* The button names the theme it is on, and its title says what a click
+     will do. Same wording as the tracker, so the two never describe the
+     same state differently. */
   function label(btn) {
-    var light = current() === 'light';
-    btn.querySelector('.theme-toggle-icon').innerHTML = light ? SUN : MOON;
-    btn.querySelector('.theme-toggle-label').textContent = light ? 'Light' : 'Dark';
-    var next = light ? 'dark' : 'light';
-    btn.setAttribute('aria-label', 'Theme: ' + (light ? 'Light' : 'Dark') + '. Switch to ' + next + '.');
-    btn.setAttribute('title', 'Theme: ' + (light ? 'Light' : 'Dark') + ' — click for ' + next);
+    var pick = choice();
+    btn.querySelector('.theme-toggle-icon').innerHTML = ICON[pick];
+    btn.querySelector('.theme-toggle-label').textContent = LABEL[pick];
+    var suffix = pick === 'system' ? ' (currently ' + current() + ')' : '';
+    btn.setAttribute('title', 'Theme: ' + LABEL[pick] + suffix + ' — click for ' + LABEL[NEXT[pick]]);
+    btn.setAttribute('aria-label', 'Theme: ' + LABEL[pick] + '. Switch to ' + LABEL[NEXT[pick]] + '.');
   }
 
   function mount() {
@@ -71,8 +107,10 @@
     btn.innerHTML = '<span class="theme-toggle-icon"></span><span class="theme-toggle-label"></span>';
 
     btn.addEventListener('click', function () {
-      var next = current() === 'light' ? 'dark' : 'light';
+      var next = NEXT[choice()];
       apply(next);
+      // 'system' is stored as itself, so the choice survives a reload
+      // rather than freezing at whatever the machine said at the time.
       remember(next);
       label(btn);
     });
