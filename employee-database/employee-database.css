@@ -455,7 +455,9 @@ body:has(#app) .container { max-width: 1500px; }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
-  margin: 0 0 12px;
+  /* A small gap under the Save and Cancel row, so the calculated values
+     do not sit flush against the buttons. */
+  margin: 10px 0 12px;
   padding: 12px;
   border: 1px solid var(--accent-line);
   border-radius: 14px;
