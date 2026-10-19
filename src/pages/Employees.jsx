@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
-import { mobileDigits } from '../lib/format'
 import {
   Alert,
   Badge,
@@ -21,6 +20,8 @@ export default function Employees() {
 
   const [search, setSearch] = useState('')
 
+  // Searching only what the table shows. Matching a hidden column would
+  // put rows on screen with nothing in them that explains why.
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
     if (!needle) return employees
@@ -28,14 +29,8 @@ export default function Employees() {
       (e) =>
         e.name.toLowerCase().includes(needle) ||
         String(e.code).includes(needle) ||
-        (e.email ?? '').toLowerCase().includes(needle) ||
-        (e.username ?? '').toLowerCase().includes(needle) ||
-        // Numbers are stored with dashes, so match on digits too --
-        // otherwise typing a number straight off a phone finds nothing.
-        (e.company_mobile ?? '').toLowerCase().includes(needle) ||
-        (mobileDigits(needle).length > 0 &&
-          mobileDigits(e.company_mobile).includes(mobileDigits(needle))) ||
-        (e.office_number ?? '').toLowerCase().includes(needle) ||
+        (e.title ?? '').toLowerCase().includes(needle) ||
+        (e.sites?.name ?? '').toLowerCase().includes(needle) ||
         (e.departments?.name ?? '').toLowerCase().includes(needle),
     )
   }, [employees, search])
@@ -48,7 +43,7 @@ export default function Employees() {
         <div>
           <h1 className="text-xl font-semibold text-ink">Employees</h1>
           <p className="mt-0.5 text-sm text-ink-3">
-            {employees.length} records. Role and the Y/N switches drive access and payroll.
+            {employees.length} records. The Y/N switches drive what the monthly report pays.
           </p>
           <p className="mt-1 text-xs text-ink-4">
             {isSuperAdmin
@@ -78,7 +73,7 @@ export default function Employees() {
           title="All employees"
           actions={
             <Input
-              placeholder="Search name, code, email, department…"
+              placeholder="Search name, code, title, department…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-72"
@@ -94,14 +89,9 @@ export default function Employees() {
                 <tr>
                   <Th>Code</Th>
                   <Th>Name</Th>
-                  <Th>Username</Th>
                   <Th>Title</Th>
                   <Th>Site</Th>
                   <Th>Department</Th>
-                  <Th>Email</Th>
-                  <Th>Mobile</Th>
-                  <Th>Office</Th>
-                  <Th>Role</Th>
                   <Th>Status</Th>
                   <Th>Login</Th>
                   <Th>Switches</Th>
@@ -113,28 +103,11 @@ export default function Employees() {
                   <tr key={e.id} className={e.is_active ? 'hover:bg-hover' : 'bg-subtle/60 opacity-70'}>
                     <Td className="tabular font-medium">{e.code}</Td>
                     <Td className="font-medium text-ink">{e.name}</Td>
-                    <Td className="text-ink-3">{e.username ?? '—'}</Td>
                     <Td>{e.title}</Td>
                     <Td>{e.sites?.name}</Td>
                     <Td>{e.departments?.name}</Td>
-                    <Td className="text-ink-3">{e.email}</Td>
-                    <Td className="tabular text-ink-3">{e.company_mobile ?? '—'}</Td>
-                    <Td className="tabular text-ink-3">{e.office_number ?? '—'}</Td>
-                    <Td>
-                      <Badge
-                        tone={
-                          e.role === 'super_admin'
-                            ? 'green'
-                            : e.role === 'admin'
-                              ? 'blue'
-                              : e.role === 'user'
-                                ? 'slate'
-                                : 'red'
-                        }
-                      >
-                        {{ super_admin: 'Super admin', no_access: 'No access' }[e.role] ?? e.role}
-                      </Badge>
-                    </Td>
+                    {/* Role lives in Settings, under Access, with the
+                        password that goes with it. */}
                     <Td>
                       <Badge tone={e.employee_statuses?.in_payroll ? 'green' : 'amber'}>
                         {e.employee_statuses?.name ?? '—'}
