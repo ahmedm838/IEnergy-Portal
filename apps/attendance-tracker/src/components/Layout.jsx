@@ -7,6 +7,17 @@ import Logo from './Logo'
 import IdleTimeout from './IdleTimeout'
 import UpdateBanner from './UpdateBanner'
 
+/* The portal is the document above this one. Relative, for the same
+   reason the Vite base is: so it holds wherever this is published. */
+const PORTAL = '../'
+
+/* Opened from the portal's Employee Report tile, this app is one page.
+   The flag rides in the query because HashRouter owns the fragment, and
+   it survives navigation inside the app, which a one-shot state would
+   not. The nav is hidden, not the routes: hiding a link is tidiness, and
+   the database is what actually refuses anything.  */
+const reportOnly = new URLSearchParams(window.location.search).get('only') === 'report'
+
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/attendance', label: 'Attendance', adminOnly: true },
@@ -23,11 +34,14 @@ export default function Layout() {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const items = NAV.filter((item) => !item.adminOnly || isAdmin)
+  const items = reportOnly ? [] : NAV.filter((item) => !item.adminOnly || isAdmin)
 
+  /* There is one session for the whole site, so signing out here signs
+     you out of the portal and the Employee Database too. The landing
+     place is the portal's sign-in, which is the only one there is. */
   async function handleSignOut() {
     await signOut()
-    navigate('/login', { replace: true })
+    window.location.replace(PORTAL)
   }
 
   return (
@@ -48,7 +62,7 @@ export default function Layout() {
                 end={item.end}
                 className={({ isActive }) =>
                   cx(
-                    'rounded-lg px-3 py-1.5 text-sm font-medium transition',
+                    'whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition',
                     isActive
                       ? 'bg-brand-50 text-brand-700'
                       : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -71,10 +85,16 @@ export default function Layout() {
               {isSuperAdmin ? 'Super admin' : isAdmin ? 'Admin' : 'User'}
             </Badge>
             <ThemeToggle />
+            {/* Back to the portal with the session intact -- the other
+                button is the one that ends it. */}
+            <Button variant="secondary" size="sm" onClick={() => window.location.assign(PORTAL)}>
+              Main page
+            </Button>
             <Button variant="secondary" size="sm" onClick={handleSignOut}>
               Sign out
             </Button>
             <button
+              hidden={reportOnly}
               className="rounded-lg p-2 text-ink-2 hover:bg-hover lg:hidden"
               onClick={() => setMenuOpen((open) => !open)}
               aria-label="Toggle navigation"

@@ -5,8 +5,9 @@
      token, so no page asks a second time.
    - What you may see comes from your role on your own employee record,
      which only a super admin can change, in the tracker's Settings page.
-   - Ten minutes without activity ends the session, which is the rule the
-     tracker already applies. One session, one rule.
+   - Fifteen minutes without activity ends the session, everywhere. One
+     session, one rule, and signing out of any page signs you out of all
+     of them because there is only one session to end.
 
    What this replaced: two usernames and two passwords written in this
    file, which anybody could read by opening it. Everything below still
@@ -19,9 +20,9 @@
   const SUPABASE_URL = 'https://ednaedkurjsgvjrvayys.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkbmFlZGt1cmpzZ3ZqcnZheXlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5ODIzNzYsImV4cCI6MjEwNzU1ODM3Nn0.VvBg4YtwZsjmgmTxbf3vin3Oq_WyNTeioz6m-FRQLzA';
 
-  // The tracker's rule, applied here so one session cannot outlive the
+  // Applied here and in the tracker, so one session cannot outlive the
   // other half of itself.
-  const IDLE_MS = 10 * 60 * 1000;
+  const IDLE_MS = 15 * 60 * 1000;
 
   /* Four roles in the database, two answers here. A super admin and an
      admin see the same portal; the difference between them is what the

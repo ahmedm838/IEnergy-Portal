@@ -273,7 +273,10 @@ $('signOutBtn').addEventListener('click', async () => {
   } catch {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
   }
-  location.reload()
+  // One session for the whole site, so this ends all of it: the portal
+  // and the tracker go with it. The portal is where signing back in
+  // happens, so that is where this lands.
+  location.replace('../index.html')
 })
 
 /* ------------------------------------------------------------------ */

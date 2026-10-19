@@ -458,3 +458,86 @@ body {
 @media print {
   .theme-toggle { display: none; }
 }
+
+/* ---------------------------------------------------------------------
+   Password visibility toggle on the sign-in panel.
+
+   The eye starts struck through, because the password starts hidden. It
+   is not a tab stop: tabbing out of the password box should reach Sign
+   in, not a toggle.
+   --------------------------------------------------------------------- */
+.pw-wrap { position: relative; display: block; }
+.pw-wrap > input { width: 100%; padding-right: 38px; }
+.pw-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.pw-toggle:hover { color: var(--text); background: var(--fill-2); }
+
+/* ---------------------------------------------------------------------
+   The dashboard on the home page: the same figures the tracker shows,
+   for whoever is signed in.
+   --------------------------------------------------------------------- */
+.dash-heading { margin: 0; font-size: 18px; font-weight: 700; }
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.dash-stat {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--fill-1);
+  padding: 10px 12px;
+}
+.dash-stat-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.dash-stat-value { margin-top: 3px; font-size: 20px; font-weight: 750; }
+.dash-stat-sub { margin-top: 2px; color: var(--muted); font-size: 11.5px; }
+.dash-stat-value.good { color: var(--success-text, #2e7d32); }
+.dash-stat-value.bad { color: var(--danger-text); }
+.dash-stat-value.warn { color: var(--warning-text, #b26a00); }
+
+.dash-balances { margin-top: 14px; }
+.dash-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.dash-table th {
+  text-align: right;
+  padding: 6px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--line);
+}
+.dash-table th:first-child { text-align: left; }
+.dash-table td { padding: 7px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+.dash-table td:first-child { text-align: left; font-weight: 600; }
+.dash-table td.good { color: var(--success-text, #2e7d32); font-weight: 700; }
+.dash-table td.bad { color: var(--danger-text); font-weight: 700; }
+.dash-table td.muted { color: var(--muted); }
+.dash-note { margin-left: 6px; font-weight: 400; font-size: 11.5px; color: var(--muted); }
+.dash-note-line { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+
+@media (max-width: 560px) {
+  .dash-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

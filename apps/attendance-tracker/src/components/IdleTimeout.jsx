@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth'
 import { Button, Card } from './ui'
 
 /** Sign out after this long with no user action. */
-const IDLE_MS = 10 * 60 * 1000
+const IDLE_MS = 15 * 60 * 1000
 /** Warn this long before it happens. */
 const WARN_MS = 60 * 1000
 /** Don't write to storage on every mousemove. */
@@ -58,7 +58,7 @@ export default function IdleTimeout() {
   // changes, and supabase-js replaces that object on every token refresh
   // -- which happens on a timer and on tab focus, with nobody touching
   // anything. Depending on them restarted the effect, and the effect
-  // resets the clock, so an idle tab could have its ten minutes quietly
+  // resets the clock, so an idle tab could have its fifteen minutes quietly
   // extended by a refresh it never saw.
   const signOutRef = useRef(signOut)
   const navigateRef = useRef(navigate)

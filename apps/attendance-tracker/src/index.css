@@ -192,3 +192,20 @@ input[type='time'] {
     font-size: 10px;
   }
 }
+
+/* ---------------------------------------------------------------------
+   The whole app at nine tenths.
+
+   Almost every size in here is a rem -- Tailwind's spacing, type and
+   radii all are -- so the root font size scales the layout rather than
+   only the text. 90% of the browser's 16px is 14.4px, and everything
+   measured against it follows: a nav that was wrapping its labels onto a
+   second line fits on one, and a table that needed a sideways scroll on
+   a laptop stops needing it.
+
+   Set here rather than on body, because rem resolves against the root
+   element and nothing else.
+   --------------------------------------------------------------------- */
+html {
+  font-size: 90%;
+}
