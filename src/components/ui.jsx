@@ -5,8 +5,12 @@ export function cx(...parts) {
 }
 
 export function Button({ variant = 'primary', size = 'md', className, ...props }) {
+  // whitespace-nowrap: a label broken across two lines is never what was
+  // wanted, and it also stops the button being squeezed -- a nowrap flex
+  // item will not shrink below its text, so a tight row keeps its buttons
+  // whole instead of folding "Not attended" in half.
   const base =
-    'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition ' +
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition ' +
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ' +
     'disabled:opacity-50 disabled:cursor-not-allowed'
   const sizes = {
