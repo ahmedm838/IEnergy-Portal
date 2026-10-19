@@ -90,6 +90,7 @@ const GROUPS = [
   },
   {
     title: 'Employment',
+    columns: 7,
     fields: [
       { key: 'title', label: 'Job title', type: 'text' },
       { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
@@ -140,6 +141,7 @@ const GROUPS = [
   },
   {
     title: 'Leaving',
+    columns: 4,
     fields: [
       { key: 'notice_date', label: 'Notice date', type: 'date' },
       { key: 'resignation_date', label: 'Resignation date', type: 'date' },
@@ -689,7 +691,8 @@ function renderForm(employee) {
     legend.textContent = group.title
     section.appendChild(legend)
     const grid = document.createElement('div')
-    grid.className = group.fields.some((f) => f.half) ? 'db-grid db-grid-quarters' : 'db-grid'
+    grid.className = 'db-grid'
+    if (group.columns) grid.dataset.cols = String(group.columns)
     for (const field of group.fields) grid.appendChild(fieldControl(field, employee[field.key]))
     section.appendChild(grid)
     form.appendChild(section)

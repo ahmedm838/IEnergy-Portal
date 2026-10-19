@@ -368,7 +368,9 @@
 .file-status.good { color: var(--on-success, #3ee088); }
 .file-status.bad { color: var(--muted); }
 
-.form-actions { display: flex; gap: 10px; margin-top: 4px; }
+/* Beside the employee name at the top of the editor, not below a form
+   that is a screen and a half long. */
+.form-actions { display: flex; gap: 8px; margin: 0; }
 
 .form-notice {
   margin: 0 0 10px;
@@ -480,9 +482,7 @@ body:has(#app) .container { max-width: 1500px; }
 .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .derived-val.good { color: var(--on-success, #3ee088); }
 
-/* Save and Cancel sit at the right, under the end of the form, where the
-   eye lands after reading across the last row of fields. */
-.form-actions { justify-content: flex-end; }
+
 
 /* The theme switch no longer floats over this page -- it is moved into
    the page bar on sign-in -- so the band that was reserved for it goes. */
@@ -569,13 +569,15 @@ body:has(#app) .container { max-width: 1500px; }
    no meaning against it. This section is pinned to four columns, which
    makes the two dates a quarter each and the reason exactly half.
    --------------------------------------------------------------------- */
-.db-grid-quarters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.db-grid[data-cols='4'] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.db-grid[data-cols='7'] { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .db-field-half { grid-column: span 2; }
 
-@media (max-width: 900px) {
-  .db-grid-quarters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 560px) {
-  .db-grid-quarters { grid-template-columns: 1fr; }
+/* A fixed count is a full-width promise. Below that, step down rather
+   than squeezing seven controls into a laptop. */
+@media (max-width: 1200px) { .db-grid[data-cols] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 860px)  { .db-grid[data-cols] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px)  {
+  .db-grid[data-cols] { grid-template-columns: 1fr; }
   .db-field-half { grid-column: auto; }
 }

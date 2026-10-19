@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=5" />
-  <link rel="stylesheet" href="employee-database.css?v=37" />
+  <link rel="stylesheet" href="employee-database.css?v=38" />
   <script src="../theme.js?v=2"></script>
 </head>
 <body>
@@ -104,6 +104,10 @@
     <section class="section" id="editor" hidden>
       <div class="row-between">
         <h2 id="editorTitle">Employee</h2>
+        <div class="form-actions">
+          <button class="btn primary" type="button" id="saveBtn">Save</button>
+          <button class="btn" type="button" id="cancelBtn">Cancel</button>
+        </div>
       </div>
       <div id="formError" class="auth-error" hidden></div>
       <div id="formNotice" class="form-notice" hidden></div>
@@ -111,10 +115,6 @@
            the hiring date, the insurance code and the document ticks. -->
       <div id="derivedPanel" class="derived-panel" hidden></div>
       <form id="employeeForm" autocomplete="off"></form>
-      <div class="form-actions">
-        <button class="btn primary" type="button" id="saveBtn">Save</button>
-        <button class="btn" type="button" id="cancelBtn">Cancel</button>
-      </div>
     </section>
 
     <div class="footer-contact">
@@ -129,6 +129,6 @@
   </main>
   </div>
 
-  <script type="module" src="employee-database.js?v=37"></script>
+  <script type="module" src="employee-database.js?v=38"></script>
 </body>
 </html>
