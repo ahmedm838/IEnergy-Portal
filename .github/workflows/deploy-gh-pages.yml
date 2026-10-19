@@ -78,15 +78,36 @@ jobs:
         working-directory: apps/attendance-tracker
         run: npm ci
 
+      # This repository talks to TWO Supabase projects. SUPABASE_URL is the
+      # one attendance-hours and the Leave Manager use. The tracker, the
+      # Employee Database and the portal sign-in use the other one, which
+      # holds the employees and attendance records -- so the tracker must be
+      # built against VITE_SUPABASE_URL, not the pair above it.
+      #
+      # Building it against the wrong project does not fail. It produces an
+      # app that loads, finds no session, and bounces every visitor back to
+      # the portal, which is exactly what happened the first time.
       - name: Build Attendance Tracker
         working-directory: apps/attendance-tracker
         env:
           # The anon key is a public, publishable key -- it is meant to ship
           # in the browser bundle. Row Level Security is what protects the
           # data. Never put the service_role key here.
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
+
+      - name: Check the tracker was built against the right project
+        shell: bash
+        run: |
+          # A silent mismatch is a site that redirects everybody home, so
+          # fail the deploy here instead of shipping it.
+          want="${{ secrets.VITE_SUPABASE_URL }}"
+          if ! grep -rqF "$want" apps/attendance-tracker/dist/assets; then
+            echo "::error::The Attendance Tracker build does not point at VITE_SUPABASE_URL."
+            exit 1
+          fi
+          echo "Tracker bundle points at the expected Supabase project."
 
       - name: Install Leave Manager dependencies
         working-directory: apps/leave-manager/frontend
