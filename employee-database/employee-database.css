@@ -130,11 +130,22 @@
   color: var(--text);
 }
 
+/* The box and the sentence explaining it, on one line. The sentence is
+   what the heading used to say, so the section carries no heading of its
+   own -- the box is self-evidently a search box. */
 .search-row {
-  margin-top: 12px;
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
+}
+.search-row .input {
+  flex: 1 1 320px;
+  max-width: 460px;
+}
+.search-note {
+  color: var(--muted);
+  font-size: 13px;
 }
 .search-input {
   flex: 1;

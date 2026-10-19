@@ -478,14 +478,8 @@ $('searchInput').addEventListener('input', (e) => {
   searchTimer = setTimeout(() => runSearch(term), 220)
 })
 
-$('clearBtn').addEventListener('click', () => {
-  clearTimeout(searchTimer)
-  searchSeq++
-  $('searchInput').value = ''
-  $('matches').hidden = true
-  $('searchHint').textContent = 'Type to search.'
-  $('searchInput').focus()
-})
+/* There is no Clear button: emptying the box clears the search, which the
+   handler above already does, and New employee empties it as well. */
 
 /* ------------------------------------------------------------------ */
 /* The form                                                            */
