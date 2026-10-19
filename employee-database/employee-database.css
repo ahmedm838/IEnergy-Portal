@@ -424,31 +424,14 @@ body:has(#app) { --container-max: 1500px; }
 body:has(#app) .container { max-width: 1500px; }
 
 /* ---------------------------------------------------------------------
-   The record, packed by height rather than laid out in a rigid grid.
+   One section per row, each running the width of the page.
 
-   A two-column grid aligned the sections in rows, so a short one sat
-   beside a tall one and left a hole the height of the difference. CSS
-   columns flow each section in under the one above it, which closes
-   those holes without the sections having to be the same height -- the
-   gaps come back, but there are far fewer of them, and the whole record
-   is a good deal shorter.
-
-   Three columns on a wide screen, two at laptop width, one on a phone.
-   Payroll and Personnel file span the lot: they are rows of switches and
-   tick boxes and want the width.
+   Columns packed the sections tightly but made each one a third as wide,
+   so a six-field section stacked its fields three deep. Full width lets
+   those same six sit in a single line, which reads like the employee
+   report and costs no more height.
    --------------------------------------------------------------------- */
-#employeeForm { column-gap: 12px; }
-
-#employeeForm > .db-group {
-  break-inside: avoid;          /* never split a section across columns */
-  -webkit-column-break-inside: avoid;
-  width: 100%;
-}
-
-#employeeForm > .db-group-wide { column-span: all; }
-
-@media (min-width: 1300px) { #employeeForm { column-count: 3; } }
-@media (min-width: 900px) and (max-width: 1299px) { #employeeForm { column-count: 2; } }
+#employeeForm > .db-group { width: 100%; }
 
 /* Tighter vertical rhythm everywhere on this page: the same content in
    noticeably less height. */
@@ -528,46 +511,53 @@ body:has(#app) .container { max-width: 1500px; }
 @media (max-width: 560px) { .db-switches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ---------------------------------------------------------------------
-   The page bar.
+   The page bar, matched to the Attendance Tracker's.
 
-   Title, who is signed in, and the three actions, pinned to the top the
-   way the Attendance Tracker's own header is. New employee and Export
-   Database used to live inside the Find section, which put them out of
-   reach the moment you scrolled into a record.
-
-   Sticky rather than fixed: it keeps its place in the flow, so nothing
-   has to be padded out of the way, and it stops at the top instead of
-   covering the first section.
+   Full width rather than inside the column, a hairline underneath rather
+   than a rounded card, and the same measurements: 12px of padding, a
+   14px semibold name, and small buttons at 12px.
    --------------------------------------------------------------------- */
 .page-bar {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: var(--surface-strong);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
   backdrop-filter: blur(8px);
-  border-radius: 0 0 16px 16px;
-  box-shadow: 0 10px 24px var(--shadow);
 }
 
-.bar-actions {
+.page-bar-inner {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
+  padding: 12px;
 }
+@media (min-width: 640px) { .page-bar-inner { padding: 12px 20px; } }
 
-@media (max-width: 640px) {
-  .page-bar { position: static; }
-  .bar-actions { width: 100%; }
+.page-bar-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.page-bar-home { color: var(--muted); text-decoration: none; font-size: 12.5px; white-space: nowrap; }
+.page-bar-home:hover { color: var(--text); }
+.page-bar-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
+
+.page-bar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
+.page-bar-who { font-size: 12.5px; color: var(--muted); }
 
+/* The tracker's small button: 12px text in a 10px by 6px box. */
+.page-bar .btn,
+.page-bar .theme-toggle {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+.page-bar .theme-toggle { position: static; box-shadow: none; background: var(--fill-4); }
 
-/* The switch is moved into the page bar once somebody is signed in. The
-   slot disappears so the button becomes a flex item of the bar itself. */
 #themeSlot { display: contents; }
 
-.page-bar .theme-toggle {
-  position: static;
-  box-shadow: none;
-  background: var(--fill-4);
-}
+
