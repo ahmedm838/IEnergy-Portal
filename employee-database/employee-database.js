@@ -140,8 +140,8 @@ const GROUPS = [
   {
     title: 'Identity',
     fields: [
-      { key: 'code', label: 'Code', type: 'digits', maxLength: 6, required: true, placeholder: 'enter 6 numbers' },
-      { key: 'name', label: 'Name (English)', type: 'text', required: true, placeholder: '3 English names only' },
+      { key: 'code', label: 'Code', type: 'digits', maxLength: 6, placeholder: 'enter 6 numbers' },
+      { key: 'name', label: 'Name (English)', type: 'text', placeholder: '3 English names only' },
       { key: 'arabic_name', label: 'Arabic name as in ID', type: 'text', dir: 'rtl', placeholder: 'As in ID arabic only' },
       { key: 'national_id', label: 'ID No.', type: 'digits', maxLength: 14, placeholder: '14 numbers' },
       { key: 'id_expiry_date', label: 'ID expiry date', type: 'date' },
@@ -208,6 +208,24 @@ const GROUPS = [
     ],
   },
 ]
+
+/**
+ * The fields a new employee may be saved without.
+ *
+ * Everything else in the groups above has to be filled in. The insurance
+ * figures are excused because they are not known on the first day --
+ * they arrive with the insurance office -- the office number because not
+ * everybody has one, the email because not everybody gets an account,
+ * and the leaving fields because an employee who is arriving has not
+ * left.
+ */
+const OPTIONAL = new Set([
+  'si_date', 'si_code', 'si_basic_wage', 'si_gross_wage',
+  'email', 'office_number',
+  'notice_date', 'resignation_date', 'resignation_reason',
+])
+
+const isRequired = (key) => !OPTIONAL.has(key)
 
 /** Columns this page writes. Everything else on the row it leaves alone. */
 const WRITABLE = [
@@ -492,7 +510,7 @@ function fieldControl(field, value) {
   wrap.className = field.half ? 'db-field db-field-half' : 'db-field'
   const label = document.createElement('span')
   label.className = 'db-label'
-  label.textContent = field.label + (field.required ? ' *' : '')
+  label.textContent = field.label + (isRequired(field.key) ? ' *' : '')
   wrap.appendChild(label)
 
   let input
@@ -1259,16 +1277,31 @@ function touched(key, value) {
 /** Mirrors the database's rules so the page can name the field at fault. */
 function validate(v) {
   const problems = []
+  const blank = (x) => x == null || x === ''
+
+  /* Everything but the handful of optional fields has to be filled in.
+     On a new employee that means filled in now. On an existing one it
+     means a field that already has a value cannot be emptied -- the
+     rule arrived after these records did, and refusing to save somebody
+     because a field nobody ever filled is still blank would make the
+     page useless for the records it is meant to complete. */
+  for (const field of GROUPS.flatMap((g) => g.fields)) {
+    if (!isRequired(field.key) || !blank(v[field.key])) continue
+    if (!current?.id) {
+      problems.push(`${field.label} is required.`)
+    } else if (!blank(current[field.key])) {
+      problems.push(`${field.label} cannot be emptied.`)
+    }
+  }
 
   if (v.code == null || !Number.isInteger(v.code)) {
-    problems.push('Code is required.')
+    if (v.code != null) problems.push('Code must be a whole number.')
   } else if (touched('code', v.code) && (v.code < 200000 || v.code > 299999)) {
     problems.push('Code must be exactly 6 numbers starting with 2 (200000 to 299999).')
   }
 
-  if (!v.name) {
-    problems.push('Name (English) is required.')
-  } else if (touched('name', v.name)) {
+  // Missing is already reported by the loop above; this is about shape.
+  if (v.name && touched('name', v.name)) {
     if (!/^[A-Za-z][A-Za-z'.-]*( [A-Za-z'.-]+)*$/.test(v.name)) {
       problems.push('Name (English) must be English letters only.')
     } else if (v.name.split(' ').length < 3) {
