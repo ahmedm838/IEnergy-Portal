@@ -11,6 +11,7 @@ export default function Login() {
 
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(
@@ -62,18 +63,35 @@ export default function Login() {
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="ahmed.moustafa"
               />
             </Field>
 
             <Field label="Password">
-              <Input
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              {/* The eye starts off, so a password is hidden unless
+                  somebody asks to see it. The button is not a tab stop:
+                  tabbing from the password box should reach Sign in. */}
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((on) => !on)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center
+                             text-ink-4 transition hover:text-ink-2"
+                >
+                  <EyeIcon off={!showPassword} />
+                </button>
+              </div>
             </Field>
 
             <Button type="submit" size="lg" disabled={busy}>
@@ -89,5 +107,31 @@ export default function Login() {
         </Card>
       </div>
     </div>
+  )
+}
+
+/**
+ * An eye, struck through when the password is hidden.
+ *
+ * Drawn here rather than pulled from an icon set: it is two paths, and
+ * the sign-in page is the one screen that must not wait on anything.
+ */
+function EyeIcon({ off }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="2.8" />
+      {off && <path d="M4 20 20 4" />}
+    </svg>
   )
 }
