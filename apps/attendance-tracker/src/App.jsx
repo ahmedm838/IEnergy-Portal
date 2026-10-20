@@ -35,7 +35,14 @@ export default function App() {
             can open, so a user is not met with a refusal. */}
         <Route index element={<Navigate to="employee-report" replace />} />
         <Route path="employee-report" element={<EmployeeReport />} />
-        <Route path="monthly-report" element={<MonthlyReport />} />
+        <Route
+          path="monthly-report"
+          element={
+            <ProtectedRoute requireAdmin>
+              <MonthlyReport />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="hours-report"
