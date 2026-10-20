@@ -8,8 +8,14 @@
 
 # --- HTTPS, always -----------------------------------------------------
 # A sign-in page served over http puts the password on the wire in clear.
-# Leave this commented until AutoSSL has issued a certificate, or the
-# site will redirect to an address that does not answer yet.
+#
+# Leave this commented out and use cPanel instead: Domains -> the
+# subdomain -> Force HTTPS Redirect. That does the same job a level up,
+# where it cannot be lost by this file being overwritten, and cPanel
+# will not switch it on before a certificate exists -- which is the
+# mistake these three lines would make silently.
+#
+# Kept only for a host with no such toggle.
 # <IfModule mod_rewrite.c>
 #   RewriteEngine On
 #   RewriteCond %{HTTPS} !=on
