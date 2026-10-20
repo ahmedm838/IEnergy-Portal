@@ -7,7 +7,7 @@
   <title>iEnergy | Company Policy</title>
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
-  <link rel="stylesheet" href="../home.css?v=10" />
+  <link rel="stylesheet" href="../home.css?v=11" />
   <style>
     .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
     .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(var(--ink-rgb), 0.03); padding:8px 10px; border-radius:12px; }
@@ -55,7 +55,24 @@
     </div>
   </div>
 
-  <main id="app" class="container" hidden>
+  <main id="app" hidden>
+    <header class="page-bar">
+      <div class="page-bar-inner">
+        <div class="page-bar-brand">
+          <img class="page-bar-logo" src="../logo-mark.png?v=1" alt="" />
+          <span class="page-bar-name">iEnergy Portal</span>
+        </div>
+        <div class="page-bar-right">
+          <span class="page-bar-who" id="whoami"></span>
+          <span class="role-badge" id="roleBadge" hidden></span>
+          <span id="themeSlot"></span>
+          <a class="main-page-btn" href="../">Main page</a>
+          <button id="logoutBtn" class="btn logout-btn" type="button">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="container">
     <div class="top">
       <div>
         <div class="pill">Policy</div>
@@ -82,6 +99,7 @@
     <footer class="footer">
       <small>© <span id="year"></span> iEnergy. Internal use.</small>
     </footer>
+    </div>
   </main>
 
   <script>
@@ -149,12 +167,61 @@
     loadDocuments();
   </script>
 
-  <script src="../auth.js?v=3"></script>
+  <script src="../auth.js?v=6"></script>
   <script>
     (function () {
       'use strict';
+      function $(id) { return document.getElementById(id); }
+
+      function fillPageBar() {
+        const me = IEnergyAuth.getProfile && IEnergyAuth.getProfile();
+        const who = $('whoami');
+        const badge = $('roleBadge');
+        if (!me || !who || !badge) return;
+
+        who.textContent = '';
+        const name = document.createElement('span');
+        name.className = 'who-name';
+        name.textContent = me.name || '';
+        who.appendChild(name);
+
+        const extras = [];
+        if (me.code) extras.push({ text: '#' + me.code, cls: '' });
+        if (me.title) extras.push({ text: me.title, cls: 'who-title' });
+        for (const extra of extras) {
+          const sep = document.createElement('span');
+          sep.className = 'who-sep';
+          sep.textContent = '·';
+          const span = document.createElement('span');
+          if (extra.cls) span.className = extra.cls;
+          span.textContent = extra.text;
+          who.appendChild(sep);
+          who.appendChild(span);
+        }
+
+        const LABEL = {
+          super_admin: 'Super admin', admin: 'Admin', user: 'User', no_access: 'No access',
+        };
+        badge.textContent = LABEL[me.trackerRole] || me.trackerRole || '';
+        badge.className = 'role-badge' +
+          (me.trackerRole === 'super_admin' ? ' is-super'
+            : me.trackerRole === 'admin' ? ' is-admin' : '');
+        badge.hidden = false;
+      }
+
       document.addEventListener('DOMContentLoaded', () => {
-        IEnergyAuth.ensureAuth({ allowedRoles: ['admin', 'user'], homeHref: '../index.html' });
+        const logoutBtn = $('logoutBtn');
+        logoutBtn.addEventListener('click', () => {
+          logoutBtn.disabled = true;
+          logoutBtn.textContent = 'Signing out…';
+          IEnergyAuth.signOutAndLeave('../index.html');
+        });
+
+        IEnergyAuth.ensureAuth({
+          allowedRoles: ['admin', 'user'],
+          homeHref: '../index.html',
+          onAuthed: fillPageBar
+        });
       });
     })();
   </script>
