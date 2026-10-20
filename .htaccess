@@ -7,20 +7,27 @@
 # ---------------------------------------------------------------------
 
 # --- HTTPS, always -----------------------------------------------------
-# A sign-in page served over http puts the password on the wire in clear.
+# On, because the certificate is confirmed: Let's Encrypt, issued
+# 20 Oct 2026, covering portal.ienergyegypt.com and the www form, both
+# verifying as trusted. The reason to leave this off was the risk of
+# redirecting to an address with no certificate, and that risk is gone.
 #
-# Leave this commented out and use cPanel instead: Domains -> the
-# subdomain -> Force HTTPS Redirect. That does the same job a level up,
-# where it cannot be lost by this file being overwritten, and cPanel
-# will not switch it on before a certificate exists -- which is the
-# mistake these three lines would make silently.
-#
-# Kept only for a host with no such toggle.
-# <IfModule mod_rewrite.c>
-#   RewriteEngine On
-#   RewriteCond %{HTTPS} !=on
-#   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-# </IfModule>
+# cPanel has its own Force HTTPS Redirect toggle for the same job. It
+# would not switch on while AutoSSL's bookkeeping lagged behind the
+# certificate it had already issued, so this does it instead. Turning
+# the toggle on later as well is harmless -- the redirect simply happens
+# a layer earlier.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# --- No directory listings ---------------------------------------------
+# An empty or part-deployed folder currently answers with Index of /,
+# which lists what is inside it. A site should not hand out its own file
+# listing, and during a deploy that listing is a half-uploaded one.
+Options -Indexes
 
 <IfModule mod_headers.c>
   # --- HTML is never cached --------------------------------------------
