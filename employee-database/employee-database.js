@@ -127,7 +127,7 @@ const DOCUMENTS = [
   ['doc_graduation_certificate', 'Graduation certificate'],
   ['doc_military_certificate', 'Military certificate'],
   ['doc_birth_certificate', 'Birth certificate'],
-  ['doc_fingerprint_record', 'Finger print record'],
+  ['doc_criminal_clearance', 'Criminal clearance'],
   ['doc_id_copy', 'ID (copy)'],
   ['doc_personal_photos', '6 personal photos'],
   ['doc_medical_form_111', 'Medical form No. 111'],
