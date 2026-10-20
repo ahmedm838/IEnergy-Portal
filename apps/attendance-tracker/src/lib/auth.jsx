@@ -86,10 +86,70 @@ export async function resolveEmail(identifier) {
  * enforced by RLS in Postgres, so a user who tampers with client state
  * still cannot read or write anything their policies forbid.
  */
+/* The profile, remembered for the tab.
+
+   Arriving from the portal, the session is already established and this
+   app would still blank the screen behind "Checking your session…" while
+   it asked the database who you are -- a question it answered a moment
+   ago on the page you came from.
+
+   So the answer is kept for the tab and used to draw the first frame,
+   while the real check runs behind it. The cache is a rendering
+   shortcut, never a permission: row level security decides what the
+   database returns, so a tampered cache buys a page whose queries fail.
+   If the confirmed role differs from the cached one the app reloads,
+   because it was built for the wrong person. */
+const PROFILE_CACHE_KEY = 'ienergy_tracker_profile_v1'
+
+function readCachedProfile() {
+  try {
+    const raw = sessionStorage.getItem(PROFILE_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed && parsed.id ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedProfile(value) {
+  try {
+    if (value) sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(value))
+    else sessionStorage.removeItem(PROFILE_CACHE_KEY)
+  } catch {
+    // Private mode: the app still works, it just asks every time.
+  }
+}
+
+/* Is there a stored token that has not expired? Read straight out of
+   localStorage, with no client and no await, so the first render can use
+   it. supabase-js keeps it under sb-<project ref>-auth-token. */
+function storedSessionLooksValid() {
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i)
+      if (!key || !/^sb-.*-auth-token$/.test(key)) continue
+      const parsed = JSON.parse(localStorage.getItem(key))
+      const expiresAt = Number(parsed?.expires_at)
+      if (!Number.isFinite(expiresAt)) return true
+      return expiresAt * 1000 > Date.now()
+    }
+  } catch {
+    // Unreadable storage: fall back to asking the server.
+  }
+  return false
+}
+
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  // Seeded from the tab cache, so arriving from the portal draws the
+  // page immediately instead of blanking it to ask who you are again.
+  const [profile, setProfile] = useState(readCachedProfile)
+  // Not loading when a cached profile and an unexpired token are both
+  // present: there is something true enough to draw while the real
+  // check runs behind it.
+  const [loading, setLoading] = useState(() => !(readCachedProfile() && storedSessionLooksValid()))
   const [profileError, setProfileError] = useState(null)
   // Distinguishes "the profile has not arrived yet" from "this account has
   // no employee record". Without it the gap between setting the session and
@@ -106,6 +166,7 @@ export function AuthProvider({ children }) {
   const loadProfile = useCallback(async (activeSession) => {
     if (!activeSession?.user) {
       setProfile(null)
+      writeCachedProfile(null)
       setProfileLoading(false)
       loadedForUser.current = null
       return
@@ -128,16 +189,29 @@ export function AuthProvider({ children }) {
       if (error) {
         setProfileError(error.message)
         setProfile(null)
+        writeCachedProfile(null)
         return
       }
+      const drawnWith = readCachedProfile()
       setProfileError(null)
       setProfile(data)
+      writeCachedProfile(data)
+      
+      /* The page may already have been drawn from the cache. If the
+         confirmed role is not the cached one -- somebody changed it, or
+         this is a different person now -- what is on screen was built
+         for the wrong role. Start again rather than patch it. */
+      if (drawnWith && drawnWith.id === data.id && drawnWith.role !== data.role) {
+        window.location.reload()
+        return
+      }
       loadedForUser.current = activeSession.user.id
     } catch (err) {
       // A rejected fetch (offline, DNS, blocked request) would otherwise
       // propagate and skip the code that clears the loading flag.
       setProfileError(err?.message ?? 'Could not load your profile.')
       setProfile(null)
+      writeCachedProfile(null)
     } finally {
       setProfileLoading(false)
     }
@@ -267,6 +341,7 @@ export function AuthProvider({ children }) {
         loadedForUser.current = null
         setSession(null)
         setProfile(null)
+        writeCachedProfile(null)
         setProfileError(null)
         setProfileLoading(false)
       },
