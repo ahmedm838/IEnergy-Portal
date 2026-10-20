@@ -86,8 +86,11 @@ jobs:
           password: ${{ secrets.CPANEL_FTP_PASSWORD }}
           protocol: ftps
           local-dir: ./_site/
-          # The document root of the domain, from cPanel's Domains page.
-          server-dir: ./public_html/
+          # NOT public_html: ienergyegypt.com already serves the company
+          # website, and deploying there would copy the portal over it.
+          # A subdomain has to be created in cPanel first, and this must
+          # match the document root that its Domains page reports.
+          server-dir: ./portal.ienergyegypt.com/
           # Only what changed goes up, which keeps a deploy to shared
           # hosting down to seconds rather than minutes.
           state-name: .ftp-deploy-sync-state.json

@@ -12,13 +12,19 @@
 # Actions, or uploaded. Until that is decided, this deploys the static
 # half of the portal only.
 #
-# DEPLOYPATH must match the document root of the domain, which the
-# Domains page in cPanel shows. The trailing slash matters.
+# DEPLOYPATH: NOT public_html.
+#
+# ienergyegypt.com already serves the company website -- "IEnergy -
+# Quality Energy Meters". Deploying into public_html would copy the
+# portal over the top of it. This points at a subdomain instead, which
+# has to be created in cPanel first (Domains -> Create A Domain), and
+# the path below has to match the document root that page reports. The
+# trailing slash matters.
 # ---------------------------------------------------------------------
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/ienergyegypt/public_html/
+    - export DEPLOYPATH=/home/ienergyegypt/portal.ienergyegypt.com/
     - /bin/mkdir -p $DEPLOYPATH
 
     # The portal's own pages and assets.
