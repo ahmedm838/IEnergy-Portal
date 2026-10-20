@@ -241,27 +241,32 @@ export function AuthProvider({ children }) {
       if (!cancelled) setSessionResolved(true)
     }
 
-      /* A stored token that getSession does not return yet.
+      /* Just getSession, and deliberately nothing more.
 
-         getSession reads storage, and when the access token has expired
-         it has to refresh it over the network first. Arriving from the
-         portal that is exactly the moment this app loads, so the answer
-         can come back empty while a perfectly good session is one
-         request away -- and the app, seeing no session, sent the person
-         back to the portal. Clicking again often hit the same gap. It
-         took a third try, by which point the refresh had landed.
+         This used to call refreshSession() explicitly whenever storage
+         held a token that getSession had not returned yet. It worked,
+         and it signed people out: refresh tokens are single use and
+         rotate, so asking for a new one invalidates the one still held
+         by the portal's client and by any other tab. The next client to
+         use the old one is told "Invalid Refresh Token: Already Used",
+         and supabase-js responds by clearing the session -- for every
+         page, because there is only one token. The symptom was an admin
+         being thrown to the sign-in page on arriving at the main page,
+         most often for whoever spent the longest in this app and so
+         crossed a token rotation most often.
 
-         So when storage holds a token and getSession says nothing, ask
-         once more, explicitly, before concluding anybody is signed out. */
-      const resolveSession = async () => {
-        const first = await supabase.auth.getSession()
-        if (first.data.session || !storedSessionLooksValid()) return first.data.session
-        const refreshed = await supabase.auth.refreshSession().catch(() => null)
-        return refreshed?.data?.session ?? null
-      }
+         getSession already refreshes internally when the access token
+         has expired, and it does it behind supabase-js's cross-tab
+         lock, which is the thing that stops two clients racing for the
+         same token. Calling refreshSession ourselves stepped around
+         that lock.
 
-
-      resolveSession()
+         What actually fixed the "two clicks to open" bounce was not the
+         refresh but sessionResolved below: the gate now waits for this
+         to finish instead of reading a not-yet-populated session as
+         signed out. So the refresh is gone and the fix stays. */
+      supabase.auth.getSession()
+        .then((res) => res.data.session)
         .then((activeSession) => {
           if (cancelled) return undefined
           setSession(activeSession)

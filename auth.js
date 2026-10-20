@@ -119,10 +119,39 @@
   // same as "nobody" -- it also means "not asked yet".
   let profile = null;
 
+  /* Three answers, not two.
+
+     "The server says nobody is signed in" and "I could not ask the
+     server" are different facts, and collapsing both into null is how a
+     dropped request turned into a forced sign-out for somebody who was
+     signed in the whole time. getUser() is a live GET /auth/v1/user on
+     every page load, so every flaky second on a phone tether, every 5xx,
+     every token rotating underneath us used to end the session.
+
+     UNKNOWN means: ask again, and until then believe what we already
+     knew. */
+  const UNKNOWN = Symbol('profile unknown');
+
   async function loadProfile() {
-    const supabase = await getClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { profile = null; return null; }
+    let supabase;
+    try { supabase = await getClient(); } catch (_) { return UNKNOWN; }
+
+    let user = null;
+    try {
+      const res = await supabase.auth.getUser();
+      user = (res && res.data && res.data.user) || null;
+      /* An error, or no user, while the token is still sitting in
+         storage. supabase-js clears that token itself the moment it
+         decides a session is dead, so a token that is still there means
+         it has not decided that -- the request failed, not the session. */
+      if (!user) {
+        if (storedSessionLooksValid()) return UNKNOWN;
+        profile = null;
+        return null;
+      }
+    } catch (_) {
+      return UNKNOWN;
+    }
 
     const { data, error } = await supabase
       .from('employees')
@@ -130,7 +159,10 @@
       .eq('auth_user_id', user.id)
       .maybeSingle();
 
-    if (error || !data) { profile = null; return null; }
+    // A failed query is not an answer about who she is; a successful one
+    // that finds nobody is.
+    if (error) return UNKNOWN;
+    if (!data) { profile = null; return null; }
 
     profile = {
       id: data.id,
@@ -176,6 +208,11 @@
         };
       }
       const who = await loadProfile();
+      if (who === UNKNOWN) {
+        // The password was right; we just could not read the record back.
+        // Signing out here would blame the credentials for a bad network.
+        return { ok: false, message: 'Signed in, but could not reach the server to check your access. Try again.' };
+      }
       if (!who) {
         await logout();
         return {
@@ -294,15 +331,51 @@
   function getUser() { return profile ? profile.name || '' : ''; }
   function getProfile() { return profile; }
 
-  /* Ten minutes of nothing ends it. The listeners are passive and on the
-     window, so they cost nothing on a page nobody is touching. */
+  /* Fifteen minutes of nothing ends it. The listeners are passive and on
+     the window, so they cost nothing on a page nobody is touching.
+
+     Activity is shared with the attendance tracker through the key the
+     tracker already writes. There is one session across these pages, so
+     there has to be one clock: otherwise a portal tab left open while
+     somebody works in the tracker reaches fifteen minutes on its own,
+     signs out, and takes the tracker with it. The tracker counts
+     mousemove and wheel as activity, so this does too -- reading a
+     dashboard is using it. */
+  const ACTIVITY_KEY = 'attendance-last-activity';
+  const SHARE_THROTTLE_MS = 5000;
+
+  function lastActivity() {
+    try {
+      const value = Number(localStorage.getItem(ACTIVITY_KEY));
+      return Number.isFinite(value) && value > 0 ? value : 0;
+    } catch (_) { return 0; }
+  }
+
   let idleTimer = null;
   function startIdleTimer(onIdle) {
-    const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'focus'];
-    const reset = () => {
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(onIdle, IDLE_MS);
+    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'wheel', 'scroll', 'focus'];
+    let mine = Date.now();
+    let sharedAt = 0;
+
+    const check = () => {
+      // The newest action anywhere, not just in this tab.
+      const newest = Math.max(mine, lastActivity());
+      const left = IDLE_MS - (Date.now() - newest);
+      if (left <= 0) { onIdle(); return; }
+      idleTimer = setTimeout(check, left);
     };
+
+    const reset = () => {
+      const now = Date.now();
+      mine = now;
+      if (now - sharedAt > SHARE_THROTTLE_MS) {
+        sharedAt = now;
+        try { localStorage.setItem(ACTIVITY_KEY, String(now)); } catch (_) {}
+      }
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(check, IDLE_MS);
+    };
+
     for (const name of events) window.addEventListener(name, reset, { passive: true });
     reset();
   }
@@ -465,19 +538,33 @@
       if (appEl) appEl.hidden = true;
     }
 
+    /* Confirm, and be willing not to know.
+
+       A confirmation that fails must not be able to sign anybody out.
+       If the page is already drawn from a cached profile, an
+       inconclusive answer leaves it drawn -- that is what the cache is
+       for. Only an answer, or nothing to fall back on, closes the page. */
+    function confirm(who, isRetry) {
+      if (who === UNKNOWN) {
+        if (profile && allowedRoles.includes(getRole())) return true;  // leave it up
+        if (!isRetry) return loadProfile().then((again) => confirm(again, true));
+        showLogin();
+        return false;
+      }
+      /* If the optimistic draw was wrong about the role -- someone
+         changed it, or the session belongs to a different person now --
+         the page was built for the wrong one. Start it again rather
+         than patch it. */
+      if (known && who && who.role !== known.role) {
+        window.location.reload();
+        return false;
+      }
+      return settle();
+    }
+
     return loadProfile()
-      .then((who) => {
-        /* If the optimistic draw was wrong about the role -- someone
-           changed it, or the session belongs to a different person now --
-           the page was built for the wrong one. Start it again rather
-           than patch it. */
-        if (known && who && who.role !== known.role) {
-          window.location.reload();
-          return false;
-        }
-        return settle();
-      })
-      .catch(() => { showLogin(); return false; });
+      .then((who) => confirm(who, false))
+      .catch(() => confirm(UNKNOWN, true));
   }
 
   window.IEnergyAuth = {
