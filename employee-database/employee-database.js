@@ -375,17 +375,6 @@ function fillPageBar(who) {
   name.textContent = who.name ?? ''
   line.appendChild(name)
 
-  for (const [text, cls] of [[who.code ? `#${who.code}` : null, ''], [who.title, 'who-title']]) {
-    if (!text) continue
-    const sep = document.createElement('span')
-    sep.className = 'who-sep'
-    sep.textContent = '·'
-    const span = document.createElement('span')
-    if (cls) span.className = cls
-    span.textContent = text
-    line.appendChild(sep)
-    line.appendChild(span)
-  }
 
   badge.textContent = who.role === 'super_admin' ? 'Super admin' : 'Admin'
   badge.className = `role-badge ${who.role === 'super_admin' ? 'is-super' : 'is-admin'}`

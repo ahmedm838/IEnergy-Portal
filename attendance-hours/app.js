@@ -540,7 +540,7 @@ async function boot(){
   }
 
   ADMIN = isAdmin(PROFILE);
-  whoami.textContent = `${PROFILE.code} - ${PROFILE.name} (${ADMIN ? "Admin" : "User"})`;
+  whoami.textContent = `${PROFILE.name} (${ADMIN ? "Admin" : "User"})`;
 
   initDates();
   await loadLeaveTypes();

@@ -7,7 +7,7 @@
   <title>IEnergy Portal</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="stylesheet" href="responsive.css?v=1" />
-  <link rel="stylesheet" href="home.css?v=10" />
+  <link rel="stylesheet" href="home.css?v=12" />
   <script src="theme.js?v=4"></script>
 </head>
 <body class="home">
@@ -180,19 +180,6 @@
         name.textContent = me.name || '';
         who.appendChild(name);
 
-        const extras = [];
-        if (me.code) extras.push({ text: '#' + me.code, cls: '' });
-        if (me.title) extras.push({ text: me.title, cls: 'who-title' });
-        for (const extra of extras) {
-          const sep = document.createElement('span');
-          sep.className = 'who-sep';
-          sep.textContent = '·';
-          const span = document.createElement('span');
-          if (extra.cls) span.className = extra.cls;
-          span.textContent = extra.text;
-          who.appendChild(sep);
-          who.appendChild(span);
-        }
 
         const LABEL = {
           super_admin: 'Super admin', admin: 'Admin', user: 'User', no_access: 'No access',

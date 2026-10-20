@@ -76,9 +76,6 @@ export default function Layout() {
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-ink">{profile?.name}</p>
-              <p className="text-xs text-ink-3">
-                #{profile?.code} · {profile?.departments?.name ?? '—'}
-              </p>
             </div>
             <Badge tone={isSuperAdmin ? 'green' : isAdmin ? 'blue' : 'slate'}>
               {isSuperAdmin ? 'Super admin' : isAdmin ? 'Admin' : 'User'}

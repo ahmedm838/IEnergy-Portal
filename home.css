@@ -627,7 +627,6 @@ body.home .container { max-width: none; padding-left: 20px; padding-right: 20px;
   max-width: 46vw;
 }
 .page-bar-who .who-name { font-weight: 650; color: var(--text); }
-.page-bar-who .who-sep { opacity: 0.5; margin: 0 5px; }
 
 /* The role, in the tracker's colours: green for a super admin, blue for
    an admin, grey for everyone else. */
@@ -650,9 +649,6 @@ body.home .container { max-width: none; padding-left: 20px; padding-right: 20px;
 @media (max-width: 720px) {
   .page-bar-who { max-width: 34vw; }
   .page-bar-name { display: none; }
-}
-@media (max-width: 520px) {
-  .page-bar-who .who-title { display: none; }
 }
 @media print { .page-bar { display: none; } }
 

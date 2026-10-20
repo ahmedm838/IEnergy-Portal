@@ -7,7 +7,7 @@
   <title>iEnergy | Company Policy</title>
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
-  <link rel="stylesheet" href="../home.css?v=11" />
+  <link rel="stylesheet" href="../home.css?v=12" />
   <style>
     .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
     .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(var(--ink-rgb), 0.03); padding:8px 10px; border-radius:12px; }
@@ -185,19 +185,6 @@
         name.textContent = me.name || '';
         who.appendChild(name);
 
-        const extras = [];
-        if (me.code) extras.push({ text: '#' + me.code, cls: '' });
-        if (me.title) extras.push({ text: me.title, cls: 'who-title' });
-        for (const extra of extras) {
-          const sep = document.createElement('span');
-          sep.className = 'who-sep';
-          sep.textContent = '·';
-          const span = document.createElement('span');
-          if (extra.cls) span.className = extra.cls;
-          span.textContent = extra.text;
-          who.appendChild(sep);
-          who.appendChild(span);
-        }
 
         const LABEL = {
           super_admin: 'Super admin', admin: 'Admin', user: 'User', no_access: 'No access',
