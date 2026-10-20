@@ -71,3 +71,16 @@ Options -Indexes
 # The apps route on the hash, so no rewrite rules are needed for deep
 # links: the server only ever sees the directory's index.html.
 DirectoryIndex index.html
+
+# --- Spreadsheets and documents are not browsable --------------------
+# A file served from the web is served to anyone who knows its address.
+# The portal's sign-in is JavaScript on a page, and a direct request for
+# a file never runs it -- so a spreadsheet of salaries sitting in a
+# folder was downloadable by anyone who guessed the URL.
+#
+# The salaries file is gone. This stops the next one being published by
+# accident: anything in salary-query that is not the page itself is
+# refused outright.
+<FilesMatch "\.(xlsx|xls|csv)$">
+  Require all denied
+</FilesMatch>
