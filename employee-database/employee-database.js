@@ -1405,6 +1405,28 @@ $('saveBtn').addEventListener('click', async () => {
       }
     }
 
+    /* The session is the thing most likely to have gone stale by now.
+       A new employee is thirty-odd mandatory fields, and the access
+       token behind every request has a life of its own. If it lapsed
+       while the form was being filled, PostgREST runs the insert as
+       anon -- a role this database grants nothing -- and Postgres
+       answers "permission denied for table employees": a message about
+       privileges for what is really an expired sign-in, shown to
+       somebody who has every right to be here.
+
+       getSession renews the token when it can, so asking now either
+       fixes it quietly or proves there is nobody signed in. Either way
+       it happens before the write, with everything typed still on
+       screen. */
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error(
+        'Your sign-in expired while this form was open, so the database refused the save. ' +
+        'Nothing you have typed is lost — open iEnergy Home in another tab, sign in, ' +
+        'then come back and press Save again.',
+      )
+    }
+
     let saved
     if (current?.id) {
       const { data, error } = await supabase
@@ -1463,6 +1485,15 @@ function friendlyError(err) {
   for (const [key, text] of Object.entries(named)) if (message.includes(key)) return text
   if (message.includes('row-level security')) {
     return 'Your account is not allowed to change employee records.'
+  }
+  /* Postgres says "permission denied for table employees" when the role
+     making the request holds no privilege on it. A signed-in admin
+     always does, so in practice this is a request that arrived without
+     a usable token and ran as anon. Saying so beats repeating a
+     sentence about table privileges at somebody who has them. */
+  if (message.includes('permission denied')) {
+    return 'The database refused that. Your sign-in has most likely expired — open iEnergy Home ' +
+      'in another tab, sign in, then press Save again. Nothing you have typed is lost.'
   }
   return message
 }
