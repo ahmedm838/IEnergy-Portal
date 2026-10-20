@@ -5,15 +5,6 @@
 .field-actions { min-width: 140px; }
 .hint { margin-top: 6px; font-size: 13px; opacity: 0.85; }
 
-.btn {
-  border: 1px solid rgba(var(--ink-rgb), 0.18);
-  background: rgba(var(--ink-rgb), 0.06);
-  color: inherit;
-  padding: 10px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-}
-.btn:hover { background: rgba(var(--ink-rgb), 0.10); }
 
 /* Matches layout aligned with Employee Database page */
 .matches {
