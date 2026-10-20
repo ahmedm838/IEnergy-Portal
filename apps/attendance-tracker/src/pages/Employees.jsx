@@ -39,6 +39,11 @@ export default function Employees() {
 
   return (
     <div className="grid grid-cols-1 gap-5">
+      {/* Adding and editing an employee happens in the portal's Database
+          page, which holds the whole personnel record. This page shows
+          what it shows. The link that used to say so is gone -- it is one
+          click from the portal's own tile, and it was the last thing here
+          still pointing at the old GitHub Pages address. */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-ink">Employees</h1>
@@ -51,19 +56,6 @@ export default function Employees() {
               : 'Roles and passwords are set by a super admin, in Settings. There is no email reset.'}
           </p>
         </div>
-        {/* Adding an employee happens in the portal's Database page, which
-            holds the full personnel record -- national ID, insurance
-            details, documents. Creating a half-filled row here and then
-            completing it somewhere else is how records end up incomplete,
-            so this page edits only what it already shows. */}
-        <a
-          className="text-sm font-medium text-brand-600 underline-offset-2 hover:underline dark:text-brand-400"
-          href="https://ahmedm838.github.io/IEnergy-Portal/employee-database/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Add an employee in the Database page ↗
-        </a>
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
