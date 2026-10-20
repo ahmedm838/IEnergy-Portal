@@ -6,7 +6,6 @@ import { Alert, Card } from './components/ui'
 
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
-import Dashboard from './pages/Dashboard'
 import Attendance from './pages/Attendance'
 import EmployeeReport from './pages/EmployeeReport'
 import MonthlyReport from './pages/MonthlyReport'
@@ -30,7 +29,11 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Dashboard />} />
+        {/* The dashboard lives on the portal home page now, where it is
+            the first thing anybody sees after signing in. Landing here
+            goes to the employee report instead: the one page every role
+            can open, so a user is not met with a refusal. */}
+        <Route index element={<Navigate to="employee-report" replace />} />
         <Route path="employee-report" element={<EmployeeReport />} />
         <Route path="monthly-report" element={<MonthlyReport />} />
 

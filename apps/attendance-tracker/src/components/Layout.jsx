@@ -19,7 +19,6 @@ const PORTAL = '../'
 const reportOnly = new URLSearchParams(window.location.search).get('only') === 'report'
 
 const NAV = [
-  { to: '/', label: 'Dashboard', end: true },
   { to: '/attendance', label: 'Attendance', adminOnly: true },
   { to: '/employee-report', label: 'Employee report' },
   { to: '/monthly-report', label: 'Monthly report' },
