@@ -21,7 +21,7 @@ const reportOnly = new URLSearchParams(window.location.search).get('only') === '
 const NAV = [
   { to: '/attendance', label: 'Attendance', adminOnly: true },
   { to: '/employee-report', label: 'Employee report' },
-  { to: '/monthly-report', label: 'Monthly report' },
+  { to: '/monthly-report', label: 'Monthly report', adminOnly: true },
   { to: '/hours-report', label: 'Hours report', adminOnly: true },
   { to: '/adjustments', label: 'Adjustments', adminOnly: true },
   { to: '/employees', label: 'Employees', adminOnly: true },
