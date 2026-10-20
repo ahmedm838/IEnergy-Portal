@@ -94,10 +94,11 @@ export default function MonthlyReport() {
       // How many days this row was built from. A low count beside full
       // allowances is a recording gap, not a payroll figure.
       { header: 'Records', key: 'records', numFmt: '0' },
-      { header: 'Meals', key: 'meals', numFmt: '#,##0.00' },
-      // Transport is not listed on its own. It is money, and the money it
-      // makes up is the next column; the per-day figures are on the
-      // employee report, beside the days that earned them.
+      // Meals and transport are not listed on their own. They are money,
+      // and the money they make up is the next column; the per-day
+      // figures are on the employee report, beside the days that earned
+      // them. The meal rate field above still feeds that calculation --
+      // the column is gone, the allowance is not.
       { header: `Total Allowances (${currency})`, key: 'total_allowances', numFmt: '#,##0.00' },
       { header: `Incentive (${currency})`, key: 'incentive', numFmt: '#,##0.00' },
       { header: `Bonus (${currency})`, key: 'bonus', numFmt: '#,##0.00' },
@@ -135,7 +136,6 @@ export default function MonthlyReport() {
           ...r,
           code: Number(r.code),
           records: Number(r.records),
-          meals: Number(r.meals),
           total_allowances: Number(r.total_allowances),
           incentive: Number(r.incentive),
           bonus: Number(r.bonus),
@@ -284,7 +284,6 @@ export default function MonthlyReport() {
                     <Td>{r.site}</Td>
                     <Td>{r.department}</Td>
                     <Td className="tabular text-right">{num(r.records, 0)}</Td>
-                    <Td className="tabular text-right">{num(r.meals)}</Td>
                     <Td className="tabular text-right font-semibold">{num(r.total_allowances)}</Td>
                     <Td className="tabular text-right">{num(r.incentive)}</Td>
                     <Td className="tabular text-right">{num(r.bonus)}</Td>
