@@ -503,12 +503,19 @@ body:has(#app) .container { max-width: 1500px; }
    --------------------------------------------------------------------- */
 .derived-panel {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
+  /* Eight calculated values, and they have to sit on one line.
+
+     A 160px minimum needed 1350px of layout, which a laptop does not
+     have once Windows is scaling the display: a 1366 screen at 125%
+     reports about 1093 CSS pixels, and the row wrapped. At 118px it
+     needs 1000, which fits that and leaves room. Wider screens still
+     spread the columns evenly, because the minimum is only a floor. */
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
   /* A small gap under the Save and Cancel row, so the calculated values
      do not sit flush against the buttons. */
   margin: 10px 0 12px;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid var(--accent-line);
   border-radius: 14px;
   background: var(--accent-fill);

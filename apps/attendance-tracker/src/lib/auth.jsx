@@ -229,17 +229,36 @@ export function AuthProvider({ children }) {
       if (!cancelled) setLoading(false)
     }
 
-    supabase.auth
-      .getSession()
-      .then((res) => {
-        if (cancelled || !res) return undefined
-        setSession(res.data.session)
-        return loadProfile(res.data.session)
-      })
-      .catch((err) => {
-        if (!cancelled) setProfileError(err?.message ?? 'Could not read your session.')
-      })
-      .finally(finish)
+      /* A stored token that getSession does not return yet.
+
+         getSession reads storage, and when the access token has expired
+         it has to refresh it over the network first. Arriving from the
+         portal that is exactly the moment this app loads, so the answer
+         can come back empty while a perfectly good session is one
+         request away -- and the app, seeing no session, sent the person
+         back to the portal. Clicking again often hit the same gap. It
+         took a third try, by which point the refresh had landed.
+
+         So when storage holds a token and getSession says nothing, ask
+         once more, explicitly, before concluding anybody is signed out. */
+      const resolveSession = async () => {
+        const first = await supabase.auth.getSession()
+        if (first.data.session || !storedSessionLooksValid()) return first.data.session
+        const refreshed = await supabase.auth.refreshSession().catch(() => null)
+        return refreshed?.data?.session ?? null
+      }
+
+
+      resolveSession()
+        .then((activeSession) => {
+          if (cancelled) return undefined
+          setSession(activeSession)
+          return loadProfile(activeSession)
+        })
+        .catch((err) => {
+          if (!cancelled) setProfileError(err?.message ?? 'Could not read your session.')
+        })
+        .finally(finish)
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (cancelled) return
