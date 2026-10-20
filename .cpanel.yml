@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------------
+# cPanel Git Version Control deployment.
+#
+# Used only if cPanel's "Git Version Control" is available: it clones the
+# repository on the server and runs these tasks when you press Deploy, or
+# on push if the repository is set up to pull.
+#
+# IMPORTANT: this copies the files as they are in the repository. The two
+# Vite apps are NOT built here -- shared hosting rarely has Node, and a
+# build on a shared box is a slow and fragile thing. Their built output
+# has to arrive some other way: either committed to a branch by GitHub
+# Actions, or uploaded. Until that is decided, this deploys the static
+# half of the portal only.
+#
+# DEPLOYPATH must match the document root of the domain, which the
+# Domains page in cPanel shows. The trailing slash matters.
+# ---------------------------------------------------------------------
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/ienergyegypt/public_html/
+    - /bin/mkdir -p $DEPLOYPATH
+
+    # The portal's own pages and assets.
+    - /bin/cp -R index.html auth.js dashboard.js theme.js home.css responsive.css $DEPLOYPATH
+    - /bin/cp -R favicon.ico favicon.png logo.png logo-mark.png $DEPLOYPATH
+    - /bin/cp -R .htaccess $DEPLOYPATH
+    - /bin/cp -R contacts-list salary-calculator salary-query company-policy $DEPLOYPATH
+    - /bin/cp -R hr-documents purchasing-request employee-database $DEPLOYPATH
+    - /bin/cp -R annual-leaves-balance attendance-hours coming-soon.html $DEPLOYPATH

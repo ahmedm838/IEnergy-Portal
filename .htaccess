@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------
+# Apache configuration for serving the iEnergy Portal from cPanel.
+#
+# Inert on GitHub Pages, which ignores .htaccess entirely, so this can
+# sit here before the move and start working the moment the files are
+# served by Apache instead.
+# ---------------------------------------------------------------------
+
+# --- HTTPS, always -----------------------------------------------------
+# A sign-in page served over http puts the password on the wire in clear.
+# Leave this commented until AutoSSL has issued a certificate, or the
+# site will redirect to an address that does not answer yet.
+# <IfModule mod_rewrite.c>
+#   RewriteEngine On
+#   RewriteCond %{HTTPS} !=on
+#   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
+<IfModule mod_headers.c>
+  # --- HTML is never cached --------------------------------------------
+  # This is the rule GitHub Pages would not let us set. It sent HTML with
+  # max-age=600, so for ten minutes after every deploy a returning
+  # visitor was served the previous page out of their own cache -- which
+  # is what kept sending people back to the portal after the tracker was
+  # fixed. Revalidating every time costs one small request and ends that
+  # whole class of problem.
+  <FilesMatch "\.(html)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # --- Hashed build output is cached forever ---------------------------
+  # Vite puts a content hash in these filenames, so a changed file is a
+  # different URL. They can be cached hard and for a long time.
+  <FilesMatch "-[A-Za-z0-9_-]{8,}\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # --- Everything else: a short cache, revalidated ---------------------
+  <FilesMatch "\.(png|jpg|jpeg|svg|ico|webp|woff2?)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+
+  # --- Modest hardening -------------------------------------------------
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# --- Do not serve what is not meant to be served -----------------------
+<FilesMatch "^\.(git|env)">
+  Require all denied
+</FilesMatch>
+
+# The apps route on the hash, so no rewrite rules are needed for deep
+# links: the server only ever sees the directory's index.html.
+DirectoryIndex index.html

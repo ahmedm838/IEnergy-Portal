@@ -1,0 +1,93 @@
+# ---------------------------------------------------------------------
+# Deploy the built site to cPanel over FTPS.
+#
+# The fallback for when cPanel has no Git Version Control. It builds
+# exactly what the GitHub Pages workflow builds, then uploads that folder
+# instead of publishing it to Pages.
+#
+# Runs only when started by hand (workflow_dispatch), so it cannot fire
+# before the hosting is ready or while Pages is still the live site. To
+# make it the real deployment later, add the push trigger back.
+#
+# Before it will work, three repository secrets are needed. Add them
+# under Settings -> Secrets and variables -> Actions. Set them yourself;
+# they should not be written down anywhere else:
+#
+#   CPANEL_FTP_SERVER    the hostname, e.g. ftp.ienergyegypt.com
+#   CPANEL_FTP_USERNAME  an FTP account made for this, NOT the cPanel login
+#   CPANEL_FTP_PASSWORD  that account's password
+#
+# Make a dedicated FTP account in cPanel with its directory set to the
+# document root. If it ever leaks it can write files and nothing else --
+# the cPanel login can delete the account itself.
+# ---------------------------------------------------------------------
+name: Deploy to cPanel
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: cpanel-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build Attendance Tracker
+        working-directory: apps/attendance-tracker
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build Leave Manager
+        working-directory: apps/leave-manager/frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          npm install
+          npm run build
+
+      - name: Assemble site folder
+        shell: bash
+        run: |
+          rm -rf _site && mkdir -p _site
+          rsync -av --exclude '.github' --exclude '_site' --exclude 'apps' ./ _site/
+          mkdir -p _site/attendance-tracker _site/leave-manager
+          rsync -av apps/attendance-tracker/dist/ _site/attendance-tracker/
+          rsync -av apps/leave-manager/frontend/dist/ _site/leave-manager/
+
+      - name: Check the tracker points at the right Supabase project
+        shell: bash
+        run: |
+          # The same guard the Pages workflow carries. Building against
+          # the wrong project produces a site that loads and then sends
+          # everybody back to the sign-in page.
+          if ! grep -rqF "${{ secrets.VITE_SUPABASE_URL }}" _site/attendance-tracker/assets; then
+            echo "::error::The Attendance Tracker build does not point at VITE_SUPABASE_URL."
+            exit 1
+          fi
+
+      - name: Upload to cPanel
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.CPANEL_FTP_SERVER }}
+          username: ${{ secrets.CPANEL_FTP_USERNAME }}
+          password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./_site/
+          # The document root of the domain, from cPanel's Domains page.
+          server-dir: ./public_html/
+          # Only what changed goes up, which keeps a deploy to shared
+          # hosting down to seconds rather than minutes.
+          state-name: .ftp-deploy-sync-state.json
