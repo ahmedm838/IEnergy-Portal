@@ -28,10 +28,10 @@ export const supabase = isConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        // Off deliberately. HashRouter rewrites the fragment on mount, so
-        // leaving this on is a race the router usually wins, silently
-        // discarding the token. src/lib/authLink.js captures the
-        // credentials first and lib/auth.jsx redeems them explicitly.
+        // Off, and now simply because nothing arrives in a URL: there
+        // are no recovery or invite links to catch. It stays off rather
+        // than being deleted, because HashRouter owns the fragment and
+        // would race anything that did.
         detectSessionInUrl: false,
       },
     })

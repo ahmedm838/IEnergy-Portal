@@ -31,6 +31,6 @@ deployment:
     - /bin/cp -R index.html auth.js dashboard.js theme.js home.css responsive.css $DEPLOYPATH
     - /bin/cp -R favicon.ico favicon.png logo.png logo-mark.png $DEPLOYPATH
     - /bin/cp -R .htaccess $DEPLOYPATH
-    - /bin/cp -R contacts-list salary-calculator salary-query company-policy $DEPLOYPATH
+    - /bin/cp -R contacts-list salary-calculator company-policy $DEPLOYPATH
     - /bin/cp -R hr-documents purchasing-request employee-database $DEPLOYPATH
     - /bin/cp -R annual-leaves-balance attendance-hours coming-soon.html $DEPLOYPATH

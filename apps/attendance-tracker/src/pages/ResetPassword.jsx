@@ -12,7 +12,7 @@ import { Alert, Button, Card, Field, Input } from '../components/ui'
  */
 export default function ResetPassword() {
   const navigate = useNavigate()
-  const { mustSetPassword, refreshProfile, user, session, loading, linkError, clearPasswordLink } =
+  const { mustSetPassword, refreshProfile, user, session, loading } =
     useAuth()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -50,7 +50,6 @@ export default function ResetPassword() {
       return
     }
     setDone(true)
-    clearPasswordLink()
     await refreshProfile()
     setTimeout(() => navigate('/', { replace: true }), 1500)
   }
@@ -68,18 +67,14 @@ export default function ResetPassword() {
           </p>
         )}
         <Card className="p-6">
-          {linkError && (
-            <Alert tone="error" title="That link could not be used">
-              {linkError} Ask for a new one from the sign-in page.
-            </Alert>
-          )}
-
-          {!loading && !session && !linkError && (
-            <Alert tone="warning" title="This link is no longer valid">
-              Password links expire and can only be used once. Request a new one from the sign-in
-              page.
-            </Alert>
-          )}
+            {/* No links any more, so the only way to be here without a
+                session is to have opened the address directly. */}
+            {!loading && !session && (
+              <Alert tone="warning" title="You are not signed in">
+                Sign in first. If a super admin has given you a temporary password, this
+                page opens by itself so you can choose your own.
+              </Alert>
+            )}
 
           {!loading && session && !done && (
             <Alert tone="info" title="Check this is the right account">

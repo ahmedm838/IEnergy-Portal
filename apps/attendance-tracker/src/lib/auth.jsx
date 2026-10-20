@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { supabase, isConfigured } from './supabase'
-import { authLink, hasAuthLink, wantsPasswordScreen } from './authLink'
 import { clearLookupsCache } from './useLookups'
 
 const AuthContext = createContext(null)
@@ -37,49 +36,18 @@ function purgeStoredSession() {
   }
 }
 
-async function redeemAuthLink() {
-  if (!hasAuthLink) return { redeemed: false, error: null }
+/* There is no link to redeem any more.
 
-  await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
-  purgeStoredSession()
-  clearLookupsCache()
+   Recovery and invite links are gone: a password is set by a super
+   admin in Settings, handed over in person, and the account is flagged
+   to make the person choose their own on first sign-in. Nothing arrives
+   by email, so nothing needs catching out of the URL.
 
-  if (authLink.error) {
-    return { redeemed: false, error: authLink.error }
-  }
-
-  try {
-    if (authLink.accessToken && authLink.refreshToken) {
-      const { error } = await supabase.auth.setSession({
-        access_token: authLink.accessToken,
-        refresh_token: authLink.refreshToken,
-      })
-      if (error) throw error
-      return { redeemed: true, error: null }
-    }
-
-    if (authLink.tokenHash) {
-      // Works in a browser that never requested the link, which is the
-      // normal case for one an administrator sent.
-      const { error } = await supabase.auth.verifyOtp({
-        token_hash: authLink.tokenHash,
-        type: authLink.type || 'recovery',
-      })
-      if (error) throw error
-      return { redeemed: true, error: null }
-    }
-
-    if (authLink.code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(authLink.code)
-      if (error) throw error
-      return { redeemed: true, error: null }
-    }
-  } catch (err) {
-    return { redeemed: false, error: err?.message ?? 'That link could not be used.' }
-  }
-
-  return { redeemed: false, error: null }
-}
+   What that removes is a standing risk. A recovery link is a password
+   reset for whoever holds it, it travels by email, and it works in any
+   browser -- which is why the code that read one had to be so careful
+   about reading it before the router could destroy it. None of that
+   has to be got right if the links do not exist. */
 
 /**
  * Usernames are the part of an email before the "@", so someone can sign in
@@ -123,7 +91,6 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [profileError, setProfileError] = useState(null)
-  const [linkError, setLinkError] = useState(null)
   // Distinguishes "the profile has not arrived yet" from "this account has
   // no employee record". Without it the gap between setting the session and
   // the deferred fetch returning renders the not-linked warning for a frame.
@@ -135,7 +102,6 @@ export function AuthProvider({ children }) {
   // cleared once the password is set. A module constant cannot be used
   // directly: it would still be true after saving and bounce the user
   // straight back to the password screen.
-  const [passwordLinkPending, setPasswordLinkPending] = useState(wantsPasswordScreen)
 
   const loadProfile = useCallback(async (activeSession) => {
     if (!activeSession?.user) {
@@ -189,12 +155,8 @@ export function AuthProvider({ children }) {
       if (!cancelled) setLoading(false)
     }
 
-    redeemAuthLink()
-      .then((result) => {
-        if (cancelled) return undefined
-        if (result.error) setLinkError(result.error)
-        return supabase.auth.getSession()
-      })
+    supabase.auth
+      .getSession()
       .then((res) => {
         if (cancelled || !res) return undefined
         setSession(res.data.session)
@@ -257,9 +219,6 @@ export function AuthProvider({ children }) {
       // Set when an account was invited and has not chosen a password yet.
       mustSetPassword: session?.user?.user_metadata?.must_set_password === true,
       profileLoading,
-      passwordLinkPending,
-      clearPasswordLink: () => setPasswordLinkPending(false),
-      linkError,
       isSuperAdmin: role === 'super_admin',
       isAdmin: role === 'admin' || role === 'super_admin',
       canRead: role === 'admin' || role === 'super_admin' || role === 'user',
@@ -312,7 +271,7 @@ export function AuthProvider({ children }) {
         setProfileLoading(false)
       },
     }
-  }, [session, profile, profileError, linkError, profileLoading, passwordLinkPending, loading, loadProfile])
+  }, [session, profile, profileError, profileLoading, loading, loadProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

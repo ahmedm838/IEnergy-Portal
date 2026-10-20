@@ -10,7 +10,7 @@ import { Alert, Button, Card, Spinner } from './ui'
  * just means they get a clear message instead of a page full of empty tables.
  */
 export default function ProtectedRoute({ children, requireAdmin = false, requireSuperAdmin = false }) {
-  const { session, profile, profileError, loading, role, signOut, mustSetPassword, passwordLinkPending, profileLoading } =
+  const { session, profile, profileError, loading, role, signOut, mustSetPassword, profileLoading } =
     useAuth()
   const location = useLocation()
 
@@ -23,13 +23,12 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
     return <Spinner label="Checking your session…" />
   }
 
-  // Two ways to arrive here owing a password: an invited account that has
-  // never set one, and a recovery link just redeemed. Checked before the
-  // session test, so a link that failed to redeem still reaches the page
-  // that explains why rather than a bare sign-in form. Gated here and not
-  // on a catch-all route, because "/" matches the dashboard and a catch-all
-  // would never see it.
-  if (mustSetPassword || passwordLinkPending) {
+  // One way to arrive here owing a password now that the links are gone:
+  // a super admin set a temporary one, and the account stays flagged
+  // until the person chooses their own. Checked before the session test,
+  // and here rather than on a catch-all route, because "/" matches the
+  // dashboard and a catch-all would never see it.
+  if (mustSetPassword) {
     return <Navigate to="/reset-password" replace />
   }
 
