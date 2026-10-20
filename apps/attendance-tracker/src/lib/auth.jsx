@@ -143,6 +143,17 @@ function storedSessionLooksValid() {
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
+
+  /* Whether the question "is anyone signed in?" has been answered.
+
+     It used to be loading that held the page while we found out. Then
+     loading began starting false whenever a cached profile existed, to
+     skip the spinner -- which also removed the only thing stopping a
+     page whose session had not arrived yet from deciding nobody was
+     signed in and leaving for the portal. On a refresh, every time.
+
+     This says only that, and nothing else turns it off. */
+  const [sessionResolved, setSessionResolved] = useState(false)
   // Seeded from the tab cache, so arriving from the portal draws the
   // page immediately instead of blanking it to ask who you are again.
   const [profile, setProfile] = useState(readCachedProfile)
@@ -227,6 +238,7 @@ export function AuthProvider({ children }) {
 
     const finish = () => {
       if (!cancelled) setLoading(false)
+      if (!cancelled) setSessionResolved(true)
     }
 
       /* A stored token that getSession does not return yet.
@@ -310,6 +322,7 @@ export function AuthProvider({ children }) {
       // Super admins are admins with extra rights, so every existing
       // admin-gated screen keeps working for them unchanged.
       // Set when an account was invited and has not chosen a password yet.
+      sessionResolved,
       mustSetPassword: session?.user?.user_metadata?.must_set_password === true,
       profileLoading,
       isSuperAdmin: role === 'super_admin',
@@ -365,7 +378,7 @@ export function AuthProvider({ children }) {
         setProfileLoading(false)
       },
     }
-  }, [session, profile, profileError, profileLoading, loading, loadProfile])
+  }, [session, sessionResolved, profile, profileError, profileLoading, loading, loadProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

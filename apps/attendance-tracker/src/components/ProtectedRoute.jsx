@@ -10,7 +10,7 @@ import { Alert, Button, Card, Spinner } from './ui'
  * just means they get a clear message instead of a page full of empty tables.
  */
 export default function ProtectedRoute({ children, requireAdmin = false, requireSuperAdmin = false }) {
-  const { session, profile, profileError, loading, role, signOut, mustSetPassword, profileLoading } =
+  const { session, sessionResolved, profile, profileError, loading, role, signOut, mustSetPassword, profileLoading } =
     useAuth()
   const location = useLocation()
 
@@ -30,6 +30,19 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
   // dashboard and a catch-all would never see it.
   if (mustSetPassword) {
     return <Navigate to="/reset-password" replace />
+  }
+
+  /* No session YET is not the same as no session.
+
+     Reading the stored token can need a network refresh, and until that
+     comes back there is nothing to show -- but there may well be a
+     session arriving. Leaving for the portal at this point is what sent
+     people home when they refreshed the page, and what made opening the
+     tracker take two goes.
+
+     So wait for the question to be answered before answering it. */
+  if (!session && !sessionResolved) {
+    return <Spinner label="Checking your session…" />
   }
 
   if (!session) {
