@@ -123,6 +123,15 @@
           <div class="tile-title">Company policy</div>
           <div class="tile-desc">Read and download the latest company policies.</div>
         </a>
+
+        <!-- Settings used to be a tab inside the tracker, where every
+             admin could see it and only a super admin could change
+             anything. It is its own tile now, shown to super admins
+             alone, and opens the tracker's shell with one button in it. -->
+        <a class="tile" href="attendance-tracker/?only=settings" data-role="super_admin">
+          <div class="tile-title">Settings</div>
+          <div class="tile-desc">Attendance types, rates, locked periods, bus routes and roles.</div>
+        </a>
       </div>
     </section>
 
@@ -196,6 +205,15 @@
         const role = IEnergyAuth.getRole();
         document.querySelectorAll('[data-role="admin"]').forEach((el) => {
           el.style.display = (role === 'admin') ? '' : 'none';
+        });
+        /* The portal collapses both admin grades into one role, so a
+           super admin's own tile has to read the tracker role, which is
+           the one that still tells them apart. Unknown reads as no,
+           which is why this runs again once the profile has loaded. */
+        const me = IEnergyAuth.getProfile && IEnergyAuth.getProfile();
+        const isSuper = !!me && me.trackerRole === 'super_admin';
+        document.querySelectorAll('[data-role="super_admin"]').forEach((el) => {
+          el.style.display = isSuper ? '' : 'none';
         });
       }
 

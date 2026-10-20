@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { ONLY } from '../lib/only'
 import { Badge, Button, cx } from './ui'
 import ThemeToggle from './ThemeToggle'
 import Logo from './Logo'
@@ -11,13 +12,6 @@ import UpdateBanner from './UpdateBanner'
    reason the Vite base is: so it holds wherever this is published. */
 const PORTAL = '../'
 
-/* Opened from the portal's Employee Report tile, this app is one page.
-   The flag rides in the query because HashRouter owns the fragment, and
-   it survives navigation inside the app, which a one-shot state would
-   not. The nav is hidden, not the routes: hiding a link is tidiness, and
-   the database is what actually refuses anything.  */
-const reportOnly = new URLSearchParams(window.location.search).get('only') === 'report'
-
 const NAV = [
   { to: '/attendance', label: 'Attendance', adminOnly: true },
   { to: '/employee-report', label: 'Employee report' },
@@ -25,15 +19,30 @@ const NAV = [
   { to: '/hours-report', label: 'Hours report', adminOnly: true },
   { to: '/adjustments', label: 'Adjustments', adminOnly: true },
   { to: '/employees', label: 'Employees', adminOnly: true },
-  { to: '/settings', label: 'Settings', adminOnly: true },
 ]
+
+/* Settings is deliberately absent from the list above. It is a super
+   admin's job, not a daily one, so it has its own tile on the portal
+   and opens here on its own: the tracker's shell with a single button
+   in the nav. */
+const SETTINGS_NAV = [{ to: '/settings', label: 'Settings' }]
 
 export default function Layout() {
   const { profile, isAdmin, isSuperAdmin, signOut } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const items = reportOnly ? [] : NAV.filter((item) => !item.adminOnly || isAdmin)
+  const items =
+    ONLY === 'report'
+      ? []
+      : ONLY === 'settings'
+        ? SETTINGS_NAV
+        : NAV.filter((item) => !item.adminOnly || isAdmin)
+
+  /* Opened as Settings, it says Settings. The tile that got you here
+     said so, and these settings are the site's rather than this app's,
+     so carrying the tracker's name over would misdescribe the page. */
+  const wordmark = ONLY === 'settings' ? 'Settings' : 'Attendance Tracker'
 
   /* There is one session for the whole site, so signing out here signs
      you out of the portal and the Employee Database too. The landing
@@ -50,7 +59,7 @@ export default function Layout() {
         <div className="flex w-full items-center gap-4 px-3 py-3 sm:px-5">
           <div className="flex items-center gap-2.5">
             <Logo className="h-8" />
-            <span className="text-sm font-semibold text-ink">Attendance Tracker</span>
+            <span className="text-sm font-semibold text-ink">{wordmark}</span>
           </div>
 
           <nav className="hidden flex-1 items-center gap-1 lg:flex">
@@ -90,7 +99,7 @@ export default function Layout() {
               Sign out
             </Button>
             <button
-              hidden={reportOnly}
+              hidden={items.length === 0}
               className="rounded-lg p-2 text-ink-2 hover:bg-hover lg:hidden"
               onClick={() => setMenuOpen((open) => !open)}
               aria-label="Toggle navigation"

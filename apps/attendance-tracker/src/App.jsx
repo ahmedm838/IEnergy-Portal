@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { isConfigured } from './lib/supabase'
+import { ONLY } from './lib/only'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { Alert, Card } from './components/ui'
@@ -33,7 +34,10 @@ export default function App() {
             the first thing anybody sees after signing in. Landing here
             goes to the employee report instead: the one page every role
             can open, so a user is not met with a refusal. */}
-        <Route index element={<Navigate to="employee-report" replace />} />
+        <Route
+          index
+          element={<Navigate to={ONLY === 'settings' ? 'settings' : 'employee-report'} replace />}
+        />
         <Route path="employee-report" element={<EmployeeReport />} />
         <Route
           path="monthly-report"
@@ -79,7 +83,7 @@ export default function App() {
         <Route
           path="settings"
           element={
-            <ProtectedRoute requireAdmin>
+            <ProtectedRoute requireSuperAdmin>
               <Settings />
             </ProtectedRoute>
           }
