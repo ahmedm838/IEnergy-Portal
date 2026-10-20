@@ -25,6 +25,11 @@ name: Deploy to cPanel
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would be uploaded, write nothing'
+        type: boolean
+        default: true
 
 concurrency:
   group: cpanel-deploy
@@ -86,11 +91,27 @@ jobs:
           password: ${{ secrets.CPANEL_FTP_PASSWORD }}
           protocol: ftps
           local-dir: ./_site/
-          # NOT public_html: ienergyegypt.com already serves the company
-          # website, and deploying there would copy the portal over it.
-          # A subdomain has to be created in cPanel first, and this must
-          # match the document root that its Domains page reports.
-          server-dir: ./portal.ienergyegypt.com/
+
+          # The first run should be a dry run: it connects, works out
+          # what it would send, and writes nothing. Read that log before
+          # letting it write to a live account.
+          dry-run: ${{ inputs.dry_run }}
+
+          # WHERE THIS LANDS DEPENDS ON THE FTP ACCOUNT, and getting it
+          # wrong is how a deploy ends up in the wrong folder:
+          #
+          #   A dedicated FTP account whose Directory is set to
+          #   portal.ienergyegypt.com starts INSIDE that folder. Its root
+          #   is the document root, so this must be ./
+          #
+          #   The main cPanel account starts at /home/ienergyegypt and
+          #   sees everything, so it would need ./portal.ienergyegypt.com/
+          #   -- and a typo there can write into public_html, which is the
+          #   company website.
+          #
+          # Set up for the dedicated account, which is the one to use.
+          server-dir: ./
+
           # Only what changed goes up, which keeps a deploy to shared
           # hosting down to seconds rather than minutes.
           state-name: .ftp-deploy-sync-state.json
