@@ -59,13 +59,13 @@ export default function Adjustments() {
     setDraft({
       employee_id: employeeFilter || '',
       adj_date: toISODate(new Date()),
-      incentive: 0,
-      bonus: 0,
-      penalties: 0,
-      adjusted_days: 0,
-      adjusted_hhmm: '00:00',
-      salary_adjust: 0,
-      salary_advance: 0,
+      incentive: '',
+      bonus: '',
+      penalties: '',
+      adjusted_days: '',
+      adjusted_hhmm: '',
+      salary_adjust: '',
+      salary_advance: '',
       note: '',
     })
   }
@@ -241,7 +241,15 @@ export default function Adjustments() {
                           onClick={() =>
                             setDraft({
                               ...r,
-                              adjusted_hhmm: minutesToHHMM(r.adjusted_minutes),
+                              incentive: Number(r.incentive) || '',
+                              bonus: Number(r.bonus) || '',
+                              penalties: Number(r.penalties) || '',
+                              adjusted_days: Number(r.adjusted_days) || '',
+                              adjusted_hhmm: r.adjusted_minutes
+                                ? minutesToHHMM(r.adjusted_minutes)
+                                : '',
+                              salary_adjust: Number(r.salary_adjust) || '',
+                              salary_advance: Number(r.salary_advance) || '',
                             })
                           }
                         >
@@ -322,6 +330,7 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
           <Input
             type="number"
             step="0.01"
+            placeholder="0"
             value={form.incentive}
             onChange={(e) => set({ incentive: e.target.value })}
           />
@@ -330,6 +339,7 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
           <Input
             type="number"
             step="0.01"
+            placeholder="0"
             value={form.bonus}
             onChange={(e) => set({ bonus: e.target.value })}
           />
@@ -338,6 +348,7 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
           <Input
             type="number"
             step="0.25"
+            placeholder="0"
             value={form.penalties}
             onChange={(e) => set({ penalties: e.target.value })}
           />
@@ -346,6 +357,7 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
           <Input
             type="number"
             step="0.25"
+            placeholder="0"
             value={form.adjusted_days}
             onChange={(e) => set({ adjusted_days: e.target.value })}
           />
@@ -361,6 +373,7 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
           <Input
             type="number"
             step="0.01"
+            placeholder="0"
             value={form.salary_adjust}
             onChange={(e) => set({ salary_adjust: e.target.value })}
           />
@@ -369,6 +382,7 @@ function AdjustmentForm({ value, employees, currency, lockFor, onCancel, onSave 
           <Input
             type="number"
             step="0.01"
+            placeholder="0"
             value={form.salary_advance}
             onChange={(e) => set({ salary_advance: e.target.value })}
           />

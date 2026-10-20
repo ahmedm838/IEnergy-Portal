@@ -38,7 +38,7 @@ import {
 const EMPTY_ROW = {
   attendance_type_id: null,
   late_minutes: 0,
-  transport: 0,
+  transport: '',
   add_to_leave_balance: false,
   clock_in: '',
   clock_out: '',
@@ -113,7 +113,7 @@ export default function Attendance() {
         next[record.work_date] = {
           attendance_type_id: record.attendance_type_id,
           late_minutes: record.late_minutes ?? 0,
-          transport: record.transport ?? 0,
+          transport: Number(record.transport) || '',
           add_to_leave_balance: record.add_to_leave_balance ?? false,
           clock_in: trimTime(record.clock_in),
           clock_out: trimTime(record.clock_out),
@@ -206,7 +206,9 @@ export default function Attendance() {
             work_date: iso,
             attendance_type_id: row.attendance_type_id,
             late_minutes: row.late_minutes || 0,
-            transport: row.transport || 0,
+            // The cell holds whatever was typed, blank included;
+            // it becomes a number once, here.
+            transport: Number(row.transport) || 0,
             add_to_leave_balance: !!row.add_to_leave_balance,
             clock_in: row.clock_in || null,
             clock_out: row.clock_out || null,
@@ -550,9 +552,10 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, on
           type="number"
           min="0"
           step="0.01"
-          value={row.transport ?? 0}
+          value={row.transport ?? ''}
+          placeholder="0"
           disabled={locked}
-          onChange={(e) => onChange({ transport: Number(e.target.value) || 0 })}
+          onChange={(e) => onChange({ transport: e.target.value })}
           className="w-24 py-1.5 text-sm"
         />
       </Td>
