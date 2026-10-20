@@ -57,6 +57,52 @@
 
   /* The client is fetched once, on first use. A page that never asks
      about the session never pays for it. */
+  /* Deciding instantly, then confirming.
+
+     The old order showed the sign-in panel first and asked the server
+     afterwards, so every page load flashed a login screen at somebody
+     who was already signed in -- for as long as it took to fetch the
+     Supabase client from a CDN and make two API calls.
+
+     Two things fix it. The token is in localStorage, so whether a
+     session exists can be answered synchronously, before any network.
+     And the profile behind it barely changes, so it is cached for the
+     tab: a second page can draw itself immediately and check afterwards.
+
+     The cache is a rendering shortcut, never a permission. Row level
+     security decides what the database returns, so a tampered cache
+     buys a tile that does not work. */
+  const SESSION_KEY = 'sb-ednaedkurjsgvjrvayys-auth-token';
+  const PROFILE_KEY = 'ienergy_portal_profile_v1';
+
+  /* Is there a stored token that has not expired? No network, no client,
+     no await -- it has to answer before the first paint to be useful. */
+  function storedSessionLooksValid() {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      const expiresAt = Number(parsed && parsed.expires_at);
+      // No expiry recorded: let the server be the judge rather than
+      // throwing away a session that may well be good.
+      if (!Number.isFinite(expiresAt)) return true;
+      return expiresAt * 1000 > Date.now();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function cachedProfile() {
+    try { return JSON.parse(sessionStorage.getItem(PROFILE_KEY)); } catch (_) { return null; }
+  }
+
+  function rememberProfile(who) {
+    try {
+      if (who) sessionStorage.setItem(PROFILE_KEY, JSON.stringify(who));
+      else sessionStorage.removeItem(PROFILE_KEY);
+    } catch (_) { /* private mode; the page still works, just slower */ }
+  }
+
   let clientPromise = null;
   function getClient() {
     if (!clientPromise) {
@@ -95,6 +141,7 @@
       trackerRole: data.role,
       role: PORTAL_ROLE[data.role] ?? null,
     };
+    rememberProfile(profile);
     return profile;
   }
 
@@ -153,6 +200,7 @@
      signed in is the stored token, so that goes whatever the server says. */
   async function logout() {
     profile = null;
+    rememberProfile(null);
     clearLegacy();
     try {
       const supabase = await getClient();
@@ -392,11 +440,44 @@
     // a session to end.
     mountSignOut(homeHref);
 
-    // Until the server answers, the login panel is what is on screen. It
-    // is the honest thing to show: we do not yet know that anybody is
-    // signed in.
-    showLogin();
-    return loadProfile().then(settle).catch(() => { showLogin(); return false; });
+    /* Decide now from what is already on this machine, then confirm.
+
+       Showing the sign-in panel first and asking afterwards is what made
+       every page flash a login screen at somebody already signed in. The
+       panel now appears only when we know there is no session -- which
+       localStorage can answer with no network at all. */
+    const hasToken = storedSessionLooksValid();
+    const known = hasToken ? cachedProfile() : null;
+
+    if (!hasToken) {
+      // Nothing stored: the panel is the right answer, immediately.
+      showLogin();
+    } else if (known && known.role && allowedRoles.includes(known.role)) {
+      // Seen before in this tab. Draw the page straight away; the check
+      // below still runs and will correct it if anything has changed.
+      profile = known;
+      showApp();
+    } else {
+      /* A token but nothing cached -- the first page of the session.
+         Neither panel is right yet, so show neither: a blank moment is
+         honest, where a login screen would be a lie about to be undone. */
+      if (authEl) authEl.style.display = 'none';
+      if (appEl) appEl.hidden = true;
+    }
+
+    return loadProfile()
+      .then((who) => {
+        /* If the optimistic draw was wrong about the role -- someone
+           changed it, or the session belongs to a different person now --
+           the page was built for the wrong one. Start it again rather
+           than patch it. */
+        if (known && who && who.role !== known.role) {
+          window.location.reload();
+          return false;
+        }
+        return settle();
+      })
+      .catch(() => { showLogin(); return false; });
   }
 
   window.IEnergyAuth = {
