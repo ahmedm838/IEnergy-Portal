@@ -705,5 +705,8 @@ body.home .container > .section { margin-top: 0; }
   outline-offset: 2px;
 }
 
-.dash-period-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.dash-period-controls .section-sub { margin: 0; }
+.dash-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dash-heading-row .dash-heading { flex-shrink: 0; }
+.dash-period-controls { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dash-period-controls .section-sub { margin: 0; min-width: 0; text-align: center; }
+.dash-period-controls .btn { flex-shrink: 0; }

@@ -119,7 +119,7 @@
       const variance = mine.hours_variance == null ? NaN : Number(mine.hours_variance);
       statsEl.appendChild(stat('Records this month', num(recordedDays(mine), 0), 'saved days in this period'));
       statsEl.appendChild(stat('Attended days', num(mine.working_days, 0)));
-      statsEl.appendChild(stat('Not attended days', num(notAttendedDays(mine), 0), 'recorded days, excluding weekly rest'));
+      statsEl.appendChild(stat('Not attended days', num(notAttendedDays(mine), 0)));
       statsEl.appendChild(stat('Absence days', num(mine.absence_days, 0), '', Number(mine.absence_days) > 0 ? 'bad' : ''));
       statsEl.appendChild(stat(
         'Hours this period', num(mine.worked_hours),
