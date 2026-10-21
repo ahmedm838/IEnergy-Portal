@@ -103,10 +103,33 @@
     } catch (_) { /* private mode; the page still works, just slower */ }
   }
 
+  /* Where this file lives, read while it is being executed, which is
+     the only moment document.currentScript is set. Everything this
+     script loads for itself hangs off here rather than off the page's
+     own URL, which differs on every subfolder. */
+  const SCRIPT_BASE = (function () {
+    const self = document.currentScript && document.currentScript.src;
+    return self ? self.replace(/[^/]*$/, '') : './';
+  })();
+
   let clientPromise = null;
   function getClient() {
     if (!clientPromise) {
-      clientPromise = import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm')
+      /* Bundled and served from this origin rather than fetched from
+         jsdelivr. The CDN copy arrived as seven requests in two
+         waterfall stages -- an entry module that then named six more --
+         and none of it could start until this file had loaded, so it
+         landed around 2.6s into the page and finished near 3.5s. One
+         same-origin file is 27 KB gzipped against roughly 41 KB over
+         those seven, and costs no second DNS lookup or TLS handshake.
+
+         The version is in the filename, so a new one is a new URL and
+         the old can be cached forever. Rebuild it with:
+           esbuild entry.js --bundle --format=esm --minify \
+             --target=es2020 --outfile=vendor/supabase-js-<version>.js
+         where entry.js is: export { createClient } from '@supabase/supabase-js'
+      */
+      clientPromise = import(SCRIPT_BASE + 'vendor/supabase-js-2.45.4.js')
         .then(({ createClient }) =>
           createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },

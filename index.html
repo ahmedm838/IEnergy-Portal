@@ -7,8 +7,13 @@
   <title>IEnergy Portal</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="stylesheet" href="responsive.css?v=1" />
-  <link rel="stylesheet" href="home.css?v=14" />
+  <link rel="stylesheet" href="home.css?v=15" />
   <script src="theme.js?v=4"></script>
+  <!-- Fetch a page when the pointer settles on its link, so the click
+       lands on something already in the cache. Same-origin GETs only. -->
+  <script type="speculationrules">
+    {"prefetch":[{"where":{"href_matches":"/*"},"eagerness":"moderate"}]}
+  </script>
 </head>
 <body class="home">
   <!-- The sign-in. One account for the whole site; the database decides
@@ -21,7 +26,21 @@
           <h1>iEnergy</h1>
           <p>Sign in with your Attendance Tracker account.</p>
         </div>
-        <img class="hero-logo auth-logo" src="logo.png" alt="iEnergy logo" />
+        <!-- 123 KB of PNG for something drawn at 312x78. Now 10 KB of
+             WebP at twice the drawn size, with a PNG beside it for
+             anything that cannot read WebP. Lazy because this panel is
+             display:none until somebody signs out.
+
+             Not loading=lazy: the picture wrapper is display:contents so
+             the img stays the flex item, which leaves the wrapper with no
+             box for the lazy loader to measure. The image then never
+             loaded at all -- the sign-in card came up with no logo on it.
+             Ten kilobytes is not worth that. -->
+        <picture class="hero-pic">
+          <source srcset="logo.webp" type="image/webp" />
+          <img class="hero-logo auth-logo" src="logo.png" alt="iEnergy logo"
+               width="624" height="175" decoding="async" />
+        </picture>
       </div>
 
       <label class="field">
@@ -153,7 +172,7 @@
     </div>
   </main>
 
-  <script src="auth.js?v=8"></script>
+  <script src="auth.js?v=9"></script>
   <script src="dashboard.js?v=6"></script>
   <script>
     (function () {

@@ -176,6 +176,11 @@ body {
   line-height: 1.45;
 }
 
+/* The picture wrapper must not become the flex item: .auth-top is a
+   flex row and .hero-logo sets align-self on itself. display:contents
+   takes the wrapper out of the box tree so the img stays the flex child. */
+.hero-pic { display: contents; }
+
 .hero-logo {
   width: min(312px, 70vw);
   height: 78px;

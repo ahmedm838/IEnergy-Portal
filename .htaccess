@@ -48,6 +48,27 @@ Options -Indexes
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
 
+  # --- The site's own scripts and styles ------------------------------
+  # These are versioned by query string -- auth.js?v=8 -- and FilesMatch
+  # matches the filename, which has no query in it. So they matched
+  # nothing above and went out with no Cache-Control whatsoever, leaving
+  # the browser to guess from Last-Modified. That guess holds until a
+  # deploy, after which the files look newly written, the guessed
+  # lifetime collapses to nearly nothing, and every navigation
+  # revalidates every asset against a server on another continent.
+  #
+  # A changed file gets a new ?v=, which is a new URL, so caching the
+  # old one hard is safe. Bump the version when you change the file --
+  # that is what makes this correct rather than merely fast.
+  <FilesMatch "^(auth|theme|dashboard|responsive|home|contacts-list|employee-database|salary-calculator)\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # The vendored Supabase bundle carries its version in the filename.
+  <FilesMatch "^supabase-js-[0-9.]+\.js$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
   # --- Everything else: a short cache, revalidated ---------------------
   <FilesMatch "\.(png|jpg|jpeg|svg|ico|webp|woff2?)$">
     Header set Cache-Control "public, max-age=86400"
@@ -60,7 +81,12 @@ Options -Indexes
 </IfModule>
 
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+  # text/javascript is the one that matters: that is what this server
+  # actually labels .js files as, and it was missing, so every script
+  # went out uncompressed while the stylesheets were compressed fine.
+  # The three shared ones alone were 43,660 B instead of 13,676 B.
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript \
+    application/javascript application/json image/svg+xml text/plain
 </IfModule>
 
 # --- Do not serve what is not meant to be served -----------------------
