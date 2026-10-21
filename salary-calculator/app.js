@@ -80,6 +80,7 @@ function wireThousandsSeparators() {
         "allowances",
     "incentive",
     "bonus",
+    "salaryAdjustment",
     "medicalInsurance",
     "advanceLoan",
     "insurableBase"
@@ -221,8 +222,8 @@ function showErrors(errs) {
 
 function clearResults() {
   [
-    "grossBeforeDeductions","grossMonthly","siMonthly","companySiMonthly","taxableMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
-    "grossAnnual","grossAfterMedicalAnnual","insurableUsed","siAnnual","companySiAnnual","taxableAnnual","taxAnnual",
+    "grossBeforeDeductions","grossMonthly","siMonthly","taxableMonthly","taxesAndFundsMonthly","advanceMonthly","netMonthly",
+    "grossAnnual","grossAfterMedicalAnnual","insurableUsed","siAnnual","taxableAnnual","taxesAndFundsAnnual",
     "hourlyRate","overtimeValue","hourDeductionValue","dayDeductionValue","penaltiesValue",
     "totalCostExcludingTransportation"
   ].forEach((id) => {
@@ -239,6 +240,7 @@ function calculate() {
   const allowances = parseNumber($("allowances").value);
   const incentive = parseNumber($("incentive").value);
   const bonus = parseNumber($("bonus").value);
+  const salaryAdjustment = parseNumber($("salaryAdjustment").value);
 
   const overtimeHours = parseNumber($("overtimeHours").value);
   const deductionHours = parseNumber($("deductionHours").value);
@@ -255,6 +257,7 @@ function calculate() {
   validateNonNegative("Allowances", allowances, errs);
   validateNonNegative("Incentive", incentive, errs);
   validateNonNegative("Bonus", bonus, errs);
+  validateNonNegative("Salary adjustment", salaryAdjustment, errs);
 
   validateNonNegative("Overtime hours", overtimeHours, errs);
   validateNonNegative("Deduction hours", deductionHours, errs);
@@ -291,9 +294,9 @@ function calculate() {
   const dayDeductionValueMonthly = deductionDays * HOURS_PER_DAY * hourlyRate;
   const penaltiesValueMonthly = penaltiesDays * HOURS_PER_DAY * hourlyRate;
 
-  // Gross before deductions (monthly): basic gross salary + allowances + incentive + bonus + overtime
+  // Gross before deductions includes salary adjustment and all earnings.
   // Requirement: exclude deductions (hour deductions, medical, SI, tax, etc.).
-  const grossBeforeDeductionsMonthly = basicGross + allowances + incentive + bonus + overtimeValueMonthly;
+  const grossBeforeDeductionsMonthly = basicGross + allowances + incentive + bonus + salaryAdjustment + overtimeValueMonthly;
 
   // Gross before medical (gross earnings)
   const grossMonthly = grossBeforeDeductionsMonthly - hourDeductionValueMonthly - dayDeductionValueMonthly - penaltiesValueMonthly;
@@ -354,10 +357,8 @@ function calculate() {
   setText("grossBeforeDeductions", fmtEGP(grossBeforeDeductionsMonthly));
   setText("grossMonthly", fmtEGP(grossAfterMedicalMonthly));
 setText("siMonthly", fmtEGP(siMonthly));
-setText("companySiMonthly", fmtEGP(companySiMonthly));
 setText("taxableMonthly", fmtEGP(taxableMonthly));
-setText("taxMonthly", fmtEGP(taxMonthly));
-setText("martyrsMonthly", fmtEGP(martyrsMonthly));
+setText("taxesAndFundsMonthly", fmtEGP(taxMonthly + martyrsMonthly));
 setText("advanceMonthly", fmtEGP(advanceLoan));
 setText("netMonthly", fmtEGP(netMonthly));
 
@@ -367,10 +368,9 @@ setText("grossAfterMedicalAnnual", fmtEGP(grossAfterMedicalAnnual));
 setText("insurableUsed", fmtEGP(insurableUsed));
 
 setText("siAnnual", fmtEGP(siAnnual));
-setText("companySiAnnual", fmtEGP(companySiAnnual));
 
 setText("taxableAnnual", fmtEGP(taxableAnnual));
-setText("taxAnnual", fmtEGP(taxAnnual));
+setText("taxesAndFundsAnnual", fmtEGP(taxAnnual + martyrsAnnual));
 
 setText("hourlyRate", fmtEGP(hourlyRate));
 setText("overtimeValue", fmtEGP(overtimeValueMonthly));
@@ -441,7 +441,7 @@ function solveBasicGrossSection() {
 
   if (errs.length) {
     $("solveOutBasicGross").value = "";
-    $("solveOutTax").value = "";
+    $("solveOutTaxesAndFunds").value = "";
     $("solveOutNet").value = "";
     showErrorsIn("errorsSolve", errs);
     return;
@@ -542,7 +542,7 @@ function solveBasicGrossSection() {
   const best = candidates[0];
 
   $("solveOutBasicGross").value = fmtNumber(best.g, 2);
-  $("solveOutTax").value = fmtNumber(best.taxMonthly, 2);
+  $("solveOutTaxesAndFunds").value = fmtNumber(best.taxMonthly + best.martyrsMonthly, 2);
   $("solveOutNet").value = fmtNumber(best.netMonthly, 2);
 }
 
@@ -552,6 +552,7 @@ function resetForm() {
   $("basicGross").value = "";  $("allowances").value = "";
   $("incentive").value = "";
   $("bonus").value = "";
+  $("salaryAdjustment").value = "";
 
   $("overtimeHours").value = "";
   $("deductionHours").value = "";
@@ -568,7 +569,7 @@ function resetForm() {
   $("solveInsurableBase").value = "";
   $("solveAllowances").value = "";
   $("solveOutBasicGross").value = "";
-  $("solveOutTax").value = "";
+  $("solveOutTaxesAndFunds").value = "";
   $("solveOutNet").value = "";
 
 
@@ -592,7 +593,7 @@ function initCalculatorBindings() {
 
   // Enter-to-calc handlers (includes all inputs)
   [
-    "basicGross","allowances","incentive","bonus",
+    "basicGross","allowances","incentive","bonus","salaryAdjustment",
     "overtimeHours","deductionHours","deductionDays","penaltiesDays",
     "medicalInsurance","advanceLoan",
     "insurableBase",

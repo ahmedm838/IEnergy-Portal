@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=12" />
-  <link rel="stylesheet" href="styles.css?v=30" />
+  <link rel="stylesheet" href="styles.css?v=31" />
   <script src="../theme.js?v=4"></script>
 </head>
 <body>
@@ -92,25 +92,31 @@
         <label class="field">
           <span>Overtime hours</span>
           <input id="overtimeHours" inputmode="decimal" placeholder="e.g. 12" />
-          <small class="hint">Overtime value = (Hour rate) × overtime hours × 1.5</small>
+          <small class="hint">Hours × hourly rate × 1.5.</small>
         </label>
 
         <label class="field">
           <span>Deduction hours</span>
           <input id="deductionHours" inputmode="decimal" placeholder="e.g. 4" />
-          <small class="hint">Deduction value = (Hour rate) × deduction hours</small>
+          <small class="hint">Hours × hourly rate.</small>
         </label>
 
         <label class="field">
           <span>Deduction days</span>
           <input id="deductionDays" inputmode="decimal" placeholder="e.g. 1" />
-          <small class="hint">Days × 8 hours × hourly rate, deducted from gross.</small>
+          <small class="hint">Days × 8 × hourly rate.</small>
         </label>
 
         <label class="field">
           <span>Penalties days</span>
           <input id="penaltiesDays" inputmode="decimal" placeholder="e.g. 0.5" />
-          <small class="hint">Days × 8 hours × hourly rate, deducted from gross.</small>
+          <small class="hint">Days × 8 × hourly rate.</small>
+        </label>
+
+        <label class="field">
+          <span>Salary adjustment (EGP)</span>
+          <input id="salaryAdjustment" inputmode="decimal" placeholder="e.g. 500" />
+          <small class="hint">Added to gross before deductions.</small>
         </label>
 
         <label class="field">
@@ -128,7 +134,7 @@
         <label class="field">
           <span>S.I. Basic wage (EGP)</span>
           <input id="insurableBase" inputmode="decimal" placeholder="5,500 – 16,700 (e.g. 6,000)" />
-          <small class="hint">Basic S.I. wage (between 5,500 and 16,700).</small>
+          <small class="hint">Between 5,500 and 16,700.</small>
         </label>
       </div>
 
@@ -155,10 +161,6 @@
     <div class="value" id="siMonthly">—</div>
   </div>
 
-  <div class="kpi">
-    <div class="label">Company SI share</div>
-    <div class="value" id="companySiMonthly">—</div>
-  </div>
 
   <div class="kpi">
     <div class="label">Taxable salary</div>
@@ -166,14 +168,10 @@
   </div>
 
   <div class="kpi">
-    <div class="label">Salary tax</div>
-    <div class="value" id="taxMonthly">—</div>
+    <div class="label">Taxes and Funds</div>
+    <div class="value" id="taxesAndFundsMonthly">—</div>
   </div>
 
-  <div class="kpi">
-    <div class="label">Martyrs deduction</div>
-    <div class="value" id="martyrsMonthly">—</div>
-  </div>
 
   <div class="kpi net">
     <div class="label">Net salary</div>
@@ -192,10 +190,9 @@
           <div><dt>S.I. Basic wage used</dt><dd id="insurableUsed">—</dd></div>
 
           <div><dt>Employee SI deduction (annual)</dt><dd id="siAnnual">—</dd></div>
-          <div><dt>Company SI (annual, employer cost)</dt><dd id="companySiAnnual">—</dd></div>
 
           <div><dt>Taxable income (annual)</dt><dd id="taxableAnnual">—</dd></div>
-          <div><dt>Salary tax (annual)</dt><dd id="taxAnnual">—</dd></div>
+          <div><dt>Taxes and Funds (annual)</dt><dd id="taxesAndFundsAnnual">—</dd></div>
 
           <div><dt>Hourly rate (Basic/240)</dt><dd id="hourlyRate">—</dd></div>
           <div><dt>Overtime value (monthly)</dt><dd id="overtimeValue">—</dd></div>
@@ -244,8 +241,8 @@
         </label>
 
         <label class="field">
-          <span>Estimated salary tax (EGP)</span>
-          <input id="solveOutTax" readonly />
+          <span>Taxes and Funds (EGP)</span>
+          <input id="solveOutTaxesAndFunds" readonly />
         </label>
 
         <label class="field">
@@ -264,7 +261,7 @@
     </div>
   </main>
 
-  <script src="app.js?v=20261021_2"></script>
+  <script src="app.js?v=20261021_3"></script>
   <script src="../auth.js?v=7"></script>
   <script>
     (function () {

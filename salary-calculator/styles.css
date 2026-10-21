@@ -340,8 +340,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 
 .grid { gap: 10px; }
 
-.inputs-grid { row-gap: 7px; }
-.inputs-grid .field { gap: 4px; }
+.inputs-grid { row-gap: 5px; }
+.inputs-grid .field { gap: 3px; }
 
 .actions { margin-top: 12px; }
 
@@ -362,9 +362,16 @@ button { padding: 8px 12px; }
   .grid, .results, .breakdown dl {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
-  .field span { min-height: 2.9em; }
+  .field span { min-height: 2.6em; line-height: 1.3; }
   .breakdown dl > div { flex-direction: column; gap: 6px; }
 }
 @media (max-width: 600px) {
   .container { padding-left: 12px; padding-right: 12px; }
+}
+/* Compact fields while keeping labels and hints readable. */
+.field { gap: 3px; }
+.field input, .field select { padding: 8px 10px; }
+.hint { line-height: 1.2; }
+@media (min-width: 1280px) {
+  .inputs-grid .field span { min-height: 1.3em; }
 }
