@@ -257,9 +257,9 @@ function calculate() {
   validateNonNegative("Medical insurance", medicalInsurance, errs);
   validateNonNegative("Advance salary loan", advanceLoan, errs);
 
-  validateNonNegative("Insurable salary base", insurableBase, errs);
+  validateNonNegative("S.I. Basic wage", insurableBase, errs);
   // Insurable base must be strictly within the allowed band; do NOT auto-clamp.
-  validateRangeInclusive("Insurable salary base", insurableBase, INSURABLE_BASE_MIN, INSURABLE_BASE_MAX, errs);
+  validateRangeInclusive("S.I. Basic wage", insurableBase, INSURABLE_BASE_MIN, INSURABLE_BASE_MAX, errs);
   const siRatePct = DEFAULT_EMPLOYEE_SI_RATE_PCT;
   const companySiRatePct = DEFAULT_COMPANY_SI_RATE_PCT;
   const personalExemption = DEFAULT_PERSONAL_EXEMPTION_ANNUAL;
@@ -425,8 +425,8 @@ function solveBasicGrossSection() {
 
   validateNonNegative("Target net salary", targetNet, errs);
   validateNonNegative("Allowances", allowances, errs);
-  validateNonNegative("Insurable salary base", insurableBase, errs);
-  validateRangeInclusive("Insurable salary base", insurableBase, INSURABLE_BASE_MIN, INSURABLE_BASE_MAX, errs);
+  validateNonNegative("S.I. Basic wage", insurableBase, errs);
+  validateRangeInclusive("S.I. Basic wage", insurableBase, INSURABLE_BASE_MIN, INSURABLE_BASE_MAX, errs);
 
   if (errs.length) {
     $("solveOutBasicGross").value = "";

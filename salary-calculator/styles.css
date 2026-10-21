@@ -346,3 +346,25 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 .actions { margin-top: 12px; }
 
 button { padding: 8px 12px; }
+
+/* Use the available laptop width with five fields in each desktop row. */
+.container {
+  width: 100%;
+  max-width: none;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+.field { min-width: 0; align-content: start; }
+.field input, .field select { width: 100%; min-width: 0; }
+.field span { white-space: normal; overflow: visible; text-overflow: clip; }
+.kpi, .breakdown dl > div { min-width: 0; overflow-wrap: anywhere; }
+@media (min-width: 1024px) {
+  .grid, .results, .breakdown dl {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .field span { min-height: 2.9em; }
+  .breakdown dl > div { flex-direction: column; gap: 6px; }
+}
+@media (max-width: 600px) {
+  .container { padding-left: 12px; padding-right: 12px; }
+}
