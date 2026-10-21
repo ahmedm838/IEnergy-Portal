@@ -225,7 +225,7 @@ function clearResults() {
     "grossBeforeDeductions","grossMonthly","siMonthly","taxableMonthly","taxesAndFundsMonthly","advanceMonthly","netMonthly",
     "grossAnnual","grossAfterMedicalAnnual","insurableUsed","siAnnual","taxableAnnual","taxesAndFundsAnnual",
     "hourlyRate","overtimeValue","hourDeductionValue","dayDeductionValue","penaltiesValue",
-    "totalCostExcludingTransportation"
+    "companySiMonthly", "totalCostExcludingTransportation"
   ].forEach((id) => {
     const el = $(id);
     if (el) el.textContent = "—";
@@ -342,10 +342,10 @@ function calculate() {
   const taxMonthly = taxAnnual / 12;
 
   // Employer total cost excluding transportation (monthly):
-  // Gross before deductions + company SI share.
-  // Total cost excluding transportation = Gross (before deductions) + Company SI (monthly)
+  // Displayed gross after deductions + company SI contribution.
+  // Gross includes hour/day deductions, penalties and medical insurance.
   // Note: Taxes are excluded per requirement.
-  const totalCostExcludingTransportationMonthly = grossBeforeDeductionsMonthly + companySiMonthly;
+  const totalCostExcludingTransportationMonthly = grossAfterMedicalMonthly + companySiMonthly;
 
   // Net pay is calculated AFTER tax and martyrs; advance loan is a final net-pay deduction.
   const netBeforeLoan = grossMonthly - medicalInsurance - siMonthly - taxMonthly - martyrsMonthly;
@@ -378,6 +378,7 @@ setText("hourDeductionValue", fmtEGP(hourDeductionValueMonthly));
 setText("dayDeductionValue", fmtEGP(dayDeductionValueMonthly));
 setText("penaltiesValue", fmtEGP(penaltiesValueMonthly));
 
+setText("companySiMonthly", fmtEGP(companySiMonthly));
 setText("totalCostExcludingTransportation", fmtEGP(totalCostExcludingTransportationMonthly));
 }
 
