@@ -55,6 +55,14 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    # Read here rather than in the purge step, because a step cannot
+    # test its own env block in its own `if:`. Absent secrets leave
+    # these empty, which is how the purge skips itself.
+    env:
+      CF_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -136,3 +144,45 @@ jobs:
           # Only what changed goes up, which keeps a deploy to shared
           # hosting down to seconds rather than minutes.
           state-name: .ftp-deploy-sync-state.json
+
+      # --- Tell Cloudflare the files changed ---------------------------
+      #
+      # Only does anything once the site is behind Cloudflare and the two
+      # secrets exist; until then it skips, so this is safe to merge
+      # before any of that is set up.
+      #
+      # Why it is needed at all. Cloudflare obeys the origin headers, and
+      # this site sends HTML as no-cache -- so by default every page
+      # navigation still crosses to the origin in Los Angeles for the
+      # document, and only the assets come from the edge. Caching HTML at
+      # the edge is what removes that trip, and the moment you do that,
+      # something has to say when the HTML changed. That is this step.
+      #
+      # It replaces the no-cache header rather than contradicting it: the
+      # header still tells BROWSERS to revalidate, which is what stopped
+      # people being served a stale page for ten minutes after a deploy.
+      # Only the edge copy is cached, and only until the next deploy.
+      #
+      # Needs a Cloudflare API token with Zone -> Cache Purge -> Purge,
+      # scoped to this zone alone, as CLOUDFLARE_API_TOKEN, and the zone
+      # id from the Cloudflare dashboard overview as CLOUDFLARE_ZONE_ID.
+      - name: Purge the Cloudflare cache
+        if: env.CF_ZONE_ID != '' && env.CF_API_TOKEN != '' && github.event.inputs.dry_run != 'true'
+        shell: bash
+        run: |
+          # -f so a refused purge fails the run. A deploy that uploaded
+          # new files and then quietly failed to invalidate the old ones
+          # is worse than one that failed outright: the site would serve
+          # the previous build from the edge and nothing would say so.
+          response=$(curl -fsS -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+          echo "$response"
+          # Cloudflare answers 200 with "success": false for some refusals,
+          # so the body is checked too, not just the exit code.
+          case "$response" in
+            *'"success":true'*) echo "Edge cache purged." ;;
+            *) echo "::error::Cloudflare refused the purge."; exit 1 ;;
+          esac
