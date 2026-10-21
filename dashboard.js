@@ -39,12 +39,17 @@
     return summary.day_counts.reduce((sum, row) => sum + Number(row.days || 0), 0);
   }
 
+  function weekendDays(summary) {
+    if (!Array.isArray(summary.day_counts)) return null;
+    return summary.day_counts
+      .filter((row) => row.type_code === 'weekly_rest')
+      .reduce((sum, row) => sum + Number(row.days || 0), 0);
+  }
+
   function notAttendedDays(summary) {
     const recorded = recordedDays(summary);
     if (recorded === null || summary.working_days == null) return null;
-    const weekends = summary.day_counts
-      .filter((row) => row.type_code === 'weekly_rest')
-      .reduce((sum, row) => sum + Number(row.days || 0), 0);
+    const weekends = weekendDays(summary);
     return Math.max(0, recorded - Number(summary.working_days) - weekends);
   }
 
@@ -117,7 +122,8 @@
     statsEl.innerHTML = '';
     if (mine) {
       const variance = mine.hours_variance == null ? NaN : Number(mine.hours_variance);
-      statsEl.appendChild(stat('Records this month', num(recordedDays(mine), 0), 'saved days in this period'));
+      statsEl.appendChild(stat('Records', num(recordedDays(mine), 0), 'saved days in this period'));
+      statsEl.appendChild(stat('Weekends', num(weekendDays(mine), 0)));
       statsEl.appendChild(stat('Attended days', num(mine.working_days, 0)));
       statsEl.appendChild(stat('Not attended days', num(notAttendedDays(mine), 0)));
       statsEl.appendChild(stat('Absence days', num(mine.absence_days, 0), '', Number(mine.absence_days) > 0 ? 'bad' : ''));
