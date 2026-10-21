@@ -24,12 +24,22 @@
 name: Deploy to cPanel
 
 on:
-  # Every push to main deploys, the way GitHub Pages used to. The manual
-  # run was there to prove the first upload landed in the right folder;
-  # it did, and leaving it manual meant six fixes sat built and unshipped
-  # while the live site still served the bug they fixed.
-  push:
-    branches: [main]
+  # PAUSED ON PURPOSE -- 21 Oct 2026.
+  #
+  # This deployed on every push to main. It is hand-started only while
+  # the page-switching speed work is being tested on GitHub Pages, so
+  # that merging to main publishes to Pages without also writing to the
+  # live cPanel site.
+  #
+  # To deploy to cPanel meanwhile: Actions -> Deploy to cPanel -> Run
+  # workflow, and set dry_run to false.
+  #
+  # TO PUT IT BACK, restore these two lines:
+  #   push:
+  #     branches: [main]
+  # The reason it was automatic matters: while it was manual, six fixes
+  # sat built and unshipped while the live site still served the bug
+  # they fixed. Do not leave it like this once testing is done.
   workflow_dispatch:
     inputs:
       dry_run:
