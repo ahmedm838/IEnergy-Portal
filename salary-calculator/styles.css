@@ -324,7 +324,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 
 .actions.center { justify-content: center; }
 
-.outputs .field input[readonly] {
+.field input[readonly] {
   background: rgba(var(--ink-rgb), 0.02);
   opacity: 0.95;
 }
@@ -347,7 +347,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 
 button { padding: 8px 12px; }
 
-/* Use the available laptop width with five fields in each desktop row. */
+/* Use the available laptop width with six fields in each desktop row. */
 .container {
   width: 100%;
   max-width: none;
@@ -360,7 +360,7 @@ button { padding: 8px 12px; }
 .kpi, .breakdown dl > div { min-width: 0; overflow-wrap: anywhere; }
 @media (min-width: 1024px) {
   .grid, .results, .breakdown dl {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
   .field span { min-height: 2.9em; }
   .breakdown dl > div { flex-direction: column; gap: 6px; }

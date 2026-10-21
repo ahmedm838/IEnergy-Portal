@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 const OVERTIME_MULTIPLIER = 1.5;
+const HOURS_PER_DAY = 8;
 
 // Social insurance (employee insurable wage base) accepted range.
 // Requirement: any value outside this range must show an error and stop calculation.
@@ -87,7 +88,9 @@ function wireThousandsSeparators() {
   // Rate / hours fields (still formatted, but typically won't show separators)
   const otherFields = [
     "overtimeHours",
-    "deductionHours"
+    "deductionHours",
+    "deductionDays",
+    "penaltiesDays"
   ];
 
   [...amountFields, ...otherFields].forEach((id) => {
@@ -220,7 +223,7 @@ function clearResults() {
   [
     "grossBeforeDeductions","grossMonthly","siMonthly","companySiMonthly","taxableMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
     "grossAnnual","grossAfterMedicalAnnual","insurableUsed","siAnnual","companySiAnnual","taxableAnnual","taxAnnual",
-    "hourlyRate","overtimeValue","hourDeductionValue",
+    "hourlyRate","overtimeValue","hourDeductionValue","dayDeductionValue","penaltiesValue",
     "totalCostExcludingTransportation"
   ].forEach((id) => {
     const el = $(id);
@@ -239,6 +242,8 @@ function calculate() {
 
   const overtimeHours = parseNumber($("overtimeHours").value);
   const deductionHours = parseNumber($("deductionHours").value);
+  const deductionDays = parseNumber($("deductionDays").value);
+  const penaltiesDays = parseNumber($("penaltiesDays").value);
 
   const medicalInsurance = parseNumber($("medicalInsurance").value);
   const advanceLoan = parseNumber($("advanceLoan").value);
@@ -253,6 +258,8 @@ function calculate() {
 
   validateNonNegative("Overtime hours", overtimeHours, errs);
   validateNonNegative("Deduction hours", deductionHours, errs);
+  validateNonNegative("Deduction days", deductionDays, errs);
+  validateNonNegative("Penalties days", penaltiesDays, errs);
 
   validateNonNegative("Medical insurance", medicalInsurance, errs);
   validateNonNegative("Advance salary loan", advanceLoan, errs);
@@ -281,20 +288,22 @@ function calculate() {
   const hourlyRate = basicGross / 240.0;
   const overtimeValueMonthly = overtimeHours * hourlyRate * OVERTIME_MULTIPLIER;
   const hourDeductionValueMonthly = deductionHours * hourlyRate;
+  const dayDeductionValueMonthly = deductionDays * HOURS_PER_DAY * hourlyRate;
+  const penaltiesValueMonthly = penaltiesDays * HOURS_PER_DAY * hourlyRate;
 
   // Gross before deductions (monthly): basic gross salary + allowances + incentive + bonus + overtime
   // Requirement: exclude deductions (hour deductions, medical, SI, tax, etc.).
   const grossBeforeDeductionsMonthly = basicGross + allowances + incentive + bonus + overtimeValueMonthly;
 
   // Gross before medical (gross earnings)
-  const grossMonthly = basicGross + allowances + incentive + bonus + overtimeValueMonthly - hourDeductionValueMonthly;
+  const grossMonthly = grossBeforeDeductionsMonthly - hourDeductionValueMonthly - dayDeductionValueMonthly - penaltiesValueMonthly;
 
   // Deduct medical BEFORE tax & martyrs base
   const grossAfterMedicalMonthly = grossMonthly - medicalInsurance;
 
   if (grossAfterMedicalMonthly < 0) {
     clearResults();
-    showErrors(["Gross after deductions became negative. Please review hour deductions and medical insurance."]);
+    showErrors(["Gross after deductions became negative. Please review deductions, penalties and medical insurance."]);
     try { $('medicalInsurance').focus(); } catch (_) {}
     return;
   }
@@ -366,6 +375,8 @@ setText("taxAnnual", fmtEGP(taxAnnual));
 setText("hourlyRate", fmtEGP(hourlyRate));
 setText("overtimeValue", fmtEGP(overtimeValueMonthly));
 setText("hourDeductionValue", fmtEGP(hourDeductionValueMonthly));
+setText("dayDeductionValue", fmtEGP(dayDeductionValueMonthly));
+setText("penaltiesValue", fmtEGP(penaltiesValueMonthly));
 
 setText("totalCostExcludingTransportation", fmtEGP(totalCostExcludingTransportationMonthly));
 }
@@ -380,7 +391,7 @@ function computeNetMonthlyForBasicGross(basicGross, p) {
   const grossAfterMedicalMonthly = grossMonthly - p.medicalInsurance;
 
   if (grossAfterMedicalMonthly < 0) {
-    return { ok: false, reason: "Gross after deductions became negative. Please review hour deductions and medical insurance." };
+    return { ok: false, reason: "Gross after deductions became negative. Please review deductions, penalties and medical insurance." };
   }
 
   const insurableUsed = p.insurableBase;
@@ -544,6 +555,8 @@ function resetForm() {
 
   $("overtimeHours").value = "";
   $("deductionHours").value = "";
+  $("deductionDays").value = "";
+  $("penaltiesDays").value = "";
 
   $("medicalInsurance").value = "";
   $("advanceLoan").value = "";
@@ -559,14 +572,8 @@ function resetForm() {
   $("solveOutNet").value = "";
 
 
-  [
-    "grossMonthly","siMonthly","companySiMonthly","taxableMonthly","taxMonthly","martyrsMonthly","advanceMonthly","netMonthly",
-    "grossAnnual","grossAfterMedicalAnnual","insurableUsed","siAnnual","companySiAnnual","taxableAnnual","taxAnnual",
-    "hourlyRate","overtimeValue","hourDeductionValue"
-  ].forEach(id => {
-    const el = $(id);
-    if (el) el.textContent = "—";
-  });
+  clearResults();
+  showErrorsIn("errorsSolve", []);
 
   showErrors([]);
 
@@ -586,7 +593,7 @@ function initCalculatorBindings() {
   // Enter-to-calc handlers (includes all inputs)
   [
     "basicGross","allowances","incentive","bonus",
-    "overtimeHours","deductionHours",
+    "overtimeHours","deductionHours","deductionDays","penaltiesDays",
     "medicalInsurance","advanceLoan",
     "insurableBase",
     "solveTargetNet","solveInsurableBase","solveAllowances"

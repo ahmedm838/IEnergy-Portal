@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=12" />
-  <link rel="stylesheet" href="styles.css?v=29" />
+  <link rel="stylesheet" href="styles.css?v=30" />
   <script src="../theme.js?v=4"></script>
 </head>
 <body>
@@ -102,6 +102,18 @@
         </label>
 
         <label class="field">
+          <span>Deduction days</span>
+          <input id="deductionDays" inputmode="decimal" placeholder="e.g. 1" />
+          <small class="hint">Days × 8 hours × hourly rate, deducted from gross.</small>
+        </label>
+
+        <label class="field">
+          <span>Penalties days</span>
+          <input id="penaltiesDays" inputmode="decimal" placeholder="e.g. 0.5" />
+          <small class="hint">Days × 8 hours × hourly rate, deducted from gross.</small>
+        </label>
+
+        <label class="field">
           <span>Medical insurance (EGP)</span>
           <input id="medicalInsurance" inputmode="decimal" placeholder="e.g. 250" />
           <small class="hint">Deducted from gross salary.</small>
@@ -188,6 +200,8 @@
           <div><dt>Hourly rate (Basic/240)</dt><dd id="hourlyRate">—</dd></div>
           <div><dt>Overtime value (monthly)</dt><dd id="overtimeValue">—</dd></div>
           <div><dt>Hour deductions (monthly)</dt><dd id="hourDeductionValue">—</dd></div>
+          <div><dt>Day deductions (monthly)</dt><dd id="dayDeductionValue">—</dd></div>
+          <div><dt>Penalties (monthly)</dt><dd id="penaltiesValue">—</dd></div>
 
           <div><dt>Total Cost Excluding Transportation</dt><dd id="totalCostExcludingTransportation">—</dd></div>
 </dl>
@@ -203,7 +217,7 @@
 
       <div id="errorsSolve" class="errors" hidden></div>
 
-      <div class="grid three">
+      <div class="grid basic-gross-grid">
         <label class="field">
           <span>Target net salary (EGP)</span>
           <input id="solveTargetNet" inputmode="decimal" placeholder="e.g. 6,000" />
@@ -223,13 +237,7 @@
           <small class="hint">Must be between 5,500 and 16,700.</small>
         </label>
 
-        </div>
 
-      <div class="actions center">
-        <button id="btnSolveGross" class="primary" type="button">Calculate Basic Gross Salary</button>
-      </div>
-
-      <div class="grid three outputs">
         <label class="field">
           <span>Calculated Basic Gross (EGP)</span>
           <input id="solveOutBasicGross" readonly />
@@ -245,6 +253,9 @@
           <input id="solveOutNet" readonly />
         </label>
       </div>
+      <div class="actions center">
+        <button id="btnSolveGross" class="primary" type="button">Calculate Basic Gross Salary</button>
+      </div>
     </section>
 
 <footer class="footer">
@@ -253,7 +264,7 @@
     </div>
   </main>
 
-  <script src="app.js?v=20261021_1"></script>
+  <script src="app.js?v=20261021_2"></script>
   <script src="../auth.js?v=7"></script>
   <script>
     (function () {
