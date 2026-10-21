@@ -7,7 +7,7 @@
   <title>IEnergy Portal</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="stylesheet" href="responsive.css?v=1" />
-  <link rel="stylesheet" href="home.css?v=12" />
+  <link rel="stylesheet" href="home.css?v=13" />
   <script src="theme.js?v=4"></script>
 </head>
 <body class="home">
@@ -88,7 +88,11 @@
     <section class="section" id="dashboard" hidden>
       <div class="row-between">
         <h2 class="dash-heading">Your month</h2>
-        <span class="section-sub" id="dashPeriod"></span>
+        <div class="dash-period-controls">
+          <button class="btn" id="dashPrevious" type="button" aria-label="Previous payroll period">‹</button>
+          <span class="section-sub" id="dashPeriod" aria-live="polite"></span>
+          <button class="btn" id="dashNext" type="button" aria-label="Next payroll period">›</button>
+        </div>
       </div>
       <div class="dash-stats" id="dashStats"></div>
       <div class="dash-balances" id="dashBalances"></div>
@@ -150,7 +154,7 @@
   </main>
 
   <script src="auth.js?v=7"></script>
-  <script src="dashboard.js?v=2"></script>
+  <script src="dashboard.js?v=3"></script>
   <script>
     (function () {
       'use strict';

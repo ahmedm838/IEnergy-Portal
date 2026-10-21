@@ -1,12 +1,5 @@
-/* The tracker's dashboard, on the portal home page.
-   - Same figures, same source: the two reporting functions the tracker
-     calls, read as the signed-in account. Nothing is computed here that
-     the database already works out, so the two cannot disagree.
-   - What you see depends on your role, because row level security decides
-     what the functions return, not this file. An admin gets the company
-     counts as well as their own; everybody gets their own.
-   - Loaded by the home page after sign-in. It owns no session of its own:
-     it borrows the one the portal gate established. */
+/* Personal dashboard figures from the tracker summary, using the signed-in
+   employee and the selected payroll period. Database row-level security applies. */
 (function () {
   'use strict';
 
@@ -29,6 +22,30 @@
       from: iso(new Date(year, month - 1, CYCLE_START_DAY)),
       to: iso(new Date(year, month, CYCLE_START_DAY - 1)),
     };
+  }
+
+  let selectedPeriod = payrollPeriod();
+  let renderSequence = 0;
+  let controlsBound = false;
+
+  function shiftPeriod(delta) {
+    const [year, month] = selectedPeriod.to.split('-').map(Number);
+    selectedPeriod = payrollPeriod(new Date(year, month - 1 + delta, 20));
+    return render();
+  }
+
+  function recordedDays(summary) {
+    if (!Array.isArray(summary.day_counts)) return null;
+    return summary.day_counts.reduce((sum, row) => sum + Number(row.days || 0), 0);
+  }
+
+  function notAttendedDays(summary) {
+    const recorded = recordedDays(summary);
+    if (recorded === null || summary.working_days == null) return null;
+    const weekends = summary.day_counts
+      .filter((row) => row.type_code === 'weekly_rest')
+      .reduce((sum, row) => sum + Number(row.days || 0), 0);
+    return Math.max(0, recorded - Number(summary.working_days) - weekends);
   }
 
   const dmy = (value) => {
@@ -74,63 +91,50 @@
     const me = IEnergyAuth.getProfile();
     if (!me) return;
 
+    const sequence = ++renderSequence;
+    const period = { ...selectedPeriod };
+    if (!controlsBound) {
+      document.getElementById('dashPrevious').addEventListener('click', () => shiftPeriod(-1));
+      document.getElementById('dashNext').addEventListener('click', () => shiftPeriod(1));
+      controlsBound = true;
+    }
     const supabase = await IEnergyAuth.getClient();
-    const period = payrollPeriod();
-    const today = iso(new Date());
+    if (sequence !== renderSequence) return;
 
     const statsEl = document.getElementById('dashStats');
     const balancesEl = document.getElementById('dashBalances');
     const periodEl = document.getElementById('dashPeriod');
     if (periodEl) periodEl.textContent = `${dmy(period.from)} to ${dmy(period.to)}`;
 
-    /* Both calls go out together and each is allowed to fail on its own.
-       An admin count that errors should not cost somebody their own
-       hours, which is the half of this page that is theirs. */
-    const [company, mine] = await Promise.all([
-      supabase.rpc('dashboard_summary', {
-        p_from: period.from, p_to: period.to, p_today: today,
-      }).then((r) => (r.error ? null : r.data)).catch(() => null),
-      supabase.rpc('report_employee_summary', {
-        p_employee_id: me.id, p_from: period.from, p_to: period.to,
-      }).then((r) => (r.error ? null : r.data)).catch(() => null),
-    ]);
+    section.hidden = false;
+    statsEl.textContent = 'Loading period…';
+    balancesEl.innerHTML = '';
+    const mine = await supabase.rpc('report_employee_summary', {
+      p_employee_id: me.id, p_from: period.from, p_to: period.to,
+    }).then((r) => (r.error ? null : r.data)).catch(() => null);
+    if (sequence !== renderSequence) return;
 
     statsEl.innerHTML = '';
-
     if (mine) {
-      const variance = Number(mine.hours_variance);
+      const variance = mine.hours_variance == null ? NaN : Number(mine.hours_variance);
+      statsEl.appendChild(stat('Records this month', num(recordedDays(mine), 0), 'saved days in this period'));
+      statsEl.appendChild(stat('Attended days', num(mine.working_days, 0)));
+      statsEl.appendChild(stat('Not attended days', num(notAttendedDays(mine), 0), 'recorded days, excluding weekly rest'));
+      statsEl.appendChild(stat('Absence days', num(mine.absence_days, 0), '', Number(mine.absence_days) > 0 ? 'bad' : ''));
       statsEl.appendChild(stat(
-        'Your hours this period',
-        num(mine.worked_hours),
+        'Hours this period', num(mine.worked_hours),
         `${num(mine.required_hours)} h required`,
-        variance < 0 ? 'bad' : 'good',
+        Number.isFinite(variance) ? (variance < 0 ? 'bad' : 'good') : '',
       ));
       statsEl.appendChild(stat(
         'Excess / shortage',
-        `${variance >= 0 ? '+' : ''}${num(variance)} h`,
-        `${mine.working_days} working days`,
-        variance < 0 ? 'bad' : 'good',
+        Number.isFinite(variance) ? `${variance >= 0 ? '+' : ''}${num(variance)} h` : '—',
+        `${num(mine.working_days, 0)} working days`,
+        Number.isFinite(variance) ? (variance < 0 ? 'bad' : 'good') : '',
       ));
       statsEl.appendChild(stat('Overtime hours', num(mine.overtime_hours)));
-      statsEl.appendChild(stat(
-        'Absence penalty',
-        `${num(mine.absence_penalty)} days`,
-        `${mine.absence_days} unauthorised`,
-        Number(mine.absence_penalty) > 0 ? 'bad' : '',
-      ));
-    }
-
-    // Only an administrator's account can read these; for anybody else
-    // the function returns nothing and the tiles simply are not there.
-    if (company) {
-      statsEl.appendChild(stat('Employees', num(company.employees, 0), 'on the payroll'));
-      statsEl.appendChild(stat('Recorded today', num(company.recorded_today, 0), dmy(today)));
-      statsEl.appendChild(stat(
-        'Not recorded today',
-        num(company.missing_count, 0),
-        'employees with no entry',
-        Number(company.missing_count) > 0 ? 'warn' : 'good',
-      ));
+    } else {
+      statsEl.textContent = 'Could not load this period. Please refresh or choose another period.';
     }
 
     balancesEl.innerHTML = '';

@@ -704,3 +704,6 @@ body.home .container > .section { margin-top: 0; }
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+.dash-period-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dash-period-controls .section-sub { margin: 0; }
