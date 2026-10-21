@@ -147,8 +147,17 @@
     if (mine && Array.isArray(mine.balances)) {
       const table = document.createElement('table');
       table.className = 'dash-table';
+      /* The leave year goes in the header's empty first cell rather than
+         in a line under the table. It says which year the three columns
+         beside it are counting, so it belongs level with them and at the
+         same left edge as the leave names below it -- read before the
+         numbers instead of after them. */
+      const year = mine.leave_year
+        ? 'Calendar year ' + dmy(mine.leave_year.from) + ' to ' + dmy(mine.leave_year.to)
+        : '';
       table.innerHTML =
-        '<thead><tr><th></th><th>Balance</th><th>Consumed</th><th>Remaining</th></tr></thead>';
+        '<thead><tr><th class="dash-year">' + year + '</th>' +
+        '<th>Balance</th><th>Consumed</th><th>Remaining</th></tr></thead>';
       const body = document.createElement('tbody');
 
       for (const b of mine.balances) {
@@ -190,11 +199,6 @@
       table.appendChild(totals);
       balancesEl.appendChild(table);
 
-      const note = document.createElement('p');
-      note.className = 'dash-note-line';
-      note.textContent =
-        `Calendar year ${dmy(mine.leave_year.from)} to ${dmy(mine.leave_year.to)}.`;
-      balancesEl.appendChild(note);
     }
 
     if (statsEl.children.length || balancesEl.children.length) section.hidden = false;

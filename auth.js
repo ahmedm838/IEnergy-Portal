@@ -280,6 +280,169 @@
 
      A page that already has one -- the home page, which puts it in its
      page bar -- is left alone. */
+
+  /* The temporary password.
+
+     A super admin creating an account gives it one and sets the flag
+     must_set_password on it. Until now only the tracker acted on that
+     flag, and the tracker is no longer where anybody signs in: the
+     sign-in moved to the portal, so somebody with a temporary password
+     reached the main page, used it, and was asked to choose a real one
+     at some unrelated later moment -- whenever they first happened to
+     open the tracker.
+
+     Asking here puts the question where the sign-in is, on every page
+     that uses this gate, the moment there is a session. The panel is
+     built in script rather than written into each page for the same
+     reason the sign-out button is: one copy to keep in step. */
+  async function needsPasswordChange() {
+    try {
+      const supabase = await getClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const meta = session && session.user && session.user.user_metadata;
+      return !!(meta && meta.must_set_password === true);
+    } catch (_) {
+      /* Unreadable is not the same as "needs one". Erring the other way
+         would put every page behind a panel nobody can dismiss. */
+      return false;
+    }
+  }
+
+  async function setPassword(newPassword) {
+    const supabase = await getClient();
+    /* Clearing the flag in the same call that sets the password means
+       the two cannot disagree: no account is left able to sign in and
+       still be sent back here. */
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+      data: { must_set_password: false },
+    });
+    if (error) throw error;
+  }
+
+  /* The same eye the sign-in field has, built rather than copied. */
+  function eyeButton(input) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pw-toggle";
+    btn.tabIndex = -1;
+    btn.setAttribute("aria-pressed", "false");
+    btn.setAttribute("aria-label", "Show password");
+    btn.title = "Show password";
+    btn.innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />' +
+      '<circle cx="12" cy="12" r="2.8" />' +
+      '<path class="pw-slash" d="M4 20 20 4" /></svg>';
+    btn.addEventListener("click", function () {
+      const showing = input.type === "text";
+      input.type = showing ? "password" : "text";
+      const slash = btn.querySelector(".pw-slash");
+      if (slash) slash.style.display = showing ? "" : "none";
+      btn.setAttribute("aria-pressed", String(!showing));
+      const label = showing ? "Show password" : "Hide password";
+      btn.setAttribute("aria-label", label);
+      btn.title = label;
+    });
+    return btn;
+  }
+
+  function passwordField(labelText, id) {
+    const label = document.createElement("label");
+    label.className = "field";
+    const span = document.createElement("span");
+    span.textContent = labelText;
+    const wrap = document.createElement("span");
+    wrap.className = "pw-wrap";
+    const input = document.createElement("input");
+    input.type = "password";
+    input.id = id;
+    input.autocomplete = "new-password";
+    wrap.appendChild(input);
+    wrap.appendChild(eyeButton(input));
+    label.appendChild(span);
+    label.appendChild(wrap);
+    return { label: label, input: input };
+  }
+
+  let passwordGateShown = false;
+  async function mountPasswordGate() {
+    if (passwordGateShown) return false;
+    if (!(await needsPasswordChange())) return false;
+    passwordGateShown = true;
+
+    const overlay = document.createElement("div");
+    overlay.className = "pw-gate";
+    overlay.id = "pwGate";
+
+    const card = document.createElement("div");
+    card.className = "pw-gate-card";
+
+    const heading = document.createElement("h2");
+    heading.textContent = "Choose your password";
+    const lead = document.createElement("p");
+    lead.textContent =
+      "You signed in with a temporary password. Set one of your own to carry on, " +
+      "at least 8 characters.";
+
+    const first = passwordField("New password", "pwGateNew");
+    const again = passwordField("Repeat password", "pwGateAgain");
+
+    const err = document.createElement("div");
+    err.className = "auth-error";
+    err.hidden = true;
+
+    const actions = document.createElement("div");
+    actions.className = "auth-actions";
+    const save = document.createElement("button");
+    save.className = "btn primary";
+    save.type = "button";
+    save.textContent = "Save password";
+    actions.appendChild(save);
+
+    card.appendChild(heading);
+    card.appendChild(lead);
+    card.appendChild(first.label);
+    card.appendChild(again.label);
+    card.appendChild(err);
+    card.appendChild(actions);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    setTimeout(function () { first.input.focus(); }, 50);
+
+    const fail = function (text) { err.textContent = text; err.hidden = false; };
+
+    let busy = false;
+    async function submit() {
+      if (busy) return;
+      err.hidden = true;
+      if (first.input.value.length < 8) { fail("Use at least 8 characters."); return; }
+      if (first.input.value !== again.input.value) {
+        fail("The two passwords do not match.");
+        return;
+      }
+      busy = true;
+      save.disabled = true;
+      save.textContent = "Saving...";
+      try {
+        await setPassword(first.input.value);
+        overlay.remove();
+      } catch (e) {
+        fail((e && e.message) || "Could not set the password. Try again.");
+        busy = false;
+        save.disabled = false;
+        save.textContent = "Save password";
+      }
+    }
+    save.addEventListener("click", submit);
+    [first.input, again.input].forEach(function (input) {
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); submit(); }
+      });
+    });
+    return true;
+  }
   function mountSignOut(homeHref) {
     if (document.getElementById('logoutBtn')) return null;
 
@@ -446,6 +609,10 @@
       if (deniedEl) deniedEl.hidden = true;
       if (appEl) appEl.hidden = false;
 
+      // A temporary password is asked about before anything else: it is
+      // the one thing that has to happen before the session is used.
+      mountPasswordGate();
+
       // There is somebody to sign out now, so offer it.
       const out = $('logoutBtn');
       if (out) { out.hidden = false; out.style.display = ''; }
@@ -577,6 +744,8 @@
     getUser,
     getProfile,
     loadProfile,
+    needsPasswordChange,
+    setPassword,
     getClient,
     IDLE_MS,
     // Kept so older pages reading it do not trip over undefined. The
