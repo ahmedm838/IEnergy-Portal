@@ -3102,6 +3102,7 @@ insert into si_codes (code, title) values
   ('999999', 'صاحب معاش')
 on conflict (code) do nothing;
 
--- After running, this should report 8594 rows at most -- 5542 already
--- there plus the 3021 of these 3052 that are new.
---   select count(*) from si_codes;
+-- Run against the live database on 21 Oct 2026. It held 5542 codes
+-- before and 8563 after: 3021 of these 3052 were new, 31 were already
+-- there and kept their own titles.
+--   select count(*) from si_codes;   -- 8563
