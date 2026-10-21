@@ -24,22 +24,23 @@
 name: Deploy to cPanel
 
 on:
-  # PAUSED ON PURPOSE -- 21 Oct 2026.
+  # Hand-started only. Decided 21 Oct 2026, and meant to stay that way.
   #
-  # This deployed on every push to main. It is hand-started only while
-  # the page-switching speed work is being tested on GitHub Pages, so
-  # that merging to main publishes to Pages without also writing to the
-  # live cPanel site.
+  # Deploying on every push to main meant a merge intended for GitHub
+  # Pages also wrote to the live site in the same breath, which left no
+  # way to look at a change on a real server before the staff did. The
+  # deploy is now a separate, deliberate act: merge to main, look at it
+  # on Pages, then run this when it is right.
   #
-  # To deploy to cPanel meanwhile: Actions -> Deploy to cPanel -> Run
-  # workflow, and set dry_run to false.
+  # To deploy: Actions -> Deploy to cPanel -> Run workflow, and set
+  # dry_run to FALSE. It defaults to true, so a run started without
+  # thinking about it writes nothing.
   #
-  # TO PUT IT BACK, restore these two lines:
-  #   push:
-  #     branches: [main]
-  # The reason it was automatic matters: while it was manual, six fixes
-  # sat built and unshipped while the live site still served the bug
-  # they fixed. Do not leave it like this once testing is done.
+  # The cost of this, which is real: a fix merged to main does not reach
+  # the live site until somebody runs this. That has already happened
+  # once -- six fixes sat built and unshipped while the live site served
+  # the bug they fixed. Merging is not shipping; run this after you
+  # merge anything that matters.
   workflow_dispatch:
     inputs:
       dry_run:
