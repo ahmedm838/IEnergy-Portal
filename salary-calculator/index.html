@@ -97,8 +97,8 @@
 
         <label class="field">
           <span>Deduction hours</span>
-          <input id="deductionHours" inputmode="decimal" placeholder="e.g. 4" />
-          <small class="hint">Hours × hourly rate.</small>
+          <input id="deductionHours" inputmode="text" placeholder="e.g. 4 or -4" />
+          <small class="hint">Hours × hourly rate; negative hours add to gross.</small>
         </label>
 
         <label class="field">
@@ -115,8 +115,8 @@
 
         <label class="field">
           <span>Salary adjustment (EGP)</span>
-          <input id="salaryAdjustment" inputmode="decimal" placeholder="e.g. 500" />
-          <small class="hint">Added to gross before deductions.</small>
+          <input id="salaryAdjustment" inputmode="text" placeholder="e.g. 500 or -500" />
+          <small class="hint">Added to gross; negative amounts reduce gross.</small>
         </label>
 
         <label class="field">
@@ -261,7 +261,7 @@
     </div>
   </main>
 
-  <script src="app.js?v=20261021_3"></script>
+  <script src="app.js?v=20261021_4"></script>
   <script src="../auth.js?v=7"></script>
   <script>
     (function () {

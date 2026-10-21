@@ -257,10 +257,10 @@ function calculate() {
   validateNonNegative("Allowances", allowances, errs);
   validateNonNegative("Incentive", incentive, errs);
   validateNonNegative("Bonus", bonus, errs);
-  validateNonNegative("Salary adjustment", salaryAdjustment, errs);
+  if (!Number.isFinite(salaryAdjustment)) errs.push("Salary adjustment is not a valid number.");
 
   validateNonNegative("Overtime hours", overtimeHours, errs);
-  validateNonNegative("Deduction hours", deductionHours, errs);
+  if (!Number.isFinite(deductionHours)) errs.push("Deduction hours is not a valid number.");
   validateNonNegative("Deduction days", deductionDays, errs);
   validateNonNegative("Penalties days", penaltiesDays, errs);
 
