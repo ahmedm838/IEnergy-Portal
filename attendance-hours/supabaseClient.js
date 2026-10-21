@@ -1,4 +1,7 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+// Was pinned to "@supabase/supabase-js@2" -- a range, so the CDN could
+// have shipped a different minor version here than every other page
+// was using. Now the same one file as the rest of the site.
+import { createClient } from "../vendor/supabase-js-2.45.4.js";
 import { CONFIG } from "./config.js";
 
 function isValidHttpUrl(value){

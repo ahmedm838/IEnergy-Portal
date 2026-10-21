@@ -7,7 +7,7 @@
   <title>iEnergy | Company Policy | Internal Work Regulations</title>
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../../responsive.css?v=1" />
-  <link rel="stylesheet" href="../../home.css?v=14" />
+  <link rel="stylesheet" href="../../home.css?v=15" />
   <style>
     .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
     .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(var(--ink-rgb), 0.03); padding:8px 10px; border-radius:12px; }
@@ -32,6 +32,11 @@
     mark { padding:0 2px; border-radius:6px; }
   </style>
   <script src="../../theme.js?v=4"></script>
+  <!-- Fetch a page when the pointer settles on its link, so the click
+       lands on something already in the cache. Same-origin GETs only. -->
+  <script type="speculationrules">
+    {"prefetch":[{"where":{"href_matches":"/*"},"eagerness":"moderate"}]}
+  </script>
 </head>
 <body>
   <main class="container">
@@ -322,7 +327,7 @@ Managing Director
     </section>
   </main>
 
-  <script src="../../auth.js?v=8"></script>
+  <script src="../../auth.js?v=9"></script>
   <script>
     (function () {
       'use strict';
