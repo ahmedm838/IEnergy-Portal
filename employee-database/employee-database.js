@@ -485,11 +485,103 @@ function fillPageBar(who) {
   badge.hidden = false
 }
 
+
+/* What the portal already knows.
+
+   Opening this page from the main page is the ordinary case, and by
+   then the portal has asked who you are and left the answer in
+   sessionStorage -- same origin, same tab, no network. Reading it is
+   the difference between the page appearing at once and showing
+   "Checking your access" for as long as a round trip to Frankfurt
+   takes. One sign-in, one session: a page inside it should not make a
+   show of re-checking.
+
+   A cache, not an authority. The real check still runs below and still
+   corrects the page if the answer has moved on, and behind all of it
+   row level security is what actually decides what can be read. */
+const PORTAL_PROFILE_KEY = 'ienergy_portal_profile_v1'
+const SESSION_KEY = 'sb-ednaedkurjsgvjrvayys-auth-token'
+
+function storedSessionLooksValid() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (!raw) return false
+    const expiresAt = Number(JSON.parse(raw)?.expires_at)
+    // No expiry recorded: let the server judge rather than throw away a
+    // session that may well be good.
+    if (!Number.isFinite(expiresAt)) return true
+    return expiresAt * 1000 > Date.now()
+  } catch (_) {
+    return false
+  }
+}
+
+function cachedProfile() {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(PORTAL_PROFILE_KEY))
+    // trackerRole is the one that says admin from super admin. The
+    // portal collapses both into "admin" for its own purposes, which is
+    // not the question this page asks.
+    if (!raw || !raw.id || !raw.trackerRole) return null
+    return { id: raw.id, code: raw.code, name: raw.name, title: raw.title, role: raw.trackerRole }
+  } catch (_) {
+    return null
+  }
+}
+
+const mayEdit = (role) => role === 'admin' || role === 'super_admin'
+
+/* Everything that happens once somebody is known to be allowed in.
+   Pulled out of start() because it now runs from two places: once
+   straight away from the cache, and once more if the confirmation
+   disagrees about who you are. */
+function openPage(who) {
+  me = who
+  fillPageBar(me)
+  $('newBtn').hidden = false
+  $('saveBtn').hidden = false
+
+  $('gate').hidden = true
+  $('app').hidden = false
+  $('year').textContent = new Date().getFullYear()
+
+  // Bring the theme switch into the page bar now that the bar is on
+  // screen. It is left floating at the top right until then, so the
+  // sign-in screen still has one -- a slot inside the hidden app would
+  // have swallowed it.
+  const slot = $('themeSlot')
+  const toggle = document.querySelector('.theme-toggle')
+  if (slot && toggle) slot.appendChild(toggle)
+}
 async function start() {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  /* Decide from what is on this machine first.
+
+     Three states, and only one of them is a panel. Known and allowed:
+     draw the page now. Nothing stored at all: the sign-in panel is the
+     right answer immediately, no waiting. A token but nothing cached --
+     the first page of a session, or this page opened in a new tab --
+     shows neither, because a blank moment is honest where a panel would
+     be a claim we are about to take back. */
+  const hasToken = storedSessionLooksValid()
+  const known = hasToken ? cachedProfile() : null
+  let drawn = false
+
+  if (known && mayEdit(known.role)) {
+    openPage(known)
+    drawn = true
+    // The lists and the totals need no permission beyond the session,
+    // so they can start loading while the check below runs.
+    loadLookups().then(loadTotals).catch(() => {})
+  } else if (!hasToken) {
     // No session: there is one sign-in and it is not here. Send them to
     // it rather than showing a second one.
+    showGate('You are not signed in. Sign in at iEnergy Home and come back.')
+    setTimeout(() => { location.replace('../index.html') }, 1200)
+    return
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
     showGate('You are not signed in. Sign in at iEnergy Home and come back.')
     setTimeout(() => { location.replace('../index.html') }, 1200)
     return
@@ -512,32 +604,24 @@ async function start() {
   // read them, and the whole file -- national IDs, wages, documents -- is
   // not something to put in front of somebody who has no business editing
   // it. Row level security says the same thing from the other side.
-  if (data.role !== 'admin' && data.role !== 'super_admin') {
+  if (!mayEdit(data.role)) {
     showGate(
       `Signed in as ${data.name}, but the Employee Database is open to administrators only.`,
     )
     return
   }
 
-  // Everyone who gets this far may edit: the check above turned the rest
-  // away, so there is no read-only state left to describe.
-  me = data
-  fillPageBar(me)
-  $('newBtn').hidden = false
-  $('saveBtn').hidden = false
+  if (drawn) {
+    /* The page was drawn from the cache and the server agrees somebody
+       may edit. Refresh the identity in case a name or title changed,
+       and stop -- the lists are already loading. Reloading here would
+       throw away a page the person is probably already using. */
+    me = data
+    fillPageBar(me)
+    return
+  }
 
-  $('gate').hidden = true
-  $('app').hidden = false
-  $('year').textContent = new Date().getFullYear()
-
-  // Bring the theme switch into the page bar now that the bar is on
-  // screen. It is left floating at the top right until then, so the
-  // sign-in screen still has one -- a slot inside the hidden app would
-  // have swallowed it.
-  const slot = $('themeSlot')
-  const toggle = document.querySelector('.theme-toggle')
-  if (slot && toggle) slot.appendChild(toggle)
-
+  openPage(data)
   await loadLookups()
   await loadTotals()
 }
