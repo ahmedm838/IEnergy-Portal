@@ -328,6 +328,74 @@ function monthsAhead(n) {
   return when.toISOString().slice(0, 10)
 }
 
+// Share filters between the summary counts and their employee lists.
+const totalLists = {
+  uninsured: {
+    title: 'Non-insured employees',
+    apply: (q) => q.eq('is_active', true).is('si_date', null),
+  },
+  contracts: {
+    title: 'Contracts due or expired',
+    apply: (q) => q.eq('is_active', true).not('contract_expiry', 'is', null).lte('contract_expiry', monthsAhead(4)),
+  },
+  incomplete: {
+    title: 'Non completed files',
+    apply: (q) => q.eq('file_complete', false),
+  },
+}
+
+let totalListSequence = 0
+
+async function showTotalList(key) {
+  const list = totalLists[key]
+  if (!list) return
+  const sequence = ++totalListSequence
+  const dialog = $('totalDialog')
+  $('totalDialogTitle').textContent = list.title
+  $('totalDialogStatus').textContent = 'Loading employees…'
+  $('totalDialogTable').hidden = true
+  $('totalDialogRows').replaceChildren()
+  if (!dialog.open) dialog.showModal()
+  try {
+    // Fetch every page so large lists are not cut off by the API row limit.
+    const employees = []
+    const pageSize = 500
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await list.apply(
+        supabase.from('employee_profiles').select('id, code, name'),
+      ).order('code').order('id').range(offset, offset + pageSize - 1)
+      if (sequence !== totalListSequence || !dialog.open) return
+      if (error) throw error
+      employees.push(...(data ?? []))
+      if (!data || data.length < pageSize) break
+    }
+    const rows = document.createDocumentFragment()
+    for (const employee of employees) {
+      const row = document.createElement('tr')
+      for (const value of [employee.code, employee.name]) {
+        const cell = document.createElement('td')
+        cell.textContent = value ?? '—'
+        row.appendChild(cell)
+      }
+      rows.appendChild(row)
+    }
+    $('totalDialogRows').replaceChildren(rows)
+    $('totalDialogTable').hidden = employees.length === 0
+    $('totalDialogStatus').textContent = employees.length
+      ? `${employees.length} employee${employees.length === 1 ? '' : 's'}`
+      : 'No matching employees.'
+  } catch {
+    if (sequence !== totalListSequence || !dialog.open) return
+    $('totalDialogStatus').textContent = 'Could not load employees. Close this window and try again.'
+  }
+}
+
+document.querySelectorAll('[data-total-list]').forEach((button) => {
+  button.addEventListener('click', () => showTotalList(button.dataset.totalList))
+})
+$('closeTotalDialog').addEventListener('click', () => $('totalDialog').close())
+$('totalDialog').addEventListener('close', () => { totalListSequence++ })
+
 async function loadTotals() {
   const count = async (apply) => {
     const { count: n, error } = await apply(
@@ -335,26 +403,34 @@ async function loadTotals() {
     )
     return error ? null : n
   }
-  const [listed, onBoard, uninsured, contracts, complete] = await Promise.all([
+  const countStatus = (name) => {
+    const status = (lookups.statuses ?? []).find(([, label]) => label === name)
+    return status ? count((q) => q.eq('status_id', status[0])) : Promise.resolve(null)
+  }
+  const [listed, onBoard, uninsured, contracts, incomplete, absent, suspended, onLeave] = await Promise.all([
     count((q) => q),
     count((q) => q.eq('is_active', true)),
     // On board with no insurance date on file. "On board" is the same
     // test as the tile beside it, the Active flag, so the two numbers are
     // always read against each other rather than against two different
     // populations.
-    count((q) => q.eq('is_active', true).is('si_date', null)),
+    count(totalLists.uninsured.apply),
     // Expired, or expiring within four months. Scoped to active
     // employees: nobody chases a renewal for somebody who has left.
-    count((q) =>
-      q.eq('is_active', true).not('contract_expiry', 'is', null).lte('contract_expiry', monthsAhead(4)),
-    ),
-    count((q) => q.eq('file_complete', true)),
+    count(totalLists.contracts.apply),
+    count(totalLists.incomplete.apply),
+    countStatus('Absent'),
+    countStatus('Suspended'),
+    countStatus('On Leave'),
   ])
   $('totalListed').textContent = listed ?? '—'
   $('totalOnBoard').textContent = onBoard ?? '—'
   $('totalUninsured').textContent = uninsured ?? '—'
   $('totalContracts').textContent = contracts ?? '—'
-  $('totalComplete').textContent = complete ?? '—'
+  $('totalIncomplete').textContent = incomplete ?? '—'
+  $('totalAbsent').textContent = absent ?? '—'
+  $('totalSuspended').textContent = suspended ?? '—'
+  $('totalOnLeave').textContent = onLeave ?? '—'
 }
 
 /**

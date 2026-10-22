@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="../favicon.png" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=15" />
-  <link rel="stylesheet" href="employee-database.css?v=55" />
+  <link rel="stylesheet" href="employee-database.css?v=56" />
   <script src="../theme.js?v=4"></script>
   <!-- Fetch a page when the pointer settles on its link, so the click
        lands on something already in the cache. Same-origin GETs only. -->
@@ -74,17 +74,29 @@
           <div class="total-value" id="totalOnBoard">&mdash;</div>
         </div>
         <div class="total">
-          <div class="total-label">Non insured employees</div>
-          <div class="total-value" id="totalUninsured">&mdash;</div>
+          <div class="total-label">Total absent employees</div>
+          <div class="total-value" id="totalAbsent">&mdash;</div>
         </div>
         <div class="total">
-          <div class="total-label">Contracts due or expired</div>
-          <div class="total-value" id="totalContracts">&mdash;</div>
+          <div class="total-label">Total suspended employees</div>
+          <div class="total-value" id="totalSuspended">&mdash;</div>
         </div>
         <div class="total">
-          <div class="total-label">Complete files</div>
-          <div class="total-value" id="totalComplete">&mdash;</div>
+          <div class="total-label">Total on leave employees</div>
+          <div class="total-value" id="totalOnLeave">&mdash;</div>
         </div>
+        <button class="total total-action" type="button" data-total-list="uninsured" aria-haspopup="dialog">
+          <span class="total-label">Non-insured employees</span>
+          <span class="total-value" id="totalUninsured">&mdash;</span>
+        </button>
+        <button class="total total-action" type="button" data-total-list="contracts" aria-haspopup="dialog">
+          <span class="total-label">Contracts due or expired</span>
+          <span class="total-value" id="totalContracts">&mdash;</span>
+        </button>
+        <button class="total total-action" type="button" data-total-list="incomplete" aria-haspopup="dialog">
+          <span class="total-label">Non completed files</span>
+          <span class="total-value" id="totalIncomplete">&mdash;</span>
+        </button>
       </div>
     </section>
 
@@ -133,6 +145,19 @@
   </main>
   </div>
 
-  <script type="module" src="employee-database.js?v=59"></script>
+  <dialog id="totalDialog" class="total-dialog" aria-labelledby="totalDialogTitle">
+    <div class="row-between">
+      <h2 id="totalDialogTitle">Employees</h2>
+      <button class="btn" type="button" id="closeTotalDialog" autofocus>Close</button>
+    </div>
+    <p id="totalDialogStatus" role="status"></p>
+    <div class="total-list-scroll">
+      <table class="total-list-table" id="totalDialogTable" hidden>
+        <thead><tr><th scope="col">Code</th><th scope="col">Name</th></tr></thead>
+        <tbody id="totalDialogRows"></tbody>
+      </table>
+    </div>
+  </dialog>
+  <script type="module" src="employee-database.js?v=60"></script>
 </body>
 </html>

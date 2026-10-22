@@ -122,8 +122,8 @@
     statsEl.innerHTML = '';
     if (mine) {
       const variance = mine.hours_variance == null ? NaN : Number(mine.hours_variance);
-      statsEl.appendChild(stat('Records', num(recordedDays(mine), 0), 'saved days in this period'));
-      statsEl.appendChild(stat('Weekends', num(weekendDays(mine), 0)));
+      statsEl.appendChild(stat('Recorded days', num(recordedDays(mine), 0), 'saved days in this period'));
+      statsEl.appendChild(stat('Weekend days', num(weekendDays(mine), 0)));
       statsEl.appendChild(stat('Attended days', num(mine.working_days, 0)));
       statsEl.appendChild(stat('Not attended days', num(notAttendedDays(mine), 0)));
       statsEl.appendChild(stat('Absence days', num(mine.absence_days, 0), '', Number(mine.absence_days) > 0 ? 'bad' : ''));
