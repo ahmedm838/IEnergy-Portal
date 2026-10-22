@@ -147,16 +147,8 @@
     if (mine && Array.isArray(mine.balances)) {
       const table = document.createElement('table');
       table.className = 'dash-table';
-      /* The leave year goes in the header's empty first cell rather than
-         in a line under the table. It says which year the three columns
-         beside it are counting, so it belongs level with them and at the
-         same left edge as the leave names below it -- read before the
-         numbers instead of after them. */
-      const year = mine.leave_year
-        ? 'Calendar year ' + dmy(mine.leave_year.from) + ' to ' + dmy(mine.leave_year.to)
-        : '';
       table.innerHTML =
-        '<thead><tr><th class="dash-year">' + year + '</th>' +
+        '<thead><tr><th></th>' +
         '<th>Balance</th><th>Consumed</th><th>Remaining</th></tr></thead>';
       const body = document.createElement('tbody');
 
@@ -172,11 +164,22 @@
 
       // The leave days none of the three rows above account for.
       const other = document.createElement('tr');
-      const types = (mine.other_leave_types ?? []).map((t) => `${t.name_en} ${t.days}`).join(' · ');
       other.innerHTML =
-        `<td>Other leaves <span class="dash-note">${types || 'sick, deducted, granted'}</span></td>` +
+        '<td>Other leaves</td>' +
         `<td class="muted">—</td><td>${num(mine.other_leaves, 1)}</td><td class="muted">—</td>`;
       body.appendChild(other);
+
+      // Informational sub-rows only; totals still use the summary figures.
+      const notes = (mine.other_leave_types ?? []).map((t) => `${t.name_en} ${t.days}`);
+      for (const note of notes.length ? notes : ['sick', 'deducted', 'granted']) {
+        const row = document.createElement('tr');
+        row.className = 'dash-note-row';
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.textContent = note;
+        row.appendChild(cell);
+        body.appendChild(row);
+      }
 
       table.appendChild(body);
 
