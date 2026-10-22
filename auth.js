@@ -22,7 +22,7 @@
 
   // Applied here and in the tracker, so one session cannot outlive the
   // other half of itself.
-  const IDLE_MS = 15 * 60 * 1000;
+  const IDLE_MS = 10 * 60 * 1000;
 
   /* Four roles in the database, two answers here. A super admin and an
      admin see the same portal; the difference between them is what the
@@ -250,6 +250,22 @@
           message: 'Your account has no access. Ask a super admin to give you a role.',
         };
       }
+
+      /* One account, one place at a time. Signing in here ends every
+         session this account has open elsewhere -- another computer, a
+         phone, a machine somebody walked away from.
+
+         scope: 'others' leaves the session just created alone and
+         revokes the rest, so this cannot sign you out of the sign-in you
+         are in the middle of.
+
+         Deliberately not fatal. The sign-in has already succeeded by
+         this point, and refusing to let somebody in because the clean-up
+         call failed would trade a small risk for a certain one. */
+      try {
+        await supabase.auth.signOut({ scope: 'others' });
+      } catch (_) { /* they stay signed in; the heartbeat below still catches it */ }
+
       return { ok: true, role: who.role, user: who.name };
     } catch (err) {
       return { ok: false, message: err.message ?? String(err) };
@@ -273,6 +289,66 @@
       } catch (_) {}
     }
   }
+
+  /* Being signed out from somewhere else.
+
+     login() revokes the other sessions, which stops them refreshing.
+     But an access token stays cryptographically valid until it expires,
+     so without this the other device would carry on working for up to
+     an hour. This asks the server, once a minute, whether the session is
+     still there.
+
+     Only 401 and 403 count. Those are the server saying this session is
+     gone. A dropped request, a 5xx, a tunnel going down -- none of those
+     say anything about whether somebody is signed in, and treating them
+     as if they did is how an admin ends up thrown out mid-form. The same
+     distinction loadProfile draws, for the same reason.
+
+     One check per minute for the whole browser, not per tab: the time of
+     the last check is shared, so ten open tabs still make one request.
+     Hidden tabs skip it, since nobody is looking at them. */
+  const SESSION_CHECK_MS = 60 * 1000;
+  const CHECK_KEY = 'ienergy-session-checked';
+
+  function claimCheck() {
+    try {
+      const last = Number(localStorage.getItem(CHECK_KEY)) || 0;
+      if (Date.now() - last < SESSION_CHECK_MS) return false;
+      localStorage.setItem(CHECK_KEY, String(Date.now()));
+      return true;
+    } catch (_) {
+      return true;   // no shared storage: check per tab rather than never
+    }
+  }
+
+  async function checkSessionStillValid() {
+    if (document.hidden) return;
+    if (!storedSessionLooksValid()) return;   // nothing to check
+    if (!claimCheck()) return;
+    try {
+      const supabase = await getClient();
+      const { error } = await supabase.auth.getUser();
+      if (!error) return;
+      if (error.status !== 401 && error.status !== 403) return;
+    } catch (_) {
+      return;
+    }
+    /* The server says this session is gone -- someone signed in as this
+       account somewhere else. Clear what is left and go to the sign-in
+       page, which is what the idle timer and the button both do. */
+    profile = null;
+    rememberProfile(null);
+    try {
+      const supabase = await getClient();
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (_) {}
+    window.location.reload();
+  }
+
+  setInterval(checkSessionStillValid, SESSION_CHECK_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkSessionStillValid();
+  });
 
   /* Signing out in one tab signs out the others.
 

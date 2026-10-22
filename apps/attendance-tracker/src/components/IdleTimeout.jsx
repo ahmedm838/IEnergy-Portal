@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth'
 import { Button, Card } from './ui'
 
 /** Sign out after this long with no user action. */
-const IDLE_MS = 15 * 60 * 1000
+const IDLE_MS = 10 * 60 * 1000
 /** Warn this long before it happens. */
 const WARN_MS = 60 * 1000
 /** Don't write to storage on every mousemove. */

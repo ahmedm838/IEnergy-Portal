@@ -69,24 +69,64 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          # Without this every run downloads both dependency trees from
+          # scratch. The two installs were the bulk of a 41 second deploy.
+          cache: npm
+          cache-dependency-path: |
+            apps/attendance-tracker/package-lock.json
+            apps/leave-manager/frontend/package.json
 
-      - name: Build Attendance Tracker
-        working-directory: apps/attendance-tracker
+      # Both apps build at once. They share nothing but the Node install,
+      # and ran one after the other for no reason: 14 seconds then 17.
+      # Together they cost what the slower one costs.
+      #
+      # Each writes its log to a file rather than the step log, because
+      # two builds printing at the same time interleave into something
+      # nobody can read. The logs are printed afterwards, in order, and
+      # a failure prints its own before stopping the run.
+      - name: Build both apps
+        shell: bash
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          TRACKER_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          TRACKER_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          LEAVE_URL: ${{ secrets.SUPABASE_URL }}
+          LEAVE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          npm ci
-          npm run build
+          set -euo pipefail
 
-      - name: Build Leave Manager
-        working-directory: apps/leave-manager/frontend
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: |
-          npm install
-          npm run build
+          build_tracker() {
+            cd apps/attendance-tracker
+            # --prefer-offline uses the cache above instead of the network
+            # wherever it can; the other two just stop npm doing work this
+            # build has no use for.
+            npm ci --prefer-offline --no-audit --no-fund
+            VITE_SUPABASE_URL="$TRACKER_URL" VITE_SUPABASE_ANON_KEY="$TRACKER_KEY" npm run build
+          }
+
+          build_leave() {
+            cd apps/leave-manager/frontend
+            # npm install, not ci: this app has no package-lock.json, so
+            # there is nothing for ci to install from. That also means its
+            # dependency tree is resolved afresh every run and can drift
+            # between builds -- worth a lockfile, but that is a change to
+            # what gets installed, not just how fast.
+            npm install --prefer-offline --no-audit --no-fund
+            VITE_SUPABASE_URL="$LEAVE_URL" VITE_SUPABASE_ANON_KEY="$LEAVE_KEY" npm run build
+          }
+
+          build_tracker > /tmp/tracker.log 2>&1 &
+          tracker_pid=$!
+          build_leave > /tmp/leave.log 2>&1 &
+          leave_pid=$!
+
+          tracker_rc=0; wait "$tracker_pid" || tracker_rc=$?
+          leave_rc=0;   wait "$leave_pid"   || leave_rc=$?
+
+          echo "::group::Attendance Tracker"; cat /tmp/tracker.log; echo "::endgroup::"
+          echo "::group::Leave Manager";     cat /tmp/leave.log;   echo "::endgroup::"
+
+          if [ "$tracker_rc" -ne 0 ]; then echo "::error::Attendance Tracker build failed."; exit "$tracker_rc"; fi
+          if [ "$leave_rc" -ne 0 ];   then echo "::error::Leave Manager build failed.";     exit "$leave_rc";   fi
 
       - name: Assemble site folder
         shell: bash

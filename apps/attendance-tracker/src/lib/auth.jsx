@@ -308,9 +308,64 @@ export function AuthProvider({ children }) {
     // by now, render the UI and let the normal error paths explain themselves.
     const watchdog = setTimeout(finish, 8000)
 
+    /* Being signed out from somewhere else.
+
+       Signing in on another device revokes this session on the server,
+       which stops it refreshing -- but an access token stays valid until
+       it expires, so without asking, this app would carry on working for
+       up to an hour after someone else took the account over. The portal
+       asks on its own pages; a device with only the tracker open has
+       nothing else to ask for it.
+
+       Only 401 and 403 count. Those are the server saying the session is
+       gone. A dropped request or a 5xx says nothing about whether anybody
+       is signed in, and acting on one would throw an admin out of a
+       half-entered month over a flaky minute of wifi.
+
+       The time of the last check is shared with the portal through the
+       same key it uses, so the whole browser makes one request a minute
+       however many tabs are open. */
+    const SESSION_CHECK_MS = 60 * 1000
+    const CHECK_KEY = "ienergy-session-checked"
+
+    const claimCheck = () => {
+      try {
+        const last = Number(localStorage.getItem(CHECK_KEY)) || 0
+        if (Date.now() - last < SESSION_CHECK_MS) return false
+        localStorage.setItem(CHECK_KEY, String(Date.now()))
+        return true
+      } catch {
+        return true
+      }
+    }
+
+    const checkSessionStillValid = async () => {
+      if (cancelled || document.hidden) return
+      if (!storedSessionLooksValid()) return
+      if (!claimCheck()) return
+      try {
+        const { error } = await supabase.auth.getUser()
+        if (!error) return
+        if (error.status !== 401 && error.status !== 403) return
+      } catch {
+        return
+      }
+      if (cancelled) return
+      // Local only: the server has already dropped this session, and a
+      // global sign-out here would be a second revocation aimed at
+      // whoever legitimately holds the account now.
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {})
+    }
+
+    const heartbeat = setInterval(checkSessionStillValid, SESSION_CHECK_MS)
+    const onVisible = () => { if (!document.hidden) checkSessionStillValid() }
+    document.addEventListener("visibilitychange", onVisible)
+
     return () => {
       cancelled = true
       clearTimeout(watchdog)
+      clearInterval(heartbeat)
+      document.removeEventListener("visibilitychange", onVisible)
       sub.subscription.unsubscribe()
     }
   }, [loadProfile])
