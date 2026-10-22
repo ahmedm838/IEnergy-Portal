@@ -125,7 +125,7 @@ const PAYROLL = [
 
 const DOCUMENTS = [
   ['doc_graduation_certificate', 'Graduation certificate'],
-  ['doc_military_certificate', 'Military certificate'],
+  ['doc_military_certificate', 'Military service'],
   ['doc_birth_certificate', 'Birth certificate'],
   ['doc_criminal_clearance', 'Criminal clearance'],
   ['doc_id_copy', 'ID (copy)'],
@@ -1296,7 +1296,7 @@ function exportRow(e) {
     'Office number': e.office_number ?? '',
 
     /* Personal */
-    'Military service': e.military_service ?? '',
+    'Military service status': e.military_service ?? '',
     'Marital status': e.marital_status ?? '',
     'Religion': e.religion ?? '',
     'Qualification degree': e.qualification_degree ?? '',
