@@ -347,23 +347,23 @@ function filterStatus(q, name) {
 
 const totalLists = {
   absent: {
-    title: 'Absent employees',
+    title: 'Absent',
     apply: (q) => filterStatus(q, 'Absent'),
   },
   suspended: {
-    title: 'Suspended employees',
+    title: 'Suspended',
     apply: (q) => filterStatus(q, 'Suspended'),
   },
   onLeave: {
-    title: 'On leave employees',
+    title: 'On leave',
     apply: (q) => filterStatus(q, 'On Leave'),
   },
   uninsured: {
-    title: 'Non-insured employees',
+    title: 'Non-insured',
     apply: (q) => q.eq('is_active', true).is('si_date', null),
   },
   contracts: {
-    title: 'Contracts due or expired',
+    title: 'Contracts due/expired',
     apply: (q) => q.eq('is_active', true).not('contract_expiry', 'is', null).lte('contract_expiry', monthsAhead(4)),
   },
   incomplete: {
@@ -1070,7 +1070,7 @@ function renderForm(employee) {
     box.checked = !!employee[key]
     box.addEventListener('change', updateFileStatus)
     const text = document.createElement('span')
-    text.textContent = label
+    text.textContent = key === 'doc_military_certificate' ? `${label} (males only)` : label
     wrap.appendChild(box)
     wrap.appendChild(text)
     docGrid.appendChild(wrap)
