@@ -151,14 +151,34 @@ export default function Attendance() {
       // disabled, so this is belt and braces -- but it keeps them out of
       // `dirty`, which is what the save sends.
       if (readOnlyEmployee || locks.isLocked(iso) || isFutureDay(iso)) return
-      setRows((current) => ({
-        ...current,
-        [iso]: { ...(current[iso] ?? EMPTY_ROW), ...patch },
-      }))
+      setRows((current) => {
+        const next = { ...(current[iso] ?? EMPTY_ROW), ...patch }
+
+        /* Choosing a day nobody worked clears what only a worked day can
+           have. Disabling the inputs alone is not enough: a day switched
+           from Attended to Absent would keep the clock-in, the transport
+           and the rest, greyed out on screen and saved all the same. The
+           note is deliberately left -- "called in sick" belongs on an
+           absent day more than anywhere else. */
+        if ('attendance_type_id' in patch) {
+          const type = patch.attendance_type_id
+            ? lookups.typeById?.get(patch.attendance_type_id)
+            : null
+          if (type && !type.is_working_day) {
+            next.late_minutes = 0
+            next.transport = ''
+            next.add_to_leave_balance = false
+            next.clock_in = ''
+            next.clock_out = ''
+          }
+        }
+
+        return { ...current, [iso]: next }
+      })
       setDirty((current) => new Set(current).add(iso))
       setNotice(null)
     },
-    [locks.isLocked, readOnlyEmployee],
+    [locks.isLocked, readOnlyEmployee, lookups.typeById],
   )
 
   /** Apply a type to every day matching `predicate` that has no type yet. */
@@ -489,6 +509,20 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, fu
   // row itself; the third is explained once above the grid instead of
   // repeated down every line of it.
   const locked = !!lock || readOnly || future
+
+  /* A day the employee did not work has nothing to say about lateness,
+     travel, a balance earned on it, or hours clocked. The type itself
+     stays changeable -- that is how you correct the day. is_working_day
+     is the same flag the Employee Report's Attended / Not attended
+     filter uses, so the two cannot drift apart. */
+  const notAttended = !!type && !type.is_working_day
+  const detailsLocked = locked || notAttended
+  const detailTitle = locked
+    ? undefined
+    : notAttended
+      ? `${type.name_en} is not a worked day`
+      : undefined
+
   const lockTitle = lock
     ? `${lockRangeLabel(lock)} is locked${lock.note ? ` — ${lock.note}` : ''}`
     : future
@@ -553,7 +587,8 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, fu
       <Td>
         <Input
           value={lateText}
-          disabled={locked}
+          disabled={detailsLocked}
+          title={detailTitle}
           onChange={(e) => setLateText(e.target.value)}
           onBlur={() => {
             const minutes = hhmmToMinutes(lateText)
@@ -574,7 +609,8 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, fu
           step="0.01"
           value={row.transport ?? ''}
           placeholder="0"
-          disabled={locked}
+          disabled={detailsLocked}
+          title={detailTitle}
           onChange={(e) => onChange({ transport: e.target.value })}
           className="w-24 py-1.5 text-sm"
         />
@@ -583,7 +619,8 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, fu
       <Td className="text-center">
         <Checkbox
           checked={!!row.add_to_leave_balance}
-          disabled={locked}
+          disabled={detailsLocked}
+          title={detailTitle}
           onChange={(e) => onChange({ add_to_leave_balance: e.target.checked })}
         />
       </Td>
@@ -592,7 +629,8 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, fu
         <Input
           type="time"
           value={row.clock_in ?? ''}
-          disabled={locked}
+          disabled={detailsLocked}
+          title={detailTitle}
           onChange={(e) => onChange({ clock_in: e.target.value })}
           className="w-28 py-1.5 text-sm"
         />
@@ -602,7 +640,8 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, fu
         <Input
           type="time"
           value={row.clock_out ?? ''}
-          disabled={locked}
+          disabled={detailsLocked}
+          title={detailTitle}
           onChange={(e) => onChange({ clock_out: e.target.value })}
           className="w-28 py-1.5 text-sm"
         />
