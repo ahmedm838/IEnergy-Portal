@@ -297,6 +297,16 @@ body {
 }
 
 /* Main page password gate */
+/* The sign-in panel starts hidden and the gate shows it when it has
+   decided. That needs saying explicitly: .auth sets display:grid, and an
+   author rule beats the browser's own [hidden] { display: none }, so the
+   attribute alone would have done nothing at all here. Specificity 0,2,0
+   against the 0,1,0 above, which is enough without !important.
+
+   employee-database.css already carries a blanket [hidden] rule of its
+   own, which is why that page could be fixed with the attribute alone. */
+.auth[hidden] { display: none; }
+
 .auth {
   position: fixed;
   inset: 0;
