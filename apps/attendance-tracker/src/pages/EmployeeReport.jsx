@@ -183,11 +183,9 @@ export default function EmployeeReport() {
         ['Average clock in', hoursNotRequired ? 'Not required' : summary.avg_clock_in ?? '—'],
         ['Average clock out', hoursNotRequired ? 'Not required' : summary.avg_clock_out ?? '—'],
         ['Total late', minutesToHHMM(summary.late_minutes)],
-        [`Total transport (${currency})`, Number(summary.transport_total)],
         ['Overtime hours', Number(summary.overtime_hours)],
+        [`Total transport (${currency})`, Number(summary.transport_total)],
         ['Meal units', Number(summary.meal_units)],
-        ['Deducted leaves (days)', Number(summary.deducted_leaves)],
-        ['Deducted leaves (hours)', Number(summary.deducted_leave_hours)],
         ['Absence days', summary.absence_days],
         ['Absence penalty (days)', Number(summary.absence_penalty)],
         ...(filterLabel ? [['Rows below filtered to', filterLabel]] : []),
@@ -345,12 +343,12 @@ export default function EmployeeReport() {
               }
             />
             <Stat dense label="Late hours" value={minutesToHHMM(summary.late_minutes)} />
+            <Stat dense label="Overtime hours" value={num(summary.overtime_hours)} />
             <Stat
               dense
               label="Transport"
               value={`${num(summary.transport_total)} ${currency}`}
             />
-            <Stat dense label="Overtime hours" value={num(summary.overtime_hours)} />
             {/* Meal units, not money: a day can earn more than one, and the
                 rate is set on the monthly report, where it is applied. */}
             <Stat
@@ -358,18 +356,6 @@ export default function EmployeeReport() {
               label="Meals"
               value={num(summary.meal_units)}
               sub={`at ${num(lookups.mealRate)} ${currency}`}
-            />
-            {/* What the deducted days are worth. The monthly report charges
-                them at the same rate; whether they reach pay depends on the
-                employee's Deductions switch, which is applied there. */}
-            <Stat
-              dense
-              label="Deducted leaves"
-              value={`${num(summary.deducted_leave_hours)} h`}
-              sub={`${num(summary.deducted_leaves, 0)} day${
-                Number(summary.deducted_leaves) === 1 ? '' : 's'
-              } × ${lookups.requiredHoursPerDay} h`}
-              tone={Number(summary.deducted_leaves) > 0 ? 'bad' : 'neutral'}
             />
             <Stat
               dense
