@@ -591,7 +591,12 @@ body > .theme-toggle {
    hard to follow.
    --------------------------------------------------------------------- */
 body.home { --container-max: 100%; }
+/* Reduce the signed-in main page by 10%, including its header and tools. */
+body.home #app { zoom: 0.9; }
 body.home .container { max-width: none; padding-left: 20px; padding-right: 20px; }
+@media (min-width: 761px) {
+  body.home .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 
 /* ---------------------------------------------------------------------
    The page bar, as the Attendance Tracker draws it.
