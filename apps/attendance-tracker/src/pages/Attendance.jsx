@@ -16,6 +16,7 @@ import {
   payrollPeriod,
   payrollPeriodLabel,
   shiftPayrollPeriod,
+  toISODate,
   num,
   trimTime,
 } from '../lib/format'
@@ -34,6 +35,15 @@ import {
   Th,
   cx,
 } from '../components/ui'
+
+/* A day that has not happened yet cannot be recorded.
+
+   Computed from the browser clock, which for this company is Cairo --
+   the same boundary the database uses. It is deliberately recomputed
+   on each call rather than captured once: a tab left open overnight
+   would otherwise keep yesterday's idea of "today" and go on refusing
+   the day that has since arrived. */
+const isFutureDay = (iso) => iso > toISODate(new Date())
 
 const EMPTY_ROW = {
   attendance_type_id: null,
@@ -137,10 +147,10 @@ export default function Attendance() {
 
   const update = useCallback(
     (iso, patch) => {
-      // Locked days and non-active employees render disabled, so this is
-      // belt and braces -- but it keeps them out of `dirty`, which is
-      // what the save sends.
-      if (readOnlyEmployee || locks.isLocked(iso)) return
+      // Locked days, future days and non-active employees all render
+      // disabled, so this is belt and braces -- but it keeps them out of
+      // `dirty`, which is what the save sends.
+      if (readOnlyEmployee || locks.isLocked(iso) || isFutureDay(iso)) return
       setRows((current) => ({
         ...current,
         [iso]: { ...(current[iso] ?? EMPTY_ROW), ...patch },
@@ -170,6 +180,9 @@ export default function Attendance() {
       for (const iso of days) {
         if (!predicate(iso)) continue
         if (locks.isLocked(iso)) continue
+        // Fill Weekends and the like would otherwise march on into days
+        // nobody has lived through yet.
+        if (isFutureDay(iso)) continue
         if (next[iso]?.attendance_type_id) continue
         next[iso] = { ...EMPTY_ROW, ...next[iso], attendance_type_id: type.id }
         touched.add(iso)
@@ -199,8 +212,11 @@ export default function Attendance() {
           if (!row?.attendance_type_id) return null
           // One locked day would abort the whole save in the database, so
           // a day that was locked while this page was open is dropped
-          // rather than taking the other days down with it.
-          if (locks.isLocked(iso)) return null
+          // rather than taking the other days down with it. A day that
+          // became future cannot happen, but a day that was future when
+          // the page opened can still be sitting in `dirty` from before
+          // this rule existed, and the database would refuse the lot.
+          if (locks.isLocked(iso) || isFutureDay(iso)) return null
           return {
             employee_id: employeeId,
             work_date: iso,
@@ -450,6 +466,7 @@ export default function Attendance() {
                         lock={locks.lockFor(iso)}
                         isRest={restDay(iso)}
                         readOnly={readOnlyEmployee}
+                        future={isFutureDay(iso)}
                         onChange={(patch) => update(iso, patch)}
                       />
                     ))}
@@ -464,16 +481,19 @@ export default function Attendance() {
   )
 }
 
-function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, onChange }) {
+function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, future, onChange }) {
   const type = row.attendance_type_id ? typeById.get(row.attendance_type_id) : null
-  // Two different reasons a row cannot be edited: the period is locked,
-  // or the employee is not one that may be recorded. Both disable the
-  // inputs; only the first earns the padlock, since the second is
-  // explained once above the grid rather than on every row.
-  const locked = !!lock || readOnly
+  // Three reasons a row cannot be edited: the period is locked, the day
+  // has not happened yet, or the employee is not one that may be
+  // recorded. All three disable the inputs. The first two say why on the
+  // row itself; the third is explained once above the grid instead of
+  // repeated down every line of it.
+  const locked = !!lock || readOnly || future
   const lockTitle = lock
     ? `${lockRangeLabel(lock)} is locked${lock.note ? ` — ${lock.note}` : ''}`
-    : undefined
+    : future
+      ? 'This day has not happened yet'
+      : undefined
   const [lateText, setLateText] = useState(() => minutesToHHMM(row.late_minutes))
   const lastMinutes = useRef(row.late_minutes)
 
