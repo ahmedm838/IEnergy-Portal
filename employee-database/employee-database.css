@@ -303,19 +303,23 @@
 
 .totals {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
 }
 @media (max-width: 900px) { .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .totals { grid-template-columns: 1fr; } }
 
 .total {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--fill-1);
   padding: 14px;
 }
-.total-label { color: var(--muted); font-size: 12.5px; }
+.total-label { color: var(--muted); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }
 .total-value { font-size: 26px; font-weight: 750; margin-top: 4px; }
 .total-action { color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .total-action .total-label, .total-action .total-value { display: block; }

@@ -329,7 +329,25 @@ function monthsAhead(n) {
 }
 
 // Share filters between the summary counts and their employee lists.
+function filterStatus(q, name) {
+  const status = (lookups.statuses ?? []).find(([, label]) => label === name)
+  if (!status) throw new Error(`Employee status unavailable: ${name}`)
+  return q.eq('status_id', status[0])
+}
+
 const totalLists = {
+  absent: {
+    title: 'Absent employees',
+    apply: (q) => filterStatus(q, 'Absent'),
+  },
+  suspended: {
+    title: 'Suspended employees',
+    apply: (q) => filterStatus(q, 'Suspended'),
+  },
+  onLeave: {
+    title: 'On leave employees',
+    apply: (q) => filterStatus(q, 'On Leave'),
+  },
   uninsured: {
     title: 'Non-insured employees',
     apply: (q) => q.eq('is_active', true).is('si_date', null),
@@ -398,14 +416,14 @@ $('totalDialog').addEventListener('close', () => { totalListSequence++ })
 
 async function loadTotals() {
   const count = async (apply) => {
-    const { count: n, error } = await apply(
-      supabase.from('employee_profiles').select('id', { count: 'exact', head: true }),
-    )
-    return error ? null : n
-  }
-  const countStatus = (name) => {
-    const status = (lookups.statuses ?? []).find(([, label]) => label === name)
-    return status ? count((q) => q.eq('status_id', status[0])) : Promise.resolve(null)
+    try {
+      const { count: n, error } = await apply(
+        supabase.from('employee_profiles').select('id', { count: 'exact', head: true }),
+      )
+      return error ? null : n
+    } catch {
+      return null
+    }
   }
   const [listed, onBoard, uninsured, contracts, incomplete, absent, suspended, onLeave] = await Promise.all([
     count((q) => q),
@@ -419,9 +437,9 @@ async function loadTotals() {
     // employees: nobody chases a renewal for somebody who has left.
     count(totalLists.contracts.apply),
     count(totalLists.incomplete.apply),
-    countStatus('Absent'),
-    countStatus('Suspended'),
-    countStatus('On Leave'),
+    count(totalLists.absent.apply),
+    count(totalLists.suspended.apply),
+    count(totalLists.onLeave.apply),
   ])
   $('totalListed').textContent = listed ?? '—'
   $('totalOnBoard').textContent = onBoard ?? '—'
