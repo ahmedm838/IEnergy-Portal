@@ -50,24 +50,30 @@ create trigger attendance_no_future
   for each row execute function reject_future_attendance();
 
 -- ---------------------------------------------------------------------
--- Rows already in the future are left where they are.
+-- Rows already in the future: removed separately, not by this file.
 --
 -- There were 128 of them when this was written -- 80 days of "Attended"
--- across four employees, reaching to 20 Nov, plus some weekly rest and
--- three leave days. Deleting somebody's records is not a migration's
--- decision to make, so they stay and the trigger stops any more being
--- added.
+-- across four employees, reaching to 20 Nov, plus weekly rest and three
+-- leave days. Deleting somebody's records is not a migration's decision
+-- to make, so this file does not do it. They were deleted by hand on
+-- 22 Oct 2026 on the instruction of whoever owns the data, immediately
+-- after this ran.
 --
--- They are now read-only in practice: an update would set work_date to
--- the same future value and the trigger refuses it. They can still be
--- deleted. To see what is there:
+-- All 128 are kept in attendance_future_removed_20261022, with the
+-- employee code, name and type joined on so the copy can be read
+-- without them. That table has no grants and RLS on, so it is reachable
+-- by direct SQL only -- a copy of attendance records should not be the
+-- one thing in this schema the anon key can read.
 --
---   select e.code, e.name, r.work_date, t.name_en
---     from attendance_records r
---     join employees e on e.id = r.employee_id
---     join attendance_types t on t.id = r.attendance_type_id
---    where r.work_date > today_in_cairo()
---    order by e.code, r.work_date;
+-- Note that restoring one is not simply an insert: the trigger refuses
+-- a future work_date, so a row can only go back once its day has come
+-- round. That is the rule working, not an obstacle to it.
+--
+-- To see what was taken:
+--
+--   select employee_code, employee_name, work_date, type_name
+--     from attendance_future_removed_20261022
+--    order by employee_code, work_date;
 -- ---------------------------------------------------------------------
 
 grant execute on function today_in_cairo() to authenticated;
