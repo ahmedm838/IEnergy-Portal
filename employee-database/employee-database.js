@@ -154,10 +154,20 @@ const GROUPS = [
       { key: 'title', label: 'Job title', type: 'text' },
       { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
       { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
-      { key: 'status_id', label: 'Status', type: 'select', source: 'statuses' },
       { key: 'hired_on', label: 'Hiring date', type: 'date' },
       { key: 'weekend', label: 'Weekend', type: 'select', options: [['fri_sat', 'Friday + Saturday'], ['fri', 'Friday only']] },
       { key: 'bus_route_id', label: 'Bus route', type: 'select', source: 'busRoutes', noBlank: true },
+      // Last in the row, on the right. Status is the field people read
+      // off a record rather than fill in while creating one, and it is
+      // the one that changes on its own afterwards.
+      //
+      // noBlank for the same reason the bus route carries it: every
+      // employee is in one of these five states, so a blank would be a
+      // sixth that means nothing. Nobody currently holds a null status,
+      // and the first option is On Board -- the same value a new
+      // employee already defaults to -- so nothing is reassigned by
+      // this.
+      { key: 'status_id', label: 'Status', type: 'select', source: 'statuses', noBlank: true },
     ],
   },
   {
