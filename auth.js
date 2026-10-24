@@ -615,7 +615,19 @@
 
   let idleTimer = null;
   function startIdleTimer(onIdle) {
-    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'wheel', 'scroll', 'focus'];
+    /* What counts as activity: a person doing something.
+
+       'focus' was on this list and had to come off. Closing a laptop and
+       opening it hours later fires focus, which reset the clock and wrote
+       the current time to the shared key -- so waking the machine renewed
+       the session, and told the tracker somebody had just been active
+       too. The session never expired, which is the opposite of what this
+       timer is for.
+
+       Nothing is lost by dropping it: somebody actually using the window
+       moves the mouse or presses a key within moments of it gaining
+       focus, and those still count. */
+    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'wheel', 'scroll'];
     let mine = Date.now();
     let sharedAt = 0;
 
@@ -624,6 +636,9 @@
       const newest = Math.max(mine, lastActivity());
       const left = IDLE_MS - (Date.now() - newest);
       if (left <= 0) { onIdle(); return; }
+      // check can now be called from the wake handlers as well as from
+      // its own timer, so clear before rescheduling or they accumulate.
+      if (idleTimer) clearTimeout(idleTimer);
       idleTimer = setTimeout(check, left);
     };
 
@@ -639,6 +654,19 @@
     };
 
     for (const name of events) window.addEventListener(name, reset, { passive: true });
+
+    /* Coming back is when to read the clock, not when to restart it.
+
+       check, never reset. A machine that slept through the timeout has a
+       setTimeout hours overdue, and browsers do not all fire those the
+       instant they resume: a page may be frozen, or restored from the
+       back-forward cache with its timers rescheduled rather than run.
+       Asking directly on the way back makes the answer the same
+       whichever happened. */
+    const lookAgain = () => { if (!document.hidden) check(); };
+    document.addEventListener('visibilitychange', lookAgain);
+    window.addEventListener('pageshow', lookAgain);
+
     reset();
   }
 
