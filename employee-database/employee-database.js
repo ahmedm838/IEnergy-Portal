@@ -1,3 +1,4 @@
+import { exportPdf } from '../export-pdf.js'
 /* Employee Database
    - Real Supabase sign-in: the account is the Attendance Tracker one, and
      row level security decides what it may read and write. The portal's
@@ -1003,7 +1004,7 @@ function renderDerived() {
       const left = daysUntil(contract.toISOString().slice(0, 10))
       items.push([
         'Contract expiry',
-        `${asDMY(contract)}${left != null && left <= 30 ? ` · ${left < 0 ? 'passed' : `${left}d left`}` : ''}`,
+        `${asDMY(contract)} · ${expiryStatus(contract.toISOString().slice(0, 10))}`,
         left != null && left < 0 ? 'bad' : left != null && left <= 30 ? 'warn' : '',
       ])
     }
@@ -1018,7 +1019,7 @@ function renderDerived() {
     const left = daysUntil(expiry)
     items.push([
       'ID expiry',
-      left == null ? expiry : left < 0 ? `expired ${Math.abs(left)}d ago` : `${left}d left`,
+      expiryStatus(expiry),
       left == null ? '' : left < 0 ? 'bad' : left <= 30 ? 'warn' : '',
     ])
   } else {
@@ -1304,12 +1305,28 @@ function yearsSince(iso) {
   return years < 0 ? '' : years
 }
 
-/** "Expired 40d ago" / "120d left" / "" -- how a dated thing stands today. */
-function expiryStatus(iso) {
+/** Completed calendar months; partial months never display as zero days. */
+function expiryStatus(iso, today = new Date()) {
   if (!iso) return ''
-  const left = daysUntil(iso)
-  if (left == null) return ''
-  return left < 0 ? `Expired ${Math.abs(left)}d ago` : `${left}d left`
+  const target = new Date(iso + 'T00:00:00Z')
+  if (Number.isNaN(target.getTime())) return ''
+  const now = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
+  if (+target === +now) return 'Expires today'
+  const expired = target < now
+  const start = expired ? target : now
+  const end = expired ? now : target
+  let months = (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + end.getUTCMonth() - start.getUTCMonth()
+  const month = start.getUTCMonth() + months
+  const lastDay = new Date(Date.UTC(start.getUTCFullYear(), month + 1, 0)).getUTCDate()
+  const anniversary = new Date(Date.UTC(start.getUTCFullYear(), month, Math.min(start.getUTCDate(), lastDay)))
+  if (anniversary > end) months--
+  const years = Math.floor(months / 12)
+  const remainder = months % 12
+  const parts = []
+  if (years) parts.push(years + (years === 1 ? ' year' : ' years'))
+  if (remainder) parts.push(remainder + (remainder === 1 ? ' month' : ' months'))
+  const period = parts.join(' ') || 'less than 1 month'
+  return expired ? 'Expired ' + period + ' ago' : period + ' left'
 }
 
 /**
@@ -1348,7 +1365,6 @@ function exportRow(e) {
     'Active': yn(e.is_active),
     'Hiring date': isoToDMY(e.hired_on),
     'Working period': e.hired_on ? spanFrom(e.hired_on) ?? '' : '',
-    'Years of service': e.hired_on ? yearsSince(e.hired_on) : '',
     'Contract expiry': isoToDMY(e.contract_expiry),
     'Contract status': expiryStatus(e.contract_expiry),
     'Weekend': e.weekend === 'fri' ? 'Friday only' : 'Friday + Saturday',
@@ -1407,6 +1423,29 @@ function exportRow(e) {
     'Last changed': isoToDMY(String(e.updated_at ?? '').slice(0, 10)),
   }
 }
+
+
+$('employeePdfBtn').addEventListener('click', async () => {
+  const btn = $('employeePdfBtn')
+  btn.disabled = true
+  try {
+    const sections = [...$('employeeForm').querySelectorAll('fieldset')].map(group => ({
+      title: group.querySelector('legend').textContent,
+      rows: [...group.querySelectorAll('input, select, textarea')].filter(el => el.id.startsWith('f_')).map(el => {
+        const key = el.id.slice(2)
+        const field = GROUPS.flatMap(g => g.fields).find(f => f.key === key)
+        const label = field?.label ?? [...PAYROLL, ...DOCUMENTS].find(([k]) => k === key)?.[1] ?? key
+        const value = el.type === 'checkbox' ? (el.checked ? 'Yes' : 'No') : el.tagName === 'SELECT' ? el.selectedOptions[0]?.textContent ?? '' : el.value
+        return [label, value]
+      }),
+    }))
+    sections.unshift({ title: 'Calculated details', rows: [...$('derivedPanel').children].map(el => [el.children[0].textContent, el.children[1].textContent]) })
+    await exportPdf({ title: $('editorTitle').textContent, sections, filename: 'employee-' + ($('f_code')?.value || 'profile') + '.pdf' })
+  } catch (err) {
+    $('formError').textContent = 'Could not export PDF: ' + err.message
+    $('formError').hidden = false
+  } finally { btn.disabled = false }
+})
 
 $('exportBtn').addEventListener('click', async () => {
   const btn = $('exportBtn')
