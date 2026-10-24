@@ -209,3 +209,19 @@ input[type='time'] {
 html {
   font-size: 90%;
 }
+
+/* Nine totals print in two rows, without changing the screen layout. */
+@media print {
+  .employee-report-totals {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    overflow: visible;
+    break-inside: avoid;
+  }
+  .employee-report-totals .truncate {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+}

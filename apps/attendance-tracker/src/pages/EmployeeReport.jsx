@@ -1,4 +1,3 @@
-import { exportPdf } from '../../../../export-pdf.js'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import EmployeeSearch from '../components/EmployeeSearch'
 import PeriodLabel from '../components/PeriodLabel'
@@ -158,7 +157,7 @@ export default function EmployeeReport() {
     [currency],
   )
 
-  async function handleExport(format = 'excel') {
+  async function handleExport() {
     if (!summary || !employee) return
     setExporting(true)
     setError(null)
@@ -209,19 +208,9 @@ export default function EmployeeReport() {
         note: r.note ?? '',
       })),
     }
-    if (format === 'pdf') {
-      await exportPdf({
-        title: 'Employee report - ' + employee.name + ' (#' + employee.code + ')',
-        filename: 'employee-report-' + employee.code + '-' + range.from + '_' + range.to + '.pdf',
-        sections: [
-          { title: range.from + ' to ' + range.to, rows: spec.summary },
-          { title: 'Days by type', rows: summary.day_counts.map(d => [d.name_en + ' / ' + d.name_ar, d.days]) },
-          ...spec.rows.map(row => ({ title: row.date, rows: spec.columns.filter(c => c.key !== 'date').map(c => [c.header, row[c.key]]) })),
-        ],
-      })
-    } else await exportEmployeeReport(spec)
+    await exportEmployeeReport(spec)
     } catch (err) {
-      setError(`Could not build the ${format === 'pdf' ? 'PDF' : 'Excel'} file: ${err.message}`)
+      setError(`Could not build the Excel file: ${err.message}`)
     } finally {
       setExporting(false)
     }
@@ -280,7 +269,6 @@ export default function EmployeeReport() {
             <Button onClick={() => handleExport()} disabled={!summary || loading || exporting}>
               {exporting ? 'Preparing…' : 'Export Excel'}
             </Button>
-            <Button onClick={() => handleExport('pdf')} disabled={!summary || loading || exporting}>Export PDF</Button>
           </div>
         </div>
       </Card>
@@ -312,7 +300,7 @@ export default function EmployeeReport() {
             </p>
           </div>
 
-          <div className="grid grid-flow-col auto-cols-[minmax(124px,1fr)] gap-1.5 overflow-x-auto pb-1">
+          <div className="employee-report-totals grid grid-flow-col auto-cols-[minmax(124px,1fr)] gap-1.5 overflow-x-auto pb-1">
             <Stat
               dense
               label="Required hours"

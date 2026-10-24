@@ -668,3 +668,28 @@ body:has(#app) .container { max-width: 1500px; }
 }
 
 /* Save and Cancel take the same size as every other button here. */
+
+.db-print-value { display: none; }
+
+/* Print only the selected employee, through the native print dialog. */
+@media print {
+  html { color-scheme: light; }
+  body { background: #fff !important; color: #000 !important; }
+  #app { zoom: 1; }
+  .page-bar, .container > :not(#editor), .form-actions,
+  #formError, #formNotice, #gate, #totalDialog,
+  #employeeForm input, #employeeForm select, #employeeForm textarea,
+  .db-date-btn, .db-hint { display: none !important; }
+  .container { max-width: none; width: 100%; margin: 0; padding: 0; }
+  #editor { border: 0; padding: 0; background: #fff; box-shadow: none; }
+  #editor * { color: #000 !important; }
+  #employeeForm { display: block; }
+  .db-grid, .db-grid[data-cols] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .db-field-half { grid-column: span 2; }
+  .derived-panel { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .db-switches, .db-docs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .db-group { break-inside: avoid; background: #fff; border-color: #ccc; }
+  .db-field, .db-doc, .derived-item { min-width: 0; break-inside: avoid; }
+  .db-print-value { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+  .derived-val { white-space: normal; overflow-wrap: anywhere; }
+}

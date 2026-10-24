@@ -1,4 +1,3 @@
-import { exportPdf } from '../export-pdf.js'
 /* Employee Database
    - Real Supabase sign-in: the account is the Attendance Tracker one, and
      row level security decides what it may read and write. The portal's
@@ -1425,26 +1424,24 @@ function exportRow(e) {
 }
 
 
-$('employeePdfBtn').addEventListener('click', async () => {
-  const btn = $('employeePdfBtn')
-  btn.disabled = true
-  try {
-    const sections = [...$('employeeForm').querySelectorAll('fieldset')].map(group => ({
-      title: group.querySelector('legend').textContent,
-      rows: [...group.querySelectorAll('input, select, textarea')].filter(el => el.id.startsWith('f_')).map(el => {
-        const key = el.id.slice(2)
-        const field = GROUPS.flatMap(g => g.fields).find(f => f.key === key)
-        const label = field?.label ?? [...PAYROLL, ...DOCUMENTS].find(([k]) => k === key)?.[1] ?? key
-        const value = el.type === 'checkbox' ? (el.checked ? 'Yes' : 'No') : el.tagName === 'SELECT' ? el.selectedOptions[0]?.textContent ?? '' : el.value
-        return [label, value]
-      }),
-    }))
-    sections.unshift({ title: 'Calculated details', rows: [...$('derivedPanel').children].map(el => [el.children[0].textContent, el.children[1].textContent]) })
-    await exportPdf({ title: $('editorTitle').textContent, sections, filename: 'employee-' + ($('f_code')?.value || 'profile') + '.pdf' })
-  } catch (err) {
-    $('formError').textContent = 'Could not export PDF: ' + err.message
-    $('formError').hidden = false
-  } finally { btn.disabled = false }
+// Use the browser print dialog, just like the employee report.
+$('employeePrintBtn').addEventListener('click', () => window.print())
+
+// Printed values wrap instead of being clipped inside single-line controls.
+window.addEventListener('beforeprint', () => {
+  document.querySelectorAll('.db-print-value').forEach(el => el.remove())
+  $('employeeForm').querySelectorAll('[id^="f_"]').forEach(input => {
+    const value = document.createElement('span')
+    value.className = 'db-print-value'
+    value.dir = input.dir || 'auto'
+    value.textContent = input.type === 'checkbox' ? (input.checked ? 'Yes' : 'No')
+      : input.tagName === 'SELECT' ? (input.selectedOptions[0]?.textContent || '—')
+      : input.value || '—'
+    input.after(value)
+  })
+})
+window.addEventListener('afterprint', () => {
+  document.querySelectorAll('.db-print-value').forEach(el => el.remove())
 })
 
 $('exportBtn').addEventListener('click', async () => {
