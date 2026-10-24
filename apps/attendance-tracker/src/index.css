@@ -225,3 +225,27 @@ html {
     overflow-wrap: anywhere;
   }
 }
+
+@media (min-width: 1024px) {
+  .employee-report-controls {
+    grid-template-columns: minmax(240px, 1fr) 135px 135px auto;
+  }
+  .employee-report-name, .employee-report-actions { grid-column: auto; }
+}
+@media print {
+  .employee-report, .employee-report .overflow-hidden,
+  .employee-report .overflow-auto, .employee-report .overflow-x-auto {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  .employee-report-records table { table-layout: fixed; width: 100%; }
+  .employee-report-records th, .employee-report-records td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding: 4px;
+    font-size: 9px;
+  }
+  .employee-report-records thead { display: table-header-group; }
+  .employee-report-records .sticky-head thead th { position: static; }
+  .employee-report-records tr { break-inside: avoid; }
+}

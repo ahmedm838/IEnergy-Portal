@@ -219,7 +219,7 @@ export default function EmployeeReport() {
   if (lookups.loading || employeesLoading) return <Spinner />
 
   return (
-    <div className="grid grid-cols-1 gap-5">
+    <div className="employee-report grid grid-cols-1 gap-5">
       <div className="no-print">
         <h1 className="text-xl font-semibold text-ink">Employee report</h1>
         <p className="mt-0.5 text-sm text-ink-3">
@@ -229,9 +229,9 @@ export default function EmployeeReport() {
       </div>
 
       <Card className="no-print">
-        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="employee-report-controls grid gap-4 p-5 sm:grid-cols-2">
           <EmployeeSearch
-            className="sm:col-span-2 lg:col-span-1"
+            className="employee-report-name sm:col-span-2"
             employees={employees}
             value={employeeId}
             onChange={setEmployeeId}
@@ -250,7 +250,7 @@ export default function EmployeeReport() {
               onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
             />
           </Field>
-          <div className="flex items-end gap-2">
+          <div className="employee-report-actions flex flex-wrap items-end gap-2 sm:col-span-2">
             <Button variant="secondary" onClick={() => shiftPeriod(-1)}>
               ‹ Prev
             </Button>
@@ -260,9 +260,6 @@ export default function EmployeeReport() {
             <Button variant="secondary" onClick={() => shiftPeriod(1)}>
               Next ›
             </Button>
-          </div>
-
-          <div className="flex items-end gap-2">
             <Button variant="secondary" onClick={() => window.print()} disabled={!summary}>
               Print
             </Button>
@@ -479,7 +476,7 @@ export default function EmployeeReport() {
                 The range holds {records.length} other recorded days.
               </EmptyState>
             ) : (
-              <div className="max-h-[70vh] overflow-auto">
+              <div className="employee-report-records max-h-[70vh] overflow-auto">
                 <table className="sticky-head w-full border-collapse">
                   <thead>
                     <tr>
