@@ -42,7 +42,7 @@ export default function EmployeeReport() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [exporting, setExporting] = useState(false)
-  // 'all' | 'attended' | 'not-attended' | 'type:<id>'
+  // 'all' | 'attended' | 'not-attended' | 'leave' | 'type:<id>'
   const [dayFilter, setDayFilter] = useState('all')
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function EmployeeReport() {
         run(
           supabase
             .from('attendance_records')
-            .select('*, attendance_types ( id, code, name_en, name_ar, overtime_hours )')
+            .select('*, attendance_types ( id, code, name_en, name_ar, overtime_hours, is_working_day, effect )')
             .eq('employee_id', employeeId)
             .gte('work_date', range.from)
             .lte('work_date', range.to)
@@ -109,6 +109,15 @@ export default function EmployeeReport() {
       const id = Number(dayFilter.slice(5))
       return records.filter((r) => r.attendance_type_id === id)
     }
+    if (dayFilter === 'leave') {
+      // Match the leave balances and Other leaves classification, including
+      // replacement rest days and granted days, but not absence or No Status.
+      return records.filter((r) => {
+        const type = lookups.typeById?.get(r.attendance_type_id) ?? r.attendance_types
+        return type && !type.is_working_day && type.effect !== 'absence'
+          && !['weekly_rest', 'holiday', 'no_status'].includes(type.code)
+      })
+    }
     const wantAttended = dayFilter === 'attended'
     return records.filter((r) => {
       const type = lookups.typeById?.get(r.attendance_type_id)
@@ -123,7 +132,9 @@ export default function EmployeeReport() {
         ? 'Attended days'
         : dayFilter === 'not-attended'
           ? 'Not attended'
-          : (lookups.types?.find((t) => `type:${t.id}` === dayFilter)?.name_en ?? 'Filtered')
+          : dayFilter === 'leave'
+            ? 'Leave'
+            : (lookups.types?.find((t) => `type:${t.id}` === dayFilter)?.name_en ?? 'Filtered')
 
   const employee = employees.find((e) => e.id === employeeId) || null
 
@@ -438,6 +449,7 @@ export default function EmployeeReport() {
                     ['all', 'All'],
                     ['attended', 'Attended'],
                     ['not-attended', 'Not attended'],
+                    ['leave', 'Leave'],
                   ].map(([value, label]) => (
                     <Button
                       key={value}
