@@ -9,6 +9,7 @@
      and the reports cannot disagree about them.
 */
 import { createClient } from '../vendor/supabase-js-2.45.4.js'
+import { buildEmployeeWorkbook } from './export-workbook.mjs?v=1'
 
 const SUPABASE_URL = 'https://ednaedkurjsgvjrvayys.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkbmFlZGt1cmpzZ3ZqcnZheXlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5ODIzNzYsImV4cCI6MjEwNzU1ODM3Nn0.VvBg4YtwZsjmgmTxbf3vin3Oq_WyNTeioz6m-FRQLzA'
@@ -1451,19 +1452,23 @@ $('exportBtn').addEventListener('click', async () => {
   try {
     // Loaded on demand: most visits never export, and the library is far
     // bigger than this page.
-    const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm')
+    const module = await import('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/+esm')
+    const ExcelJS = module.default ?? module
     const rows = (await fetchAllProfiles()).map(exportRow)
     if (!rows.length) throw new Error('There is nothing to export.')
 
-    const sheet = XLSX.utils.json_to_sheet(rows)
-    // Width by the longest value in each column, so nothing reads as ####.
-    sheet['!cols'] = Object.keys(rows[0]).map((key) => ({
-      wch: Math.min(42, Math.max(key.length + 2, ...rows.map((r) => String(r[key] ?? '').length + 2))),
+    const book = buildEmployeeWorkbook(ExcelJS, rows)
+    const buffer = await book.xlsx.writeBuffer()
+    const url = URL.createObjectURL(new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     }))
-    // No frozen panes anywhere, as agreed for the other exports.
-    const book = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(book, sheet, 'Employees')
-    XLSX.writeFile(book, `employee-database-${new Date().toISOString().slice(0, 10)}.xlsx`)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `employee-database-${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   } catch (err) {
     const el = $('searchHint')
     el.textContent = `Could not export: ${err.message}`
