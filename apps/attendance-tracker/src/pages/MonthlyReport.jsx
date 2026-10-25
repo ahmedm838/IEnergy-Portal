@@ -14,7 +14,6 @@ import {
   Input,
   Select,
   Spinner,
-  Stat,
   Td,
   Th,
 } from '../components/ui'
@@ -24,7 +23,7 @@ export default function MonthlyReport() {
   const lookups = useLookups()
 
   const [range, setRange] = useState(() => payrollPeriod())
-  const [mealRate, setMealRate] = useState('')
+  const mealRate = Number(lookups.mealRate ?? 0)
   const [siteId, setSiteId] = useState('')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
@@ -37,12 +36,6 @@ export default function MonthlyReport() {
     prefetchExcel()
   }, [])
 
-  // Seed the meal rate from settings once lookups arrive, but let the user
-  // override it per run — the workbook treats it as a cell on the report.
-  useEffect(() => {
-    if (mealRate === '' && !lookups.loading) setMealRate(String(lookups.mealRate ?? 0))
-  }, [lookups.loading, lookups.mealRate, mealRate])
-
   const load = useCallback(async () => {
     if (lookups.loading || range.from > range.to) return
     setLoading(true)
@@ -52,7 +45,7 @@ export default function MonthlyReport() {
         supabase.rpc('report_monthly', {
           p_from: range.from,
           p_to: range.to,
-          p_meal_rate: mealRate === '' ? null : Number(mealRate),
+          p_meal_rate: mealRate,
           p_site_id: siteId === '' ? null : Number(siteId),
         }),
       )
@@ -76,6 +69,9 @@ export default function MonthlyReport() {
     return {
       employees: rows.length,
       total_allowances: sum('total_allowances'),
+      incentive: sum('incentive'),
+      bonus: sum('bonus'),
+      adjustments: sum('adjustments'),
       overtime: sum('overtime'),
       total_deductions: sum('total_deductions'),
       salary_advance: sum('salary_advance'),
@@ -97,8 +93,7 @@ export default function MonthlyReport() {
       // Meals and transport are not listed on their own. They are money,
       // and the money they make up is the next column; the per-day
       // figures are on the employee report, beside the days that earned
-      // them. The meal rate field above still feeds that calculation --
-      // the column is gone, the allowance is not.
+      // them. The meal rate from Settings still feeds that calculation.
       { header: `Total Allowances (${currency})`, key: 'total_allowances', numFmt: '#,##0.00' },
       { header: `Incentive (${currency})`, key: 'incentive', numFmt: '#,##0.00' },
       { header: `Bonus (${currency})`, key: 'bonus', numFmt: '#,##0.00' },
@@ -171,7 +166,7 @@ export default function MonthlyReport() {
       </div>
 
       <Card className="no-print">
-        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="From date">
             <Input
               type="date"
@@ -184,15 +179,6 @@ export default function MonthlyReport() {
               type="date"
               value={range.to}
               onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
-            />
-          </Field>
-          <Field label={`Meal allowance (${currency} per meal)`}>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={mealRate}
-              onChange={(e) => setMealRate(e.target.value)}
             />
           </Field>
           <Field label="Site">
@@ -221,21 +207,31 @@ export default function MonthlyReport() {
 
       {error && <Alert tone="error">{error}</Alert>}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat
-          label="Employees"
-          value={num(totals.employees, 0)}
-          sub={`${num(totals.records, 0)} records in range`}
-        />
-        <Stat label="Total allowances" value={`${num(totals.total_allowances)} ${currency}`} />
-        <Stat label="Total overtime" value={`${num(totals.overtime)} h`} />
-        <Stat
-          label="Total deductions"
-          value={`${num(totals.total_deductions)} h`}
-          tone={totals.total_deductions > 0 ? 'bad' : 'neutral'}
-        />
-        <Stat label="Salary advances" value={`${num(totals.salary_advance)} ${currency}`} />
-      </div>
+      <section aria-label="Monthly report totals" aria-busy={loading}
+        className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+        {[
+          ['employees', 'Employees', `${num(totals.records, 0)} records in range`],
+          ['total_allowances', 'Total allowances', currency],
+          ['incentive', 'Total incentive', currency],
+          ['bonus', 'Total bonus', currency],
+          ['adjustments', 'Total adjustments', currency],
+          ['overtime', 'Total overtime', 'hours'],
+          ['total_deductions', 'Total deductions', 'hours'],
+          ['salary_advance', 'Salary advances', currency],
+        ].map(([key, label, unit]) => (
+          <div key={key} className="min-w-0 rounded-lg border border-line bg-panel px-2 py-2 shadow-sm">
+            <p className="text-[10px] font-medium leading-tight text-ink-3">{label}</p>
+            <p className={`tabular mt-1 break-words text-sm font-semibold leading-snug ${
+              key === 'total_deductions' && totals[key] > 0 ? 'text-on-danger' : 'text-ink'
+            }`}>
+              {loading || error ? '—' : num(totals[key], key === 'employees' ? 0 : 2)}
+            </p>
+            <p className="mt-0.5 text-[10px] leading-tight text-ink-4">
+              {key === 'employees' && (loading || error) ? 'records in range' : unit}
+            </p>
+          </div>
+        ))}
+      </section>
 
       <Card>
         <CardHeader
