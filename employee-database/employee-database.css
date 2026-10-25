@@ -668,8 +668,8 @@ body:has(#app) .container { max-width: 1500px; }
 /* Employment: reserve only the space needed by the date and short choices. */
 @media (min-width: 1000px) {
   .db-grid[data-cols='8'] {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.1fr)
-      145px 70px 150px var(--bus-route-width, 120px) var(--status-width, 120px);
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.65fr) minmax(0, 1.1fr)
+      145px 70px 190px var(--bus-route-width, 120px) var(--status-width, 120px);
     gap: 8px;
   }
 }
