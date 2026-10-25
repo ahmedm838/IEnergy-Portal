@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import PeriodLabel from '../components/PeriodLabel'
 import EmployeeSearch from '../components/EmployeeSearch'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useLocks, lockRangeLabel } from '../lib/useLocks'
 import { recordBlockReason } from '../lib/recordable'
-import { hhmmToMinutes, minutesToHHMM, payrollPeriod, num, toISODate } from '../lib/format'
+import { hhmmToMinutes, minutesToHHMM, payrollPeriod, shiftPayrollPeriod, num, toISODate } from '../lib/format'
 import {
   Alert,
   Button,
@@ -13,6 +14,7 @@ import {
   EmptyState,
   Field,
   Input,
+  Select,
   Spinner,
   Td,
   Th,
@@ -26,6 +28,8 @@ export default function Adjustments() {
 
   const [range, setRange] = useState(() => payrollPeriod())
   const [employeeFilter, setEmployeeFilter] = useState('')
+  const [siteId, setSiteId] = useState('')
+  const loadVersion = useRef(0)
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -33,23 +37,32 @@ export default function Adjustments() {
   const [draft, setDraft] = useState(null)
 
   const load = useCallback(async () => {
+    const version = ++loadVersion.current
+    setRows([])
+    if (!range.from || !range.to || range.from > range.to) {
+      setError('Choose a valid date range with From date on or before To date.')
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
       let query = supabase
         .from('adjustments')
-        .select('*, employees ( id, code, name, is_active, employee_statuses ( name, allows_records ) )')
+        .select('*, employees!inner ( id, code, name, site_id, is_active, employee_statuses ( name, allows_records ) )')
         .gte('adj_date', range.from)
         .lte('adj_date', range.to)
         .order('adj_date', { ascending: false })
       if (employeeFilter) query = query.eq('employee_id', employeeFilter)
-      setRows(await run(query))
+      if (siteId) query = query.eq('employees.site_id', Number(siteId))
+      const data = await run(query)
+      if (version === loadVersion.current) setRows(data ?? [])
     } catch (err) {
-      setError(err.message)
+      if (version === loadVersion.current) setError(err.message)
     } finally {
-      setLoading(false)
+      if (version === loadVersion.current) setLoading(false)
     }
-  }, [range.from, range.to, employeeFilter])
+  }, [range.from, range.to, employeeFilter, siteId])
 
   useEffect(() => {
     load()
@@ -115,6 +128,19 @@ export default function Adjustments() {
   }
 
   const currency = lookups.currency
+  const totals = useMemo(() => {
+    const sum = (key) => rows.reduce((total, row) => total + Number(row[key] || 0), 0)
+    return [
+      ['No. of employees', num(new Set(rows.map((row) => row.employee_id)).size, 0)],
+      ['Incentive', num(sum('incentive'))],
+      ['Bonus', num(sum('bonus'))],
+      ['Penalties (d)', num(sum('penalties'), 2)],
+      ['Adj. days', num(sum('adjusted_days'), 2)],
+      ['Adj. hours', minutesToHHMM(sum('adjusted_minutes'))],
+      ['Salary adjust', num(sum('salary_adjust'))],
+      ['Advance', num(sum('salary_advance'))],
+    ]
+  }, [rows])
 
   if (lookups.loading) return <Spinner />
 
@@ -126,9 +152,42 @@ export default function Adjustments() {
           <p className="mt-0.5 text-sm text-ink-3">
             Incentives, bonuses, penalties and salary advances that feed the monthly report.
           </p>
+          <PeriodLabel from={range.from} to={range.to} className="mt-2" />
         </div>
         <Button onClick={newDraft}>Add adjustment</Button>
       </div>
+
+      <Card>
+        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="From date">
+            <Input type="date" value={range.from}
+              onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} />
+          </Field>
+          <Field label="To date">
+            <Input type="date" value={range.to}
+              onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} />
+          </Field>
+          <Field label="Site">
+            <Select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+              <option value="">All sites</option>
+              {lookups.sites?.map((site) => (
+                <option key={site.id} value={site.id}>{site.name}</option>
+              ))}
+            </Select>
+          </Field>
+          <div className="flex items-end gap-2">
+            <Button variant="secondary" aria-label="Previous period"
+              onClick={() => setRange(shiftPayrollPeriod(range.to || toISODate(new Date()), -1))}>
+              &lsaquo;
+            </Button>
+            <Button variant="secondary" onClick={() => setRange(payrollPeriod())}>This period</Button>
+            <Button variant="secondary" aria-label="Next period"
+              onClick={() => setRange(shiftPayrollPeriod(range.to || toISODate(new Date()), 1))}>
+              &rsaquo;
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {error && <Alert tone="error" onDismiss={() => setError(null)}>{error}</Alert>}
       {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
@@ -144,6 +203,18 @@ export default function Adjustments() {
         />
       )}
 
+      <section aria-label="Adjustment totals" aria-busy={loading}
+        className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+        {totals.map(([label, value]) => (
+          <div key={label} className="min-w-0 rounded-lg border border-line bg-panel px-2 py-2 shadow-sm">
+            <p className="text-[10px] font-medium leading-tight text-ink-3">{label}</p>
+            <p className="tabular mt-1 break-words text-sm font-semibold leading-snug text-ink">
+              {loading || error ? '—' : value}
+            </p>
+          </div>
+        ))}
+      </section>
+
       <Card>
         <CardHeader
           title="Recorded adjustments"
@@ -156,20 +227,6 @@ export default function Adjustments() {
                 onChange={setEmployeeFilter}
                 emptyLabel="All employees"
               />
-              <Field label="From">
-                <Input
-                  type="date"
-                  value={range.from}
-                  onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
-                />
-              </Field>
-              <Field label="To">
-                <Input
-                  type="date"
-                  value={range.to}
-                  onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
-                />
-              </Field>
             </div>
           }
         />
