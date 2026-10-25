@@ -150,12 +150,13 @@ const GROUPS = [
   },
   {
     title: 'Employment',
-    columns: 7,
+    columns: 8,
     fields: [
       { key: 'title', label: 'Job title', type: 'text' },
       { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
       { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
       { key: 'hired_on', label: 'Hiring date', type: 'date' },
+      { key: 'renewals', label: 'Renewals', type: 'number', min: 0, max: 50, step: 1 },
       { key: 'weekend', label: 'Weekend', type: 'select', options: [['fri_sat', 'Friday + Saturday'], ['fri', 'Friday only']] },
       { key: 'bus_route_id', label: 'Bus route', type: 'select', source: 'busRoutes', noBlank: true },
       // Last in the row, on the right. Status is the field people read
@@ -763,6 +764,13 @@ function fieldControl(field, value) {
     if (field.dir) input.dir = field.dir
     if (field.placeholder) input.placeholder = field.placeholder
     input.value = value ?? ''
+    if (field.key === 'renewals') {
+      input.value = value ?? 0
+      input.min = field.min
+      input.max = field.max
+      input.step = field.step
+      input.inputMode = 'numeric'
+    }
     if (field.type === 'digits') {
       input.inputMode = 'numeric'
       input.maxLength = field.maxLength ?? 20
@@ -790,7 +798,7 @@ function fieldControl(field, value) {
 
   // The fields the calculated panel is built from, kept live as they are
   // typed rather than only refreshed on save.
-  if (['national_id', 'hired_on', 'id_expiry_date'].includes(field.key)) {
+  if (['national_id', 'hired_on', 'renewals', 'id_expiry_date'].includes(field.key)) {
     input.addEventListener('input', renderDerived)
   }
   if (field.key === 'si_code') {
@@ -932,9 +940,9 @@ function spanFrom(fromISO) {
 }
 
 /**
- * The last day of a one-year contract: the day before the anniversary.
+ * The last day of the initial one-year contract plus renewal years.
  *
- * Hired 11 Nov 2025, expires 10 Nov 2026.
+ * Hired 11 Nov 2025: 0 renewals expires 10 Nov 2026; 1 expires 10 Nov 2027.
  *
  * This has to give the same answer as contract_expiry on the view, which
  * is what the totals and the export read -- and the two languages do not
@@ -944,11 +952,13 @@ function spanFrom(fromISO) {
  * for a hire on 1 Mar 2024 is the difference between ending on 28 Feb
  * 2025 and claiming another year.
  */
-function contractExpiry(hiredISO) {
+function contractExpiry(hiredISO, renewals = 0) {
+  renewals = Number(renewals)
+  if (!Number.isInteger(renewals) || renewals < 0 || renewals > 50) return null
   const from = new Date(`${hiredISO}T00:00:00Z`)
   if (Number.isNaN(from.getTime())) return null
   const less = new Date(from.getTime() - 86400000)
-  const year = less.getUTCFullYear() + 1
+  const year = less.getUTCFullYear() + 1 + renewals
   const month = less.getUTCMonth()
   const lastOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
   return new Date(Date.UTC(year, month, Math.min(less.getUTCDate(), lastOfMonth)))
@@ -999,7 +1009,7 @@ function renderDerived() {
   const hired = val('hired_on')
   if (hired) {
     items.push(['Working period', spanFrom(hired) ?? 'starts in the future', 'muted'])
-    const contract = contractExpiry(hired)
+    const contract = contractExpiry(hired, val('renewals'))
     if (contract) {
       const left = daysUntil(contract.toISOString().slice(0, 10))
       items.push([
@@ -1104,6 +1114,15 @@ function renderForm(employee) {
     const grid = document.createElement('div')
     grid.className = 'db-grid'
     if (group.columns) grid.dataset.cols = String(group.columns)
+    if (group.title === 'Employment') {
+      for (const [source, cssName] of [['statuses', 'status'], ['busRoutes', 'bus-route']]) {
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d')
+        context.font = getComputedStyle(form).font
+        const width = Math.ceil(Math.max(0, ...(lookups[source] ?? []).map(([, text]) => context.measureText(text).width)))
+        grid.style.setProperty(`--${cssName}-width`, `${width + 38}px`)
+      }
+    }
     for (const field of group.fields) grid.appendChild(fieldControl(field, employee[field.key]))
     section.appendChild(grid)
     form.appendChild(section)
@@ -1364,6 +1383,7 @@ function exportRow(e) {
     // Active is not stored any more: it follows the status.
     'Active': yn(e.is_active),
     'Hiring date': isoToDMY(e.hired_on),
+    'Renewals': Number(e.renewals ?? 0),
     'Working period': e.hired_on ? spanFrom(e.hired_on) ?? '' : '',
     'Contract expiry': isoToDMY(e.contract_expiry),
     'Contract status': expiryStatus(e.contract_expiry),
@@ -1507,7 +1527,7 @@ function readForm() {
   // Numbers and foreign keys must not cross as strings.
   for (const key of ['code', 'site_id', 'department_id', 'status_id', 'bus_route_id',
                      'qualification_degree_id', 'si_basic_wage', 'si_gross_wage',
-                     'annual_leave_balance', 'unplanned_leave_balance']) {
+                     'annual_leave_balance', 'unplanned_leave_balance', 'renewals']) {
     if (out[key] != null) out[key] = Number(out[key])
   }
   return out
@@ -1536,6 +1556,9 @@ function touched(key, value) {
 /** Mirrors the database's rules so the page can name the field at fault. */
 function validate(v) {
   const problems = []
+  if (!Number.isInteger(v.renewals) || v.renewals < 0 || v.renewals > 50) {
+    problems.push('Renewals must be a whole number from 0 to 50.')
+  }
   const blank = (x) => x == null || x === ''
 
   /* Everything but the handful of optional fields has to be filled in.
@@ -1691,6 +1714,7 @@ $('saveBtn').addEventListener('click', async () => {
 function friendlyError(err) {
   const message = err?.message ?? String(err)
   const named = {
+    employees_renewals_range: 'Renewals must be a whole number from 0 to 50.',
     employees_code_key: 'That employee code is already used by someone else.',
     employees_national_id_uq: 'That ID number is already on another employee.',
     employees_code_min_six_digits: `Code must be at least 6 digits (${MIN_CODE} or above).`,
@@ -1712,6 +1736,9 @@ function friendlyError(err) {
     employees_si_no_unique_idx: 'Another employee already has that S.I. number.',
   }
   for (const [key, text] of Object.entries(named)) if (message.includes(key)) return text
+  if (message.includes('renewals') && (err?.code === 'PGRST204' || err?.code === '42703')) {
+    return 'The database update for Renewals is not installed yet. Ask the administrator to apply it, then save again.'
+  }
   if (message.includes('row-level security')) {
     return 'Your account is not allowed to change employee records.'
   }

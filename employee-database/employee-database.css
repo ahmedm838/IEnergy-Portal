@@ -661,6 +661,14 @@ body:has(#app) .container { max-width: 1500px; }
 /* A fixed count is a full-width promise. Below that, step down rather
    than squeezing seven controls into a laptop. */
 @media (max-width: 1200px) { .db-grid[data-cols] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* Employment: reserve only the space needed by the date and short choices. */
+@media (min-width: 1000px) {
+  .db-grid[data-cols='8'] {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.1fr)
+      145px 70px 150px var(--bus-route-width, 120px) var(--status-width, 120px);
+    gap: 8px;
+  }
+}
 @media (max-width: 860px)  { .db-grid[data-cols] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px)  {
   .db-grid[data-cols] { grid-template-columns: 1fr; }
