@@ -127,7 +127,28 @@ jobs:
           mkdir -p _site
 
           # Copy portal static files (exclude dev-only folders)
-          rsync -av             --exclude '.github'             --exclude '_site'             --exclude 'apps'             ./ _site/
+          # What the web server has no business holding.
+          #
+          # The rsync below used to copy everything but .github, _site
+          # and apps, which meant five internal files were fetchable on
+          # the live site. docs/cloudflare-setup.md was the worst of
+          # them: it lists the origin IP, the nameservers, the SPF
+          # record and the DKIM selector -- a map for anyone wanting to
+          # reach past a CDN or forge mail from the domain. Beside it,
+          # a SQL file publishing the database schema and .cpanel.yml
+          # publishing the server paths.
+          #
+          # Excluded by kind rather than by name so a new .md or .sql
+          # does not quietly become public the day somebody adds one.
+          # documents.json files are NOT excluded: the HR documents and
+          # company policy pages read them at runtime.
+          EXCLUDES=(
+            --exclude '.github' --exclude '_site' --exclude 'apps'
+            --exclude 'docs' --exclude '*.md' --exclude '*.sql'
+            --exclude '*.mjs' --exclude '.cpanel.yml' --exclude '*.bundle'
+            --exclude '.gitattributes' --exclude '.gitignore'
+          )
+          rsync -av "${EXCLUDES[@]}" ./ _site/
 
           # Add Attendance Tracker build output under /attendance-tracker/
           rm -rf _site/attendance-tracker
