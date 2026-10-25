@@ -143,6 +143,10 @@ jobs:
           # a SQL file publishing the database schema and .cpanel.yml
           # publishing the server paths.
           #
+          # NOT *.mjs: that is a browser module format, not an internal
+          # one. Excluding it took export-workbook.mjs off the server and the
+          # Employee Database went blank, because the page imports it.
+          #
           # Excluded by kind rather than by name so a new .md or .sql
           # does not quietly become public the day somebody adds one.
           # documents.json files are NOT excluded: the HR documents and
@@ -150,7 +154,7 @@ jobs:
           EXCLUDES=(
             --exclude '.github' --exclude '_site' --exclude 'apps'
             --exclude 'docs' --exclude '*.md' --exclude '*.sql'
-            --exclude '*.mjs' --exclude '.cpanel.yml' --exclude '*.bundle'
+            --exclude '.cpanel.yml' --exclude '*.bundle'
             --exclude '.gitattributes' --exclude '.gitignore'
           )
           rsync -av "${EXCLUDES[@]}" ./ _site/
