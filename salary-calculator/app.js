@@ -1,7 +1,6 @@
 "use strict";
 
-// NOTE: Salary Calculator is intentionally NOT password-protected.
-// Access control is handled at the portal level (main page) and other tools where required.
+// Page access is restricted to portal admins by ensureAuth in index.html.
 
 function $(id) { return document.getElementById(id); }
 

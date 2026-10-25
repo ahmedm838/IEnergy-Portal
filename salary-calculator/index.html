@@ -46,7 +46,7 @@
       <div class="page-bar-inner">
         <div class="page-bar-brand">
           <img class="page-bar-logo" src="../logo-mark.png?v=1" alt="" />
-          <span class="page-bar-name">iEnergy Portal</span>
+          <span class="page-bar-name">Salary Calculator</span>
         </div>
         <div class="page-bar-right">
           <span class="page-bar-who" id="whoami"></span>
@@ -59,14 +59,6 @@
     </header>
 
     <div class="container">
-    <header class="header">
-      <div class="header-bar">
-        <div id="headerText" class="header-text">
-          <h1>Salary Calculator</h1>
-          
-        </div>
-      </div>
-    </header>
 
     <section class="card">
       <div id="errorsTop" class="errors" hidden></div>
@@ -304,7 +296,7 @@
         });
 
         IEnergyAuth.ensureAuth({
-          allowedRoles: ['admin', 'user'],
+          allowedRoles: ['admin'],
           homeHref: '../index.html',
           onAuthed: fillPageBar
         });
