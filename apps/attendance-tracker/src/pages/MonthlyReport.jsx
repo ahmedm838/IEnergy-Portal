@@ -96,6 +96,11 @@ export default function MonthlyReport() {
   const detailColumns = useMemo(
     () => [
       { header: 'Late hours', key: 'late_hours', numFmt: '#,##0.00', digits: 2 },
+      // Days actually worked, which is not the Records column beside it:
+      // that counts every row saved, weekends and leave included, to show
+      // recording gaps. is_working_day, the same flag the Employee Report
+      // filters on.
+      { header: 'Attended days', key: 'attended_days', numFmt: '0', digits: 0 },
       { header: 'Meals', key: 'meals', numFmt: '#,##0.00', digits: 2 },
       { header: `Transport (${currency})`, key: 'transport', numFmt: '#,##0.00', digits: 2 },
       { header: 'Adj. days', key: 'adjusted_days', numFmt: '#,##0.00', digits: 2 },
