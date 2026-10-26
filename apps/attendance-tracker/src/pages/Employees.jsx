@@ -270,18 +270,18 @@ export default function Employees() {
                     </Td>
                     <Td className="tabular text-xs text-ink-3">
                       {leavesLoading || leavesError
-                        ? `${e.annual_leave_balance} / ${e.unplanned_leave_balance} / —`
-                        : `${e.annual_leave_balance} / ${e.unplanned_leave_balance} / ${num(leaves(e).addedBalance)}`}
+                        ? `${num(e.annual_leave_balance, 0)} / ${num(e.unplanned_leave_balance, 0)} / —`
+                        : `${num(e.annual_leave_balance, 0)} / ${num(e.unplanned_leave_balance, 0)} / ${num(leaves(e).addedBalance, 0)}`}
                     </Td>
                     <Td className="tabular text-xs text-ink-3">
                       {leavesLoading || leavesError
                         ? '—'
-                        : `${num(leaves(e).annualUsed)} / ${num(leaves(e).unplannedUsed)} / ${num(leaves(e).addedUsed)}`}
+                        : `${num(leaves(e).annualUsed, 0)} / ${num(leaves(e).unplannedUsed, 0)} / ${num(leaves(e).addedUsed, 0)}`}
                     </Td>
                     <Td className="tabular text-xs text-ink-3">
                       {leavesLoading || leavesError
                         ? '—'
-                        : `${num(leaves(e).annualRemaining)} / ${num(leaves(e).unplannedRemaining)} / ${num(leaves(e).addedRemaining)}`}
+                        : `${num(leaves(e).annualRemaining, 0)} / ${num(leaves(e).unplannedRemaining, 0)} / ${num(leaves(e).addedRemaining, 0)}`}
                     </Td>
                   </tr>
                 ))}
