@@ -152,7 +152,7 @@ const GROUPS = [
     title: 'Employment',
     columns: 8,
     fields: [
-      { key: 'title', label: 'Job title', type: 'text' },
+      { key: 'title', label: 'Job title', type: 'text', placeholder: 'English only' },
       { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
       { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
       { key: 'hired_on', label: 'Hiring date', type: 'date' },
@@ -196,7 +196,8 @@ const GROUPS = [
       { key: 'company_mobile', label: 'Company mobile', type: 'mobile' },
       { key: 'personal_mobile', label: 'Personal mobile', type: 'mobile' },
       { key: 'secondary_mobile', label: 'Secondary mobile', type: 'mobile' },
-      { key: 'secondary_mobile_name', label: 'Secondary number belongs to', type: 'text' },
+      { key: 'secondary_mobile_name', label: 'Secondary number belongs to', type: 'text',
+        dir: 'rtl', placeholder: 'Arabic only — اسم (صلة القرابة)' },
       { key: 'office_number', label: 'Office number', type: 'text' },
     ],
   },
@@ -207,7 +208,8 @@ const GROUPS = [
       { key: 'marital_status', label: 'Marital status', type: 'select', options: [['Single', 'Single'], ['Married', 'Married'], ['Divorced', 'Divorced']] },
       { key: 'religion', label: 'Religion', type: 'select', options: [['Muslim', 'Muslim'], ['Christian', 'Christian']] },
       { key: 'qualification_degree_id', label: 'Qualification degree', type: 'select', source: 'degrees' },
-      { key: 'education_field', label: 'Education field', type: 'text' },
+      { key: 'education_field', label: 'Education field', type: 'text',
+        dir: 'rtl', placeholder: 'Arabic only' },
     ],
   },
   {
@@ -1594,6 +1596,33 @@ function validate(v) {
   if (v.arabic_name && touched('arabic_name', v.arabic_name) &&
       !/^[ء-ْ]+( [ء-ْ]+)*$/.test(v.arabic_name)) {
     problems.push('Arabic name must be Arabic letters only.')
+  }
+
+  /* Job title in English, the same shape the English name allows:
+     letters, plus the apostrophe, dot and hyphen real titles carry --
+     "Sr. Engineer", "Shift-Lead". Titles are written both ways in the
+     database today; this settles them on English from here on. */
+  if (v.title && touched('title', v.title) &&
+      !/^[A-Za-z][A-Za-z'.-]*( [A-Za-z'.-]+)*$/.test(v.title)) {
+    problems.push('Job title must be English letters only.')
+  }
+
+  if (v.education_field && touched('education_field', v.education_field) &&
+      !/^[ء-ْ]+( [ء-ْ]+)*$/.test(v.education_field)) {
+    problems.push('Education field must be Arabic letters only.')
+  }
+
+  /* Arabic, with brackets allowed.
+
+     This field is written "اسم (صلة القرابة)" throughout the database --
+     the name, then who they are to the employee. The plain Arabic rule
+     would reject the convention the records already follow and make most
+     of them unsaveable, so the brackets are part of the rule rather than
+     an exception to it. */
+  if (v.secondary_mobile_name && touched('secondary_mobile_name', v.secondary_mobile_name) &&
+      (!/^[ء-ْ() ]+$/.test(v.secondary_mobile_name) ||
+       !/[ء-ْ]/.test(v.secondary_mobile_name))) {
+    problems.push('Secondary number belongs to must be Arabic letters only, brackets allowed.')
   }
 
   if (v.national_id && !/^[23]\d{13}$/.test(v.national_id)) {
