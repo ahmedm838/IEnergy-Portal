@@ -29,6 +29,10 @@ export default function MonthlyReport() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [exporting, setExporting] = useState(false)
+  /* The detailed view is off by default. These nine are the workings
+     behind Total Allowances and Total Deductions -- useful when a
+     figure is being queried, noise when it is not. */
+  const [detailed, setDetailed] = useState(false)
 
   // Warm the Excel library so the click-to-download gap stays inside the
   // browser's user-activation window.
@@ -79,6 +83,31 @@ export default function MonthlyReport() {
     }
   }, [rows])
 
+  /* Defined once and used twice: the header reads from here, and so
+     does the body. The base columns are written out as a header list
+     and a separate hand-written row of cells, which only stay in step
+     because somebody counts them. Nine more pairs kept that way would
+     drift the first time one was added in one place and not the other,
+     and a shifted column on a payroll report is a wrong number rather
+     than an untidy one.
+
+     digits is for the screen: a count of days is a whole number, hours
+     and money are not. */
+  const detailColumns = useMemo(
+    () => [
+      { header: 'Late hours', key: 'late_hours', numFmt: '#,##0.00', digits: 2 },
+      { header: 'Meals', key: 'meals', numFmt: '#,##0.00', digits: 2 },
+      { header: `Transport (${currency})`, key: 'transport', numFmt: '#,##0.00', digits: 2 },
+      { header: 'Adj. days', key: 'adjusted_days', numFmt: '#,##0.00', digits: 2 },
+      { header: 'Adj. hours', key: 'adjusted_hours', numFmt: '#,##0.00', digits: 2 },
+      { header: 'Deducted leaves', key: 'deducted_leaves', numFmt: '#,##0.00', digits: 2 },
+      { header: 'Sick leaves', key: 'sick_leaves', numFmt: '0', digits: 0 },
+      { header: 'Absence days', key: 'absence_days', numFmt: '0', digits: 0 },
+      { header: 'Absence penalty', key: 'absence_penalties', numFmt: '#,##0.00', digits: 2 },
+    ],
+    [currency],
+  )
+
   const columns = useMemo(
     () => [
       { header: 'Name', key: 'name' },
@@ -106,8 +135,9 @@ export default function MonthlyReport() {
       // are on screen beside it.
       { header: 'Total Deductions (hrs)', key: 'total_deductions', numFmt: '#,##0.00' },
       { header: `Salary Advance (${currency})`, key: 'salary_advance', numFmt: '#,##0.00' },
+      ...(detailed ? detailColumns : []),
     ],
-    [currency],
+    [currency, detailed, detailColumns],
   )
 
   async function handleExport() {
@@ -138,6 +168,10 @@ export default function MonthlyReport() {
           overtime: Number(r.overtime),
           total_deductions: Number(r.total_deductions),
           salary_advance: Number(r.salary_advance),
+          // PostgREST hands numeric back as a string. The sheet needs
+          // numbers or every one of these lands as text Excel will not
+          // add up.
+          ...Object.fromEntries(detailColumns.map((c) => [c.key, Number(r[c.key] ?? 0)])),
         })),
       },
       `monthly-report-${range.from}_${range.to}.xlsx`,
@@ -239,6 +273,14 @@ export default function MonthlyReport() {
           subtitle={`${range.from} to ${range.to}`}
           actions={
             <>
+              <Button
+                variant={detailed ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setDetailed((on) => !on)}
+                title="Late hours, meals, transport, adjustments, leaves and absences"
+              >
+                {detailed ? 'Hide detail' : 'Detailed view'}
+              </Button>
               <Button variant="secondary" size="sm" onClick={() => window.print()}>
                 Print
               </Button>
@@ -300,6 +342,12 @@ export default function MonthlyReport() {
                       {num(r.total_deductions)}
                     </Td>
                     <Td className="tabular text-right">{num(r.salary_advance)}</Td>
+                    {detailed &&
+                      detailColumns.map((c) => (
+                        <Td key={c.key} className="tabular text-right">
+                          {num(r[c.key], c.digits)}
+                        </Td>
+                      ))}
                   </tr>
                 ))}
               </tbody>
