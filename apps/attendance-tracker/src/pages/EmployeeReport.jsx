@@ -103,6 +103,16 @@ export default function EmployeeReport() {
    * it keeps the filter and the hours figures telling the same story, and it
    * stays correct if the flag is changed in Settings.
    */
+  /* The leave balances table, added up.
+
+     Guarded on summary being there: this runs on every render, including
+     the ones before a report has been asked for. */
+  const sumBalances = useMemo(() => {
+    const rows = summary?.balances ?? []
+    const add = (key) => rows.reduce((total, b) => total + Number(b[key] || 0), 0)
+    return { balance: add("balance"), consumed: add("consumed"), remaining: add("remaining") }
+  }, [summary])
+
   const visibleRecords = useMemo(() => {
     if (dayFilter === 'all') return records
     if (dayFilter.startsWith('type:')) {
@@ -427,6 +437,31 @@ export default function EmployeeReport() {
                     </tr>
                   ))}
                 </tbody>
+                {/* The three rows above, added up.
+
+                    Only those three. The dashboard carries the same table
+                    with an Other leaves row and folds it into Consumed,
+                    which is right there because the row is on screen; here
+                    it is not, and a Consumed total larger than the figures
+                    above it is a column that does not add up. */}
+                <tfoot>
+                  <tr className="border-t-2 border-line-strong">
+                    <Td className="font-semibold text-ink">Total</Td>
+                    <Td className="tabular text-right font-semibold">
+                      {num(sumBalances.balance, 1)}
+                    </Td>
+                    <Td className="tabular text-right font-semibold">
+                      {num(sumBalances.consumed, 1)}
+                    </Td>
+                    <Td
+                      className={`tabular text-right font-semibold ${
+                        sumBalances.remaining < 0 ? "text-on-danger" : "text-on-success"
+                      }`}
+                    >
+                      {num(sumBalances.remaining, 1)}
+                    </Td>
+                  </tr>
+                </tfoot>
               </table>
             </Card>
           </div>

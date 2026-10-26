@@ -39,23 +39,49 @@ export default function Employees() {
       setLeavesError(null)
       try {
         const usage = new Map()
-        // Fetch all pages, keeping the same calendar-year/effect rules as
-        // leave_balances. The caller's attendance permissions still apply.
+        const blank = () => ({ annual: 0, unplanned: 0, added_days: 0, addedEarned: 0 })
+        const forEmployee = (id) => {
+          if (!usage.has(id)) usage.set(id, blank())
+          return usage.get(id)
+        }
+
+        // Days taken. Same calendar-year and effect rules as
+        // leave_balances, with added_days joining the two leave kinds.
+        // The caller's attendance permissions still apply.
         for (let offset = 0; ; offset += 1000) {
           const records = await run(supabase.from('attendance_records')
             .select('id, employee_id, attendance_types!inner(effect)')
             .gte('work_date', `${year}-01-01`)
             .lt('work_date', `${year + 1}-01-01`)
-            .in('attendance_types.effect', ['annual', 'unplanned'])
+            .in('attendance_types.effect', ['annual', 'unplanned', 'added_days'])
             .order('id')
             .range(offset, offset + 999))
           if (cancelled) return
           for (const record of records) {
-            const used = usage.get(record.employee_id) ?? { annual: 0, unplanned: 0 }
-            used[record.attendance_types.effect] += 1
-            usage.set(record.employee_id, used)
+            forEmployee(record.employee_id)[record.attendance_types.effect] += 1
           }
           if (records.length < 1000) break
+        }
+
+        /* Days earned, which has to be asked for separately.
+
+           An added day is earned by ticking "add to balance" on a day that
+           was worked -- normally an Attended day, whose effect is 'none'.
+           The query above filters on effect and would never see one, so
+           widening its list would have counted the days taken and none of
+           the days that paid for them: every balance would have read zero
+           earned against however many were used. */
+        for (let offset = 0; ; offset += 1000) {
+          const earned = await run(supabase.from('attendance_records')
+            .select('id, employee_id')
+            .gte('work_date', `${year}-01-01`)
+            .lt('work_date', `${year + 1}-01-01`)
+            .eq('add_to_leave_balance', true)
+            .order('id')
+            .range(offset, offset + 999))
+          if (cancelled) return
+          for (const record of earned) forEmployee(record.employee_id).addedEarned += 1
+          if (earned.length < 1000) break
         }
         if (!cancelled) setLeaveUsage(usage)
       } catch (err) {
@@ -69,7 +95,9 @@ export default function Employees() {
   }, [year])
 
   function leaves(employee) {
-    const used = leaveUsage.get(employee.id) ?? { annual: 0, unplanned: 0 }
+    const used = leaveUsage.get(employee.id) ?? {
+      annual: 0, unplanned: 0, added_days: 0, addedEarned: 0,
+    }
     return {
       annual: Number(employee.annual_leave_balance || 0),
       unplanned: Number(employee.unplanned_leave_balance || 0),
@@ -77,6 +105,13 @@ export default function Employees() {
       unplannedUsed: used.unplanned,
       annualRemaining: Number(employee.annual_leave_balance || 0) - used.annual,
       unplannedRemaining: Number(employee.unplanned_leave_balance || 0) - used.unplanned,
+      /* Added days have no entitlement on the employee record: the
+         balance is what was earned in the year, not a number somebody
+         set. Same three figures the employee report shows, worked out
+         the same way, so the two pages cannot disagree. */
+      addedBalance: used.addedEarned,
+      addedUsed: used.added_days,
+      addedRemaining: used.addedEarned - used.added_days,
     }
   }
 
@@ -120,6 +155,9 @@ export default function Employees() {
           { header: 'Unplanned consumed', key: 'unplannedUsed', numFmt: 'General' },
           { header: 'Annual remaining', key: 'annualRemaining', numFmt: 'General' },
           { header: 'Unplanned remaining', key: 'unplannedRemaining', numFmt: 'General' },
+          { header: 'Added days balance', key: 'addedBalance', numFmt: 'General' },
+          { header: 'Added days consumed', key: 'addedUsed', numFmt: 'General' },
+          { header: 'Added days remaining', key: 'addedRemaining', numFmt: 'General' },
         ],
         rows: filtered.map((employee) => ({
           code: Number(employee.code), name: employee.name, title: employee.title,
@@ -200,6 +238,9 @@ export default function Employees() {
                   <Th>Leaves</Th>
                   <Th>Consumed</Th>
                   <Th>Remaining</Th>
+                  <Th>Added days</Th>
+                  <Th>Added consumed</Th>
+                  <Th>Added remaining</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -234,6 +275,15 @@ export default function Employees() {
                     </Td>
                     <Td className="tabular text-xs text-ink-3">
                       {leavesLoading || leavesError ? '—' : `${num(leaves(e).annualRemaining)} / ${num(leaves(e).unplannedRemaining)}`}
+                    </Td>
+                    <Td className="tabular text-xs text-ink-3">
+                      {leavesLoading || leavesError ? '—' : num(leaves(e).addedBalance)}
+                    </Td>
+                    <Td className="tabular text-xs text-ink-3">
+                      {leavesLoading || leavesError ? '—' : num(leaves(e).addedUsed)}
+                    </Td>
+                    <Td className="tabular text-xs text-ink-3">
+                      {leavesLoading || leavesError ? '—' : num(leaves(e).addedRemaining)}
                     </Td>
                   </tr>
                 ))}
