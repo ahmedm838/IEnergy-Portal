@@ -660,16 +660,28 @@ body:has(#app) .container { max-width: 1500px; }
    --------------------------------------------------------------------- */
 .db-grid[data-cols='4'] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .db-grid[data-cols='7'] { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.db-grid[data-cols='6'] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .db-field-half { grid-column: span 2; }
 
 /* A fixed count is a full-width promise. Below that, step down rather
    than squeezing seven controls into a laptop. */
 @media (max-width: 1200px) { .db-grid[data-cols] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-/* Employment: reserve only the space needed by the date and short choices. */
+/* Employment used to set a width per control, measured from the widest
+   option in each list. That cannot work now the section is two rows: a
+   grid column is shared down the grid, so track 1 carries both the job
+   title and the weekend, and track 2 the rest of the title and the bus
+   route. A width chosen for one row would be wrong for the other, so the
+   six columns are equal and the title spans two of them. */
 @media (min-width: 1000px) {
-  .db-grid[data-cols='8'] {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.65fr) minmax(0, 1.1fr)
-      145px 70px 190px var(--bus-route-width, 120px) var(--status-width, 120px);
+  /* Holds the six columns down to 1000px, below the 1200px step-down
+     above. That rule was written when this section was eight narrow
+     controls and genuinely did not fit a laptop; six columns with the
+     title spanning two is a different shape. It matters at 1093px, the
+     width this page is actually read at, where the step-down would
+     otherwise break the two rows into three. Later rule, equal
+     specificity, so it wins where both apply. */
+  .db-grid[data-cols='6'] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 8px;
   }
 }

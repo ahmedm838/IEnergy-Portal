@@ -150,9 +150,15 @@ const GROUPS = [
   },
   {
     title: 'Employment',
-    columns: 8,
+    // Six, so both rows land where they were asked to: the job title
+    // spans two of them, which fills the first row exactly with site,
+    // department, hiring date and renewals, and leaves the second for
+    // weekend, bus route, status and the two leave balances.
+    columns: 6,
     fields: [
-      { key: 'title', label: 'Job title', type: 'text', placeholder: 'English only' },
+      // Double width. db-field-half is the existing span-2 class; the
+      // name comes from the four-column section it was written for.
+      { key: 'title', label: 'Job title', type: 'text', placeholder: 'English only', half: true },
       { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
       { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
       { key: 'hired_on', label: 'Hiring date', type: 'date' },
@@ -170,11 +176,9 @@ const GROUPS = [
       // employee already defaults to -- so nothing is reassigned by
       // this.
       { key: 'status_id', label: 'Status', type: 'select', source: 'statuses', noBlank: true },
-    ],
-  },
-  {
-    title: 'Leave balances',
-    fields: [
+      // Were a section of their own. They belong to the employment terms
+      // as much as the weekend does, and on their own they made a band
+      // two fields wide across the whole form.
       { key: 'annual_leave_balance', label: 'Annual leave (days)', type: 'number' },
       { key: 'unplanned_leave_balance', label: 'Un-planned leave (days)', type: 'number' },
     ],
@@ -1129,15 +1133,12 @@ function renderForm(employee) {
     const grid = document.createElement('div')
     grid.className = 'db-grid'
     if (group.columns) grid.dataset.cols = String(group.columns)
-    if (group.title === 'Employment') {
-      for (const [source, cssName] of [['statuses', 'status'], ['busRoutes', 'bus-route']]) {
-        const canvas = document.createElement('canvas')
-        const context = canvas.getContext('2d')
-        context.font = getComputedStyle(form).font
-        const width = Math.ceil(Math.max(0, ...(lookups[source] ?? []).map(([, text]) => context.measureText(text).width)))
-        grid.style.setProperty(`--${cssName}-width`, `${width + 38}px`)
-      }
-    }
+    /* The status and bus-route widths that used to be measured here fed
+       grid tracks that no longer exist. Employment is two rows now, and a
+       grid track is shared down the whole grid -- track one carries the
+       job title and the weekend, track two the rest of the title and the
+       bus route -- so a width measured for one row was wrong for the
+       other. The six columns are equal and the title spans two. */
     for (const field of group.fields) grid.appendChild(fieldControl(field, employee[field.key]))
     section.appendChild(grid)
     form.appendChild(section)
