@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import PeriodLabel from '../components/PeriodLabel'
+import MultiSelectFilter from '../components/MultiSelectFilter'
 import { supabase, run } from '../lib/supabase'
 import { useLookups } from '../lib/useLookups'
 import { exportSheet, prefetchExcel } from '../lib/exportXlsx'
@@ -33,6 +34,10 @@ export default function MonthlyReport() {
      behind Total Allowances and Total Deductions -- useful when a
      figure is being queried, noise when it is not. */
   const [detailed, setDetailed] = useState(false)
+  /* Which departments to show. Empty means all of them, which is what
+     an untouched filter should do -- the alternative, an empty table
+     until you tick something, makes the button compulsory. */
+  const [departments, setDepartments] = useState(() => new Set())
 
   // Warm the Excel library so the click-to-download gap stays inside the
   // browser's user-activation window.
@@ -158,11 +163,14 @@ export default function MonthlyReport() {
         meta: [
           ['Meal allowance rate', Number(mealRate || 0)],
           ['Site', site ? site.name : 'All sites'],
-          ['Employees', rows.length],
+          // Say which departments the sheet covers, so a filtered export
+          // cannot be mistaken for the whole payroll run.
+          ['Departments', departments.size ? [...departments].map((d) => d || 'none').join(', ') : 'All'],
+          ['Employees', visibleRows.length],
           ['Generated', new Date().toLocaleString()],
         ],
         columns,
-        rows: rows.map((r) => ({
+        rows: visibleRows.map((r) => ({
           ...r,
           code: Number(r.code),
           records: Number(r.records),
@@ -187,6 +195,45 @@ export default function MonthlyReport() {
       setExporting(false)
     }
   }
+
+  /* Built from the rows on screen rather than the departments table: a
+     department with nobody in it this period is not worth offering, and
+     the count beside each name says how many rows it would leave. */
+  const departmentOptions = useMemo(() => {
+    const counts = new Map()
+    for (const r of rows) {
+      const name = r.department ?? ''
+      counts.set(name, (counts.get(name) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, count]) => ({
+        value: name,
+        // Somebody with no department still has to be selectable, or
+        // they could never be filtered to.
+        label: name || '— no department —',
+        count,
+      }))
+  }, [rows])
+
+  /* One list, used by the table, the Excel export and the empty state.
+     If the export read `rows` instead, the sheet would quietly hold
+     people the screen was filtering out -- and a payroll sheet that
+     does not match what was checked is worse than no filter at all. */
+  const visibleRows = useMemo(() => {
+    if (departments.size === 0) return rows
+    return rows.filter((r) => departments.has(r.department ?? ''))
+  }, [rows, departments])
+
+  /* A department can vanish between periods. Ticked names that are no
+     longer on offer would filter everything away with nothing on screen
+     to explain it, so they are dropped when the rows change. */
+  useEffect(() => {
+    if (departments.size === 0) return
+    const available = new Set(departmentOptions.map((o) => o.value))
+    const kept = [...departments].filter((d) => available.has(d))
+    if (kept.length !== departments.size) setDepartments(new Set(kept))
+  }, [departmentOptions, departments])
 
   function shiftPeriod(delta) {
     setRange(shiftPayrollPeriod(range.to, delta))
@@ -278,6 +325,12 @@ export default function MonthlyReport() {
           subtitle={`${range.from} to ${range.to}`}
           actions={
             <>
+              <MultiSelectFilter
+                label="Department"
+                options={departmentOptions}
+                selected={departments}
+                onChange={setDepartments}
+              />
               <Button
                 variant={detailed ? 'primary' : 'secondary'}
                 size="sm"
@@ -289,7 +342,7 @@ export default function MonthlyReport() {
               <Button variant="secondary" size="sm" onClick={() => window.print()}>
                 Print
               </Button>
-              <Button size="sm" onClick={handleExport} disabled={rows.length === 0 || exporting}>
+              <Button size="sm" onClick={handleExport} disabled={visibleRows.length === 0 || exporting}>
                 {exporting ? 'Preparing…' : 'Export Excel'}
               </Button>
             </>
@@ -297,7 +350,7 @@ export default function MonthlyReport() {
         />
         {loading ? (
           <Spinner />
-        ) : rows.length === 0 ? (
+        ) : visibleRows.length === 0 ? (
           <EmptyState title="Nobody has activity in this period">
             Only employees with attendance or adjustments in the selected dates appear here. Check
             the date range, and that attendance has been recorded on the Attendance page.
@@ -318,7 +371,7 @@ export default function MonthlyReport() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {rows.map((r) => (
+                {visibleRows.map((r) => (
                   <tr key={r.employee_id} className="hover:bg-hover">
                     <Td className="font-medium text-ink">{r.name}</Td>
                     <Td className="tabular text-right">{r.code}</Td>
