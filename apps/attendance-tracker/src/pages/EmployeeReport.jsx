@@ -6,6 +6,7 @@ import { useLookups, useEmployees } from '../lib/useLookups'
 import { exportEmployeeReport, prefetchExcel } from '../lib/exportXlsx'
 import {
   dateLabel,
+  longDateLabel,
   dayLabel,
   minutesToHHMM,
   payrollPeriod,
@@ -29,6 +30,28 @@ import {
   Td,
   Th,
 } from '../components/ui'
+
+/**
+ * Rows of the printed daily table that fit on the first page.
+ *
+ * Measured against the built stylesheet, not guessed. A4 at the
+ * browser's default margins is a 717 x 1046px box; the name section,
+ * the leave balances card and the Daily Records heading take the first
+ * 457px of it, and a printed row is 22.2px, so 26 rows reach the foot
+ * of the page. A calendar month is 30 or 31, which is where the five
+ * stranded rows on a second sheet come from.
+ *
+ * Set one below the 26 that fit. Paper size, margins and whether the
+ * browser prints its own header and footer all move the real figure a
+ * little, and being wrong is lopsided: splitting a page early costs
+ * nothing anyone would notice, while splitting one row late puts a
+ * single stranded row on a second sheet -- the thing this exists to
+ * prevent.
+ *
+ * Past about 52 days the two columns fill the page as well and a second
+ * sheet is unavoidable. Nothing here tries to stop that.
+ */
+const PRINT_ROWS_PER_PAGE = 25
 
 /** Report 1 — the "employee report" sheet. */
 export default function EmployeeReport() {
@@ -134,6 +157,20 @@ export default function EmployeeReport() {
       return Boolean(type?.is_working_day) === wantAttended
     })
   }, [records, dayFilter, lookups.typeById])
+
+  /* Two columns on paper once one column would not fit the page.
+
+     Below the threshold the printed table is the one on screen with
+     seven columns hidden; above it, that table is replaced by two
+     narrow ones side by side. See PRINT_ROWS_PER_PAGE for where the
+     number comes from. */
+  const splitForPrint = visibleRecords.length > PRINT_ROWS_PER_PAGE
+  const printHalves = useMemo(() => {
+    // The taller half goes on the left, so a column that is one row
+    // longer is the one the eye starts on.
+    const half = Math.ceil(visibleRecords.length / 2)
+    return { left: visibleRecords.slice(0, half), right: visibleRecords.slice(half) }
+  }, [visibleRecords])
 
   const filterLabel =
     dayFilter === 'all'
@@ -314,7 +351,7 @@ export default function EmployeeReport() {
               {employee?.departments?.name ?? '—'}
             </p>
             <p className="mt-1 text-sm text-ink-3">
-              {range.from} to {range.to}
+              {longDateLabel(range.from)} to {longDateLabel(range.to)}
             </p>
           </div>
 
@@ -523,7 +560,12 @@ export default function EmployeeReport() {
                 The range holds {records.length} other recorded days.
               </EmptyState>
             ) : (
-              <div className="employee-report-records max-h-[70vh] overflow-auto">
+              <>
+              <div
+                className={`employee-report-records max-h-[70vh] overflow-auto${
+                  splitForPrint ? ' employee-report-records-single' : ''
+                }`}
+              >
                 <table className="sticky-head w-full border-collapse">
                   <thead>
                     <tr>
@@ -560,6 +602,54 @@ export default function EmployeeReport() {
                   </tbody>
                 </table>
               </div>
+
+              {/* The same days again, in two columns, for paper only.
+
+                  A month of records in one column runs past the foot of
+                  the first page and leaves a handful of rows stranded on
+                  a second. Printing only the date and what was recorded
+                  leaves most of the width unused, so the overflow goes
+                  beside the first column rather than onto another sheet.
+
+                  A second table rather than CSS columns: a table split
+                  across multi-column boxes is not something browsers
+                  lay out reliably, and a second thead means the right
+                  column is labelled too.
+
+                  Hidden from screen readers -- it is the same days the
+                  table above already carries, and nobody should hear
+                  them twice. */}
+              {splitForPrint && (
+                <div
+                  className="employee-report-records employee-report-records-split hidden"
+                  aria-hidden="true"
+                >
+                  {[printHalves.left, printHalves.right].map((chunk, i) => (
+                    <table key={i} className="w-full border-collapse">
+                      <thead>
+                        <tr>
+                          <Th>Date</Th>
+                          <Th>Attendance</Th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-line">
+                        {chunk.map((r) => (
+                          <tr key={r.id}>
+                            <Td className="font-medium text-ink">{dayLabel(r.work_date)}</Td>
+                            <Td>
+                              {r.attendance_types?.name_en}{' '}
+                              <span className="arabic text-ink-4">
+                                {r.attendance_types?.name_ar}
+                              </span>
+                            </Td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ))}
+                </div>
+              )}
+              </>
             )}
           </Card>
         </>

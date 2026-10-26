@@ -98,6 +98,25 @@ export function dateLabel(iso) {
   return y && m && d ? `${d}-${m}-${y}` : String(iso)
 }
 
+/**
+ * '15-Jan-2026' — the month in letters, so the day and the month cannot
+ * be read the wrong way round.
+ *
+ * dateLabel above writes 15-01-2026, which is 1 March to half the people
+ * who read it. Where a date is a heading rather than a figure in a
+ * column, the three letters are worth the width. This is the same shape
+ * the employee database writes its dates in.
+ */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+export function longDateLabel(iso) {
+  if (!iso) return ''
+  const [y, m, d] = String(iso).slice(0, 10).split('-')
+  const month = MONTHS[Number(m) - 1]
+  return y && month && d ? `${d}-${month}-${y}` : String(iso)
+}
+
 export function isFriday(iso) {
   return fromISODate(iso).getDay() === 5
 }

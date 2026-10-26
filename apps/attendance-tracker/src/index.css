@@ -276,6 +276,24 @@ html {
   .employee-report-records td:nth-child(1) {
     width: 30%;
   }
+
+  /* A long list prints as two tables side by side instead of running
+     onto a second sheet. The page swaps one for the other: the screen
+     table is kept for the screen and carries -single only when the pair
+     exists, and the pair is hidden (Tailwind's .hidden) everywhere but
+     here. */
+  .employee-report-records-single {
+    display: none !important;
+  }
+  .employee-report-records-split {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .employee-report-records-split > table {
+    width: 50%;
+    table-layout: fixed;
+  }
 }
 
 @media (min-width: 1024px) {
