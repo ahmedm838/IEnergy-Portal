@@ -235,12 +235,13 @@ export default function Employees() {
                   <Th>Department</Th>
                   <Th>Status</Th>
                   <Th>Login</Th>
-                  <Th>Leaves</Th>
-                  <Th>Consumed</Th>
-                  <Th>Remaining</Th>
-                  <Th>Added days</Th>
-                  <Th>Added consumed</Th>
-                  <Th>Added remaining</Th>
+                  {/* Annual / un-planned / added, in that order, in all
+                      three columns. The order is not readable off the
+                      numbers, so each header says it rather than leaving
+                      people to work it out from a row they recognise. */}
+                  <Th title="Annual / Un-planned / Added days">Leaves</Th>
+                  <Th title="Annual / Un-planned / Added days">Consumed</Th>
+                  <Th title="Annual / Un-planned / Added days">Remaining</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -268,22 +269,19 @@ export default function Employees() {
                       )}
                     </Td>
                     <Td className="tabular text-xs text-ink-3">
-                      {e.annual_leave_balance} / {e.unplanned_leave_balance}
+                      {leavesLoading || leavesError
+                        ? `${e.annual_leave_balance} / ${e.unplanned_leave_balance} / —`
+                        : `${e.annual_leave_balance} / ${e.unplanned_leave_balance} / ${num(leaves(e).addedBalance)}`}
                     </Td>
                     <Td className="tabular text-xs text-ink-3">
-                      {leavesLoading || leavesError ? '—' : `${num(leaves(e).annualUsed)} / ${num(leaves(e).unplannedUsed)}`}
+                      {leavesLoading || leavesError
+                        ? '—'
+                        : `${num(leaves(e).annualUsed)} / ${num(leaves(e).unplannedUsed)} / ${num(leaves(e).addedUsed)}`}
                     </Td>
                     <Td className="tabular text-xs text-ink-3">
-                      {leavesLoading || leavesError ? '—' : `${num(leaves(e).annualRemaining)} / ${num(leaves(e).unplannedRemaining)}`}
-                    </Td>
-                    <Td className="tabular text-xs text-ink-3">
-                      {leavesLoading || leavesError ? '—' : num(leaves(e).addedBalance)}
-                    </Td>
-                    <Td className="tabular text-xs text-ink-3">
-                      {leavesLoading || leavesError ? '—' : num(leaves(e).addedUsed)}
-                    </Td>
-                    <Td className="tabular text-xs text-ink-3">
-                      {leavesLoading || leavesError ? '—' : num(leaves(e).addedRemaining)}
+                      {leavesLoading || leavesError
+                        ? '—'
+                        : `${num(leaves(e).annualRemaining)} / ${num(leaves(e).unplannedRemaining)} / ${num(leaves(e).addedRemaining)}`}
                     </Td>
                   </tr>
                 ))}
