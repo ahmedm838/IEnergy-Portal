@@ -808,6 +808,19 @@ function fieldControl(field, value) {
     input.addEventListener('input', () => { derivedSiTitle = null; renderDerived() })
   }
 
+  /* A super admin's employment status is not editable here.
+
+     Status drives is_active, and is_active decides whether the one
+     account that can reach Settings still works -- so this field on that
+     record is the single click able to lock everybody out of the parts
+     of the site only a super admin reaches. The database refuses the
+     change either way; disabling the control means finding that out
+     before typing rather than after saving. */
+  if (field.key === 'status_id' && current?.role === 'super_admin') {
+    input.disabled = true
+    input.title = 'A super admin status is changed in the database only'
+  }
+
   // A date input lives inside its row, next to the picker button.
   wrap.appendChild(field.type === 'date' ? input.parentNode : input)
 
