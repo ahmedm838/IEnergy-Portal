@@ -600,7 +600,10 @@ function openPage(who) {
 
   $('gate').hidden = true
   $('app').hidden = false
-  $('year').textContent = new Date().getFullYear()
+  // The copyright year went with the footer it was written into. Left
+  // here it would throw on a null element -- and it throws here, before
+  // the theme switch is moved into the page bar below, so the page would
+  // open without one.
 
   // Bring the theme switch into the page bar now that the bar is on
   // screen. It is left floating at the top right until then, so the

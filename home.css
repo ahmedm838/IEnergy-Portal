@@ -176,10 +176,27 @@ body {
   line-height: 1.45;
 }
 
-/* The picture wrapper must not become the flex item: .auth-top is a
-   flex row and .hero-logo sets align-self on itself. display:contents
-   takes the wrapper out of the box tree so the img stays the flex child. */
-.hero-pic { display: contents; }
+/* The sign-in card's logo: the page bar's mark, drawn larger.
+
+   Deliberately not .hero-logo. That one is sized and plated for the wide
+   wordmark -- a fixed 312x78 box, and in the light theme a dark
+   background with padding, because the wordmark is white lettering on an
+   opaque black PNG. The mark is transparent and reads on either theme as
+   it is, so it takes none of that; inheriting it would letterbox a
+   138x64 image inside that box on a navy rectangle.
+
+   44px against the 26px the page bar draws it at once you are signed in:
+   the same mark, a little bigger, which is what the card has room for.
+
+   (The .hero-pic rule that stood here went with the <picture> element it
+   was written for. The wordmark is not on this page any more.) */
+.auth-logo {
+  height: 44px;
+  width: auto;
+  max-width: 40vw;
+  object-fit: contain;
+  align-self: flex-start;
+}
 
 .hero-logo {
   width: min(312px, 70vw);

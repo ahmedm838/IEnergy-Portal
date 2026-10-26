@@ -268,15 +268,9 @@
 .data-table td { font-size: 13px; }
 .data-table td .muted { color: var(--muted); }
 
-.footer {
-  margin: 18px 0 8px;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  color: var(--muted);
-  font-size: 13px;
-}
+/* .footer went with the footer. This stylesheet is loaded by this page
+   alone, so the rule had nothing left to style. The portal home page
+   keeps its own footer and its own copy of these rules in home.css. */
 .footnote { opacity: 0.85; }
 
 /* ---------------------------------------------------------------------
