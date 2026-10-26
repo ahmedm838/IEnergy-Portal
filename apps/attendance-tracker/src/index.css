@@ -232,19 +232,49 @@ html {
   font-size: 90%;
 }
 
-/* Nine totals print in two rows, without changing the screen layout. */
+/* ---------------------------------------------------------------------
+   What the employee report prints.
+
+   On paper it is three things and nothing else: who it is about, their
+   leave balances, and the days themselves as a date and what was
+   recorded against it. The nine totals and the days-by-type breakdown
+   are screen furniture -- read while the report is open, not carried
+   around on a page -- and the seven extra columns on the daily table
+   turn a readable list into a grid of 9pt figures.
+
+   All of it is print-only. The screen keeps every section and every
+   column, so nothing anybody works with day to day moves.
+
+   (The totals used to be reflowed here into two rows of five rather
+   than hidden. That rule went with them.)
+   --------------------------------------------------------------------- */
 @media print {
-  .employee-report-totals {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    overflow: visible;
-    break-inside: avoid;
+  .employee-report-totals,
+  .employee-report-day-counts {
+    display: none !important;
   }
-  .employee-report-totals .truncate {
-    overflow: visible;
-    white-space: normal;
-    text-overflow: clip;
-    overflow-wrap: anywhere;
+
+  /* Leave balances had the right-hand half of a two-card row. With the
+     day-counts card gone it is the only one left, so it takes the width
+     rather than printing as a half-page table with a blank beside it. */
+  .employee-report-cards {
+    display: block !important;
+  }
+
+  /* Date and Attendance. The other seven columns -- late, transport,
+     added, clock in, clock out, worked, note -- stay on screen and come
+     off the page. Hidden by position because the table is built from a
+     plain list of Th/Td with nothing to hang a class on, and the two
+     that are kept are the first two in it. */
+  .employee-report-records th:nth-child(n + 3),
+  .employee-report-records td:nth-child(n + 3) {
+    display: none !important;
+  }
+  /* Two columns left of a table that was laid out for nine: the date
+     wants no more than it needs and the rest goes to what was recorded. */
+  .employee-report-records th:nth-child(1),
+  .employee-report-records td:nth-child(1) {
+    width: 30%;
   }
 }
 

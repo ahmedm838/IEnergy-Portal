@@ -387,8 +387,8 @@ export default function EmployeeReport() {
             />
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            <Card>
+          <div className="employee-report-cards grid gap-5 lg:grid-cols-2">
+            <Card className="employee-report-day-counts">
               <CardHeader title="Days by type" subtitle="Most frequent first" />
               {summary.day_counts.length === 0 ? (
                 <EmptyState title="No attendance recorded in this period" />
