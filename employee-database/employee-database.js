@@ -9,7 +9,7 @@
      and the reports cannot disagree about them.
 */
 import { createClient } from '../vendor/supabase-js-2.45.4.js'
-import { buildEmployeeWorkbook } from './export-workbook.mjs?v=1'
+import { buildEmployeeWorkbook } from './export-workbook.mjs?v=2'
 
 const SUPABASE_URL = 'https://ednaedkurjsgvjrvayys.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkbmFlZGt1cmpzZ3ZqcnZheXlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5ODIzNzYsImV4cCI6MjEwNzU1ODM3Nn0.VvBg4YtwZsjmgmTxbf3vin3Oq_WyNTeioz6m-FRQLzA'

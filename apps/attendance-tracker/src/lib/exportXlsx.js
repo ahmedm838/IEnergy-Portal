@@ -110,6 +110,90 @@ async function download(workbook, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+
+/* A real Excel table: banded rows, filter buttons, and a range that
+   grows when somebody types under it.
+
+   A table is stricter than a styled range. Excel requires every column
+   name to be present and unique, and refuses to open the file at all if
+   they are not -- it reports unreadable content and offers to repair,
+   which loses the sheet. The columns here are built from report code
+   that changes often, so rather than trusting that it will always be
+   right, this checks, and falls back to the plain styled header when it
+   is not. A sheet that looks a little duller is worth more than one
+   that will not open.
+
+   Zero rows falls back too: an empty table is legal but opens with a
+   phantom blank row inside the border, which reads as a missing record
+   rather than an empty report. */
+function tableIsSafe(columns, rows) {
+  if (!rows.length) return false
+  const names = columns.map((c) => String(c.header ?? "").trim())
+  if (names.some((n) => !n)) return false
+  return new Set(names).size === names.length
+}
+
+/* Excel table names are an identifier, not a label: letters, digits and
+   underscores, never starting with a digit, and unique in the workbook.
+   The name is not shown to anybody, so anything legal will do. */
+function tableName(sheetName, index) {
+  const base = String(sheetName || "Report").replace(/[^A-Za-z0-9]/g, "") || "Report"
+  return `tbl${base}${index}`
+}
+
+function writeTable(sheet, { startRow, columns, rows, name }) {
+  const values = rows.map((data) => columns.map((c) => data[c.key] ?? ""))
+
+  if (!tableIsSafe(columns, rows)) {
+    const headerRow = sheet.getRow(startRow)
+    columns.forEach((c, i) => { headerRow.getCell(i + 1).value = c.header })
+    styleHeaderRow(headerRow)
+    headerRow.commit()
+    values.forEach((line) => {
+      const row = sheet.getRow(sheet.rowCount + 1)
+      line.forEach((v, i) => { row.getCell(i + 1).value = v })
+      row.commit()
+    })
+    if (rows.length) {
+      sheet.autoFilter = {
+        from: { row: startRow, column: 1 },
+        to: { row: startRow, column: columns.length },
+      }
+    }
+  } else {
+    sheet.addTable({
+      name,
+      ref: `A${startRow}`,
+      headerRow: true,
+      style: {
+        // Medium 2 is the blue banded style, which is close to the navy
+        // header these sheets already used.
+        theme: "TableStyleMedium2",
+        showRowStripes: true,
+        showFirstColumn: false,
+        showLastColumn: false,
+      },
+      columns: columns.map((c) => ({ name: String(c.header), filterButton: true })),
+      rows: values,
+    })
+    // No autoFilter beside it: the table carries its own filter buttons,
+    // and a sheet-level filter over the same range fights with them.
+    sheet.autoFilter = undefined
+  }
+
+  /* Number formats and right-to-left alignment go on afterwards either
+     way. addTable writes the values but takes no formatting, so this is
+     the only place the currency columns and the Arabic ones get their
+     treatment. */
+  for (let r = 0; r < rows.length; r++) {
+    const row = sheet.getRow(startRow + 1 + r)
+    columns.forEach((c, i) => {
+      const cell = row.getCell(i + 1)
+      if (c.numFmt) cell.numFmt = c.numFmt
+      if (c.arabic) cell.alignment = { horizontal: "right", readingOrder: "rtl" }
+    })
+  }
+}
 /**
  * Generic sheet writer.
  * @param {{title: string, subtitle?: string, meta?: Array<[string, any]>,
@@ -136,33 +220,17 @@ export async function exportSheet(spec, filename) {
   sheet.addRow([])
 
   const headerRowIndex = sheet.rowCount + 1
-  sheet.columns = spec.columns.map((c) => ({ key: c.key, width: 14 }))
 
-  const headerRow = sheet.getRow(headerRowIndex)
-  spec.columns.forEach((c, i) => {
-    headerRow.getCell(i + 1).value = c.header
-  })
-  styleHeaderRow(headerRow)
-  headerRow.commit()
-
-  spec.rows.forEach((data) => {
-    const row = sheet.getRow(sheet.rowCount + 1)
-    spec.columns.forEach((c, i) => {
-      const cell = row.getCell(i + 1)
-      cell.value = data[c.key] ?? (typeof data[c.key] === 'number' ? 0 : '')
-      if (c.numFmt) cell.numFmt = c.numFmt
-      if (c.arabic) cell.alignment = { horizontal: 'right', readingOrder: 'rtl' }
-    })
-    row.commit()
+  writeTable(sheet, {
+    startRow: headerRowIndex,
+    columns: spec.columns,
+    rows: spec.rows,
+    name: tableName(spec.sheetName, 1),
   })
 
   // No frozen pane: exported sheets open plain, so they can be sorted,
   // filtered and copied without a split getting in the way.
   sheet.views = [{ state: 'normal' }]
-  sheet.autoFilter = {
-    from: { row: headerRowIndex, column: 1 },
-    to: { row: headerRowIndex, column: spec.columns.length },
-  }
   autoFit(sheet, spec.columns)
 
   await download(workbook, filename)
@@ -190,19 +258,12 @@ export async function exportEmployeeReport({ employee, from, to, summary, column
   sheet.addRow([])
 
   const headerRowIndex = sheet.rowCount + 1
-  const headerRow = sheet.getRow(headerRowIndex)
-  columns.forEach((c, i) => {
-    headerRow.getCell(i + 1).value = c.header
-  })
-  styleHeaderRow(headerRow)
 
-  rows.forEach((data) => {
-    const row = sheet.getRow(sheet.rowCount + 1)
-    columns.forEach((c, i) => {
-      const cell = row.getCell(i + 1)
-      cell.value = data[c.key] ?? ''
-      if (c.numFmt) cell.numFmt = c.numFmt
-    })
+  writeTable(sheet, {
+    startRow: headerRowIndex,
+    columns,
+    rows,
+    name: tableName('EmployeeReport', 1),
   })
 
   sheet.views = [{ state: 'normal' }]
