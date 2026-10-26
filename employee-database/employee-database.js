@@ -152,8 +152,8 @@ const GROUPS = [
     title: 'Employment',
     // Six, so both rows land where they were asked to: the job title
     // spans two of them, which fills the first row exactly with site,
-    // department, hiring date and renewals, and leaves the second for
-    // weekend, bus route, status and the two leave balances.
+    // department, sector and weekend, and leaves the second for the bus
+    // route, the two dates, the two leave balances and the status.
     columns: 6,
     fields: [
       // Double width. db-field-half is the existing span-2 class; the
@@ -161,10 +161,31 @@ const GROUPS = [
       { key: 'title', label: 'Job title', type: 'text', placeholder: 'English only', half: true },
       { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
       { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
-      { key: 'hired_on', label: 'Hiring date', type: 'date' },
-      { key: 'renewals', label: 'Renewals', type: 'number', min: 0, max: 50, step: 1 },
+      /* Read out, never filled in.
+
+         An employee has no sector of their own: the sector belongs to
+         the department, so this follows whatever department is chosen
+         beside it and changes with it. Nothing is written back -- the
+         employees row has no sector column, and adding one would be a
+         second place for the same fact to live and go stale. derived
+         keeps it out of WRITABLE, out of the required check and out of
+         validation; it is a label, not a field. */
+      {
+        key: 'sector',
+        label: 'Sector',
+        type: 'output',
+        derived: true,
+        from: (employee) => sectorOf(employee?.department_id),
+      },
       { key: 'weekend', label: 'Weekend', type: 'select', options: [['fri_sat', 'Friday + Saturday'], ['fri', 'Friday only']] },
       { key: 'bus_route_id', label: 'Bus route', type: 'select', source: 'busRoutes', noBlank: true },
+      { key: 'hired_on', label: 'Hiring date', type: 'date' },
+      { key: 'renewals', label: 'Renewals', type: 'number', min: 0, max: 50, step: 1 },
+      // Were a section of their own. They belong to the employment terms
+      // as much as the weekend does, and on their own they made a band
+      // two fields wide across the whole form.
+      { key: 'annual_leave_balance', label: 'Annual leave (days)', type: 'number' },
+      { key: 'unplanned_leave_balance', label: 'Un-planned leave (days)', type: 'number' },
       // Last in the row, on the right. Status is the field people read
       // off a record rather than fill in while creating one, and it is
       // the one that changes on its own afterwards.
@@ -176,11 +197,6 @@ const GROUPS = [
       // employee already defaults to -- so nothing is reassigned by
       // this.
       { key: 'status_id', label: 'Status', type: 'select', source: 'statuses', noBlank: true },
-      // Were a section of their own. They belong to the employment terms
-      // as much as the weekend does, and on their own they made a band
-      // two fields wide across the whole form.
-      { key: 'annual_leave_balance', label: 'Annual leave (days)', type: 'number' },
-      { key: 'unplanned_leave_balance', label: 'Un-planned leave (days)', type: 'number' },
     ],
   },
   {
@@ -248,9 +264,19 @@ const OPTIONAL = new Set([
 
 const isRequired = (key) => !OPTIONAL.has(key)
 
+/**
+ * Every field that stands for a column, in form order.
+ *
+ * Derived fields are read off other columns and shown, never stored, so
+ * they are not written, not required and not validated. This is the list
+ * for all three of those; the form itself is built from GROUPS, which
+ * holds them as well.
+ */
+const EDITABLE = GROUPS.flatMap((g) => g.fields).filter((f) => !f.derived)
+
 /** Columns this page writes. Everything else on the row it leaves alone. */
 const WRITABLE = [
-  ...GROUPS.flatMap((g) => g.fields.map((f) => f.key)),
+  ...EDITABLE.map((f) => f.key),
   ...DOCUMENTS.map(([key]) => key),
   ...PAYROLL.map(([key]) => key),
 ]
@@ -306,9 +332,12 @@ $('signOutBtn').addEventListener('click', async () => {
 
 async function loadLookups() {
   const q = (table, select, order) => supabase.from(table).select(select).order(order)
-  const [sites, departments, statuses, degrees, busRoutes, govs] = await Promise.all([
+  const [sites, departments, sectors, statuses, degrees, busRoutes, govs] = await Promise.all([
     q('sites', 'id, name', 'sort_order'),
-    q('departments', 'id, name', 'sort_order'),
+    // sector_id rides along for the Sector box, which reads the sector
+    // off the chosen department rather than off the employee.
+    q('departments', 'id, name, sector_id', 'sort_order'),
+    q('sectors', 'id, name', 'sort_order'),
     q('employee_statuses', 'id, name', 'sort_order'),
     q('qualification_degrees', 'id, name_en, name_ar', 'sort_order'),
     q('bus_routes', 'id, name', 'sort_order'),
@@ -324,6 +353,14 @@ async function loadLookups() {
     ...lookups,
     sites: rows(sites).map((r) => [r.id, r.name]),
     departments: rows(departments).map((r) => [r.id, r.name]),
+    // department id -> sector name, which is what the Sector box shows.
+    // Built once here rather than joined again on every render.
+    departmentSector: (() => {
+      const byId = new Map(rows(sectors).map((s) => [s.id, s.name]))
+      return Object.fromEntries(
+        rows(departments).map((d) => [d.id, byId.get(d.sector_id) ?? null]),
+      )
+    })(),
     statuses: rows(statuses).map((r) => [r.id, r.name]),
     degrees: rows(degrees).map((r) => [r.id, `${r.name_en} — ${r.name_ar}`]),
     busRoutes: rows(busRoutes).map((r) => [r.id, r.name]),
@@ -344,6 +381,18 @@ function monthsAhead(n) {
   const lastOfTarget = new Date(Date.UTC(y, m + n + 1, 0)).getUTCDate()
   const when = new Date(Date.UTC(y, m + n, Math.min(d, lastOfTarget)))
   return when.toISOString().slice(0, 10)
+}
+
+/**
+ * The sector a department belongs to, by department id.
+ *
+ * Blank when no department is chosen yet; a dash when the department is
+ * one the lookup does not hold, which would mean the lists were fetched
+ * before this record was loaded rather than that the sector is missing.
+ */
+function sectorOf(departmentId) {
+  if (departmentId == null || departmentId === '') return ''
+  return lookups.departmentSector?.[Number(departmentId)] ?? '—'
 }
 
 // Share filters between the summary counts and their employee lists.
@@ -720,7 +769,9 @@ function fieldControl(field, value) {
   wrap.className = field.half ? 'db-field db-field-half' : 'db-field'
   const label = document.createElement('span')
   label.className = 'db-label'
-  label.textContent = field.label + (isRequired(field.key) ? ' *' : '')
+  // No star on a derived field: there is nothing to fill in, and the
+  // required check skips it for the same reason.
+  label.textContent = field.label + (!field.derived && isRequired(field.key) ? ' *' : '')
   wrap.appendChild(label)
 
   let input
@@ -748,6 +799,18 @@ function fieldControl(field, value) {
     // select -- would leave the box showing nothing at all. Fall to the
     // first option, which for the bus route is None.
     if (field.noBlank && !input.value && input.options.length) input.selectedIndex = 0
+  } else if (field.type === 'output') {
+    /* Something to read, shaped like the boxes beside it so the row
+       lines up. readOnly rather than disabled: disabled greys the text
+       to 60% and the point of this one is to be read. It is also not a
+       form control the page collects -- readForm walks WRITABLE, which
+       derived fields are not in -- so nothing it holds can be saved. */
+    input = document.createElement('input')
+    input.className = 'input db-output'
+    input.type = 'text'
+    input.readOnly = true
+    input.tabIndex = -1
+    input.value = field.from ? field.from(current) : (value ?? '')
   } else if (field.type === 'checkbox') {
     input = document.createElement('input')
     input.type = 'checkbox'
@@ -806,6 +869,14 @@ function fieldControl(field, value) {
   // typed rather than only refreshed on save.
   if (['national_id', 'hired_on', 'renewals', 'id_expiry_date'].includes(field.key)) {
     input.addEventListener('input', renderDerived)
+  }
+  // The sector follows the department, so it is rewritten as soon as a
+  // different one is chosen rather than only once on load.
+  if (field.key === 'department_id') {
+    input.addEventListener('change', () => {
+      const box = $('f_sector')
+      if (box) box.value = sectorOf(input.value)
+    })
   }
   if (field.key === 'si_code') {
     input.addEventListener('change', () => resolveSiTitle(input.value))
@@ -1583,7 +1654,7 @@ function validate(v) {
      rule arrived after these records did, and refusing to save somebody
      because a field nobody ever filled is still blank would make the
      page useless for the records it is meant to complete. */
-  for (const field of GROUPS.flatMap((g) => g.fields)) {
+  for (const field of EDITABLE) {
     if (!isRequired(field.key) || !blank(v[field.key])) continue
     if (!current?.id) {
       problems.push(`${field.label} is required.`)
@@ -1659,7 +1730,7 @@ function validate(v) {
     }
   }
 
-  for (const field of GROUPS.flatMap((g) => g.fields)) {
+  for (const field of EDITABLE) {
     if (field.type === 'date' && v[field.key] === BAD_DATE) {
       problems.push(`${field.label} is not a real date. Write it as dd-mmm-yyyy, for example 15-Jan-2026.`)
     }

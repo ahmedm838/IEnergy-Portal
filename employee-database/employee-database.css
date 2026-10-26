@@ -362,6 +362,18 @@
 .input:focus { border-color: var(--accent-line-strong); box-shadow: 0 0 0 3px var(--accent-ring); }
 .input:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* A box that is read, not filled in -- the sector, which comes from the
+   department. Same size and baseline as its neighbours so the row stays
+   level, with a flat field and no caret to say nothing here is typed. */
+.db-output {
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+  cursor: default;
+  user-select: none;
+}
+.db-output:focus { border-color: var(--line); box-shadow: none; }
+
 #f_renewals { -moz-appearance: textfield; appearance: textfield; }
 #f_renewals::-webkit-inner-spin-button,
 #f_renewals::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
