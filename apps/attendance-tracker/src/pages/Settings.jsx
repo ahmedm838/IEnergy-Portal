@@ -6,6 +6,7 @@ import LockedPeriods from '../components/LockedPeriods'
 import DepartmentsCard from '../components/DepartmentsCard'
 import AccessCard from '../components/AccessCard'
 import BusRoutesCard from '../components/BusRoutesCard'
+import ChangeLogCard from '../components/ChangeLogCard'
 import {
   Alert,
   Badge,
@@ -482,6 +483,11 @@ export default function Settings() {
       <BusRoutesCard lookups={lookups} readOnly={readOnly} />
 
       <AccessCard readOnly={readOnly} />
+
+      {/* Last, and not gated on readOnly: reading the log is exactly what
+          an admin who is not a super admin should be able to do, and the
+          policy on audit_log says so too. Nothing on this card writes. */}
+      <ChangeLogCard />
     </div>
   )
 }

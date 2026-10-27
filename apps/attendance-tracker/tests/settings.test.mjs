@@ -25,7 +25,7 @@ function setup(superAdmin = true) {
     supabase: { from: table => { assert.equal(table, 'sites'); return query } },
     run: async () => { if (pending) await pending; if (failure) throw Error(failure); return { id: 7 } },
   }
-  for (const name of ['LockedPeriods', 'DepartmentsCard', 'AccessCard', 'BusRoutesCard', 'Alert', 'Badge', 'Button', 'Card', 'CardHeader', 'Checkbox', 'Field', 'Input', 'Spinner', 'Td', 'Th']) mocks[name] = name
+  for (const name of ['LockedPeriods', 'DepartmentsCard', 'AccessCard', 'BusRoutesCard', 'ChangeLogCard', 'Alert', 'Badge', 'Button', 'Card', 'CardHeader', 'Checkbox', 'Field', 'Input', 'Spinner', 'Td', 'Th']) mocks[name] = name
   const Settings = new Function(...Object.keys(mocks), code + '\nreturn Settings')( ...Object.values(mocks))
   function render() { cursor = 0; return Settings() }
   function nodes(tree) {
