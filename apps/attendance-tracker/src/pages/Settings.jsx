@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useLookups } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
-import { absenceDeduction } from '../lib/calc'
 import LockedPeriods from '../components/LockedPeriods'
 import DepartmentsCard from '../components/DepartmentsCard'
 import AccessCard from '../components/AccessCard'
@@ -34,6 +33,47 @@ export default function Settings() {
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [editingType, setEditingType] = useState(null)
+  const [editingSite, setEditingSite] = useState(null)
+  const [newSiteName, setNewSiteName] = useState('')
+  const [siteBusy, setSiteBusy] = useState(false)
+
+  async function saveSite(event, site = null) {
+    event.preventDefault()
+    if (readOnly || siteBusy) return
+    setError(null)
+    setNotice(null)
+    const name = (site ? site.name : newSiteName).trim()
+    if (!name) {
+      setError('Enter a site name.')
+      return
+    }
+    if (lookups.sites?.some((s) => s.id !== site?.id && s.name.toLowerCase() === name.toLowerCase())) {
+      setError('A site with that name already exists.')
+      return
+    }
+    setSiteBusy(true)
+    try {
+      // Change only the label; employee assignments keep the same site ID.
+      const query = site
+        ? supabase.from('sites').update({ name }).eq('id', site.id)
+        : supabase.from('sites').insert({
+            name,
+            available: true,
+            sort_order: Math.max(0, ...(lookups.sites ?? []).map((s) => s.sort_order ?? 0)) + 1,
+          })
+      await run(query.select('id').single())
+      if (site) setEditingSite(null)
+      else setNewSiteName('')
+      setNotice(site ? `Renamed site to "${name}".` : `Added site "${name}".`)
+      await lookups.reload()
+    } catch (err) {
+      setError(err.message.includes('duplicate key')
+        ? 'A site with that name already exists.'
+        : err.message)
+    } finally {
+      setSiteBusy(false)
+    }
+  }
 
   async function saveType(form) {
     setError(null)
@@ -108,12 +148,17 @@ export default function Settings() {
   }
 
   async function toggleSiteAvailable(site) {
+    if (readOnly || siteBusy) return
+    setSiteBusy(true)
+    setNotice(null)
     setError(null)
     try {
-      await run(supabase.from('sites').update({ available: !site.available }).eq('id', site.id))
-      lookups.reload()
+      await run(supabase.from('sites').update({ available: !site.available }).eq('id', site.id).select('id').single())
+      await lookups.reload()
     } catch (err) {
       setError(err.message)
+    } finally {
+      setSiteBusy(false)
     }
   }
 
@@ -339,12 +384,35 @@ export default function Settings() {
             <tbody className="divide-y divide-line">
               {lookups.sites?.map((s) => (
                 <tr key={s.id}>
-                  <Td className="font-medium text-ink">{s.name}</Td>
+                  <Td className="font-medium text-ink">
+                    {editingSite?.id === s.id && !readOnly ? (
+                      <form className="flex flex-wrap gap-2" onSubmit={(event) => saveSite(event, editingSite)}>
+                        <Input
+                          aria-label="Site name"
+                          value={editingSite.name}
+                          disabled={siteBusy}
+                          autoFocus
+                          onChange={(event) => setEditingSite({ ...editingSite, name: event.target.value })}
+                        />
+                        <Button type="submit" size="sm" disabled={siteBusy || !editingSite.name.trim()}>Save</Button>
+                        <Button type="button" variant="ghost" size="sm" disabled={siteBusy} onClick={() => setEditingSite(null)}>Cancel</Button>
+                      </form>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{s.name}</span>
+                        {!readOnly && (
+                          <Button variant="ghost" size="sm" disabled={siteBusy} onClick={() => setEditingSite({ id: s.id, name: s.name })}>
+                            Rename
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </Td>
                   <Td className="text-right">
                     <Checkbox
                       label={s.available ? 'Available' : 'Unavailable'}
                       checked={s.available}
-                      disabled={readOnly}
+                      disabled={readOnly || siteBusy}
                       onChange={() => toggleSiteAvailable(s)}
                     />
                   </Td>
@@ -352,6 +420,14 @@ export default function Settings() {
               ))}
             </tbody>
           </table>
+          {!readOnly && (
+            <form className="flex flex-wrap items-end gap-2 p-5" onSubmit={saveSite}>
+              <Field label="New site name" className="min-w-0 flex-1">
+                <Input value={newSiteName} disabled={siteBusy} onChange={(event) => setNewSiteName(event.target.value)} />
+              </Field>
+              <Button type="submit" size="sm" disabled={siteBusy || !newSiteName.trim()}>Add site</Button>
+            </form>
+          )}
         </Card>
 
         <Card>
@@ -400,52 +476,6 @@ export default function Settings() {
           </p>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader
-          title="Absence penalty scale"
-          subtitle="Cumulative per employee per calendar year, reset every 1 January."
-        />
-        <div className="grid gap-4 p-5 sm:grid-cols-2">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line">
-                <Th>Absences in the year</Th>
-                <Th className="text-right">Total deduction</Th>
-                <Th className="text-right">This absence costs</Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                <tr key={n}>
-                  <Td>{n}</Td>
-                  <Td className="tabular text-right font-semibold">
-                    {absenceDeduction(n).toFixed(2)} days
-                  </Td>
-                  <Td className="tabular text-right text-ink-3">
-                    +{(absenceDeduction(n) - absenceDeduction(n - 1)).toFixed(2)}
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="text-sm text-ink-2">
-            <p className="font-medium text-ink">How it is applied</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-2">
-              <li>Only the Absent Day (غياب) type counts.</li>
-              <li>
-                Approved leave, holidays and weekly rest are excluded, because they carry a
-                different balance effect.
-              </li>
-              <li>
-                A payroll period is charged the <em>increment</em> on the scale, so an employee&rsquo;s
-                fourth absence of the year costs 3.00 days even if it is their first that month.
-              </li>
-              <li>Deleting or changing an absence recalculates the penalty automatically.</li>
-            </ul>
-          </div>
-        </div>
-      </Card>
 
       <DepartmentsCard lookups={lookups} readOnly={readOnly} />
 
