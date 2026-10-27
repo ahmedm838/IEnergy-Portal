@@ -150,6 +150,74 @@ body {
   box-shadow: inset 0 -1px 0 var(--line);
 }
 
+/* ---------------------------------------------------------------------
+   Code and Name stay put while the rest of a wide report scrolls sideways.
+
+   The monthly report is sixteen columns before the detailed view adds ten
+   more, and the hours report is fourteen. Scrolling right to read a
+   figure took the two columns that say whose figure it is off the left
+   edge, which is the one thing a row cannot be read without.
+
+   How the two offsets stay in step: the first column is pinned to an
+   exact width and the second is pushed right by that same width, both
+   from --frozen-code-w, so there is one number to change rather than two
+   to keep equal. Six-digit codes are the whole content of column one --
+   the band is 200000 to 299999 -- so the width is a known quantity, not
+   a guess.
+
+   A sticky cell is transparent by default and the scrolling columns
+   would slide under it, so these carry the panel colour, and the row
+   hover is restated on them: a background set here would otherwise win
+   over the row's and leave the first two cells unhighlighted while the
+   rest of the row lit up.
+
+   Stacking: the sticky header is z-index 2, so a frozen body cell takes
+   1 to pass under it and the frozen header cells take 3 to stay above
+   both. Without the last of those, the two corner cells scroll under
+   their own header.
+   --------------------------------------------------------------------- */
+.frozen-id-cols {
+  --frozen-code-w: 5.5rem;
+}
+.frozen-id-cols thead th:nth-child(1),
+.frozen-id-cols thead th:nth-child(2),
+.frozen-id-cols tbody td:nth-child(1),
+.frozen-id-cols tbody td:nth-child(2) {
+  position: sticky;
+  background: var(--panel);
+}
+.frozen-id-cols thead th:nth-child(1),
+.frozen-id-cols tbody td:nth-child(1) {
+  left: 0;
+  width: var(--frozen-code-w);
+  min-width: var(--frozen-code-w);
+}
+.frozen-id-cols thead th:nth-child(2),
+.frozen-id-cols tbody td:nth-child(2) {
+  left: var(--frozen-code-w);
+  /* The edge of the frozen pair, so it reads as a boundary rather than
+     as two columns that happen to have stopped moving. */
+  box-shadow: inset -1px 0 0 var(--line);
+}
+.frozen-id-cols tbody td:nth-child(1),
+.frozen-id-cols tbody td:nth-child(2) { z-index: 1; }
+.frozen-id-cols thead th:nth-child(1),
+.frozen-id-cols thead th:nth-child(2) { z-index: 3; }
+.frozen-id-cols tbody tr:hover > td:nth-child(1),
+.frozen-id-cols tbody tr:hover > td:nth-child(2) { background: var(--hover); }
+
+/* Paper does not scroll. Pinning columns on it only risks them printing
+   over what they were pinned above. */
+@media print {
+  .frozen-id-cols thead th:nth-child(1),
+  .frozen-id-cols thead th:nth-child(2),
+  .frozen-id-cols tbody td:nth-child(1),
+  .frozen-id-cols tbody td:nth-child(2) {
+    position: static;
+    box-shadow: none;
+  }
+}
+
 .tabular {
   font-variant-numeric: tabular-nums;
 }

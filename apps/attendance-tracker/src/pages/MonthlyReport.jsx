@@ -120,8 +120,11 @@ export default function MonthlyReport() {
 
   const columns = useMemo(
     () => [
-      { header: 'Name', key: 'name' },
+      // Code first: it is what payroll matches a row on, and it is the
+      // pair's anchor on screen -- the two are frozen against the left
+      // edge, and the narrow fixed-width one belongs on the outside.
       { header: 'Code', key: 'code', numFmt: '0' },
+      { header: 'Name', key: 'name' },
       { header: 'S.I. No.', key: 'si_no' },
       { header: 'Title', key: 'title' },
       { header: 'Site', key: 'site' },
@@ -357,7 +360,7 @@ export default function MonthlyReport() {
           </EmptyState>
         ) : (
           <div className="max-h-[70vh] overflow-auto">
-            <table className="sticky-head w-full border-collapse">
+            <table className="sticky-head frozen-id-cols w-full border-collapse">
               <thead>
                 <tr>
                   {columns.map((c) => (
@@ -373,8 +376,8 @@ export default function MonthlyReport() {
               <tbody className="divide-y divide-line">
                 {visibleRows.map((r) => (
                   <tr key={r.employee_id} className="hover:bg-hover">
-                    <Td className="font-medium text-ink">{r.name}</Td>
                     <Td className="tabular text-right">{r.code}</Td>
+                    <Td className="font-medium text-ink">{r.name}</Td>
                     <Td>{r.si_no}</Td>
                     <Td>{r.title}</Td>
                     <Td>{r.site}</Td>

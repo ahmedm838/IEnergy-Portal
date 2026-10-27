@@ -241,7 +241,7 @@ export default function HoursReport() {
           </EmptyState>
         ) : (
           <div className="max-h-[70vh] overflow-auto">
-            <table className="sticky-head w-full border-collapse">
+            <table className="sticky-head frozen-id-cols w-full border-collapse">
               <thead>
                 <tr>
                   {columns.map((c) => (
