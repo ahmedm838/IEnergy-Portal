@@ -63,6 +63,7 @@ export default function Attendance() {
   const [employeeId, setEmployeeId] = useState('')
   const [range, setRange] = useState(() => payrollPeriod())
   const [rows, setRows] = useState({})
+  const [savedDays, setSavedDays] = useState(() => new Set())
   const [dirty, setDirty] = useState(() => new Set())
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -131,6 +132,10 @@ export default function Attendance() {
         }
       }
       setRows(next)
+      // Which days exist in the database, as opposed to being blank rows
+      // the grid draws for every date in the period. Clearing a day is a
+      // delete, and only these have anything to delete.
+      setSavedDays(new Set(Object.keys(next)))
       setDirty(new Set())
     } catch (err) {
       setError(err.message)
@@ -164,13 +169,23 @@ export default function Attendance() {
           const type = patch.attendance_type_id
             ? lookups.typeById?.get(patch.attendance_type_id)
             : null
-          if (type && !type.is_working_day) {
+          /* No type at all clears the day as well, and for a stronger
+             reason than a non-worked one: there is no day here to be
+             late for or travel to. Leaving the figures behind would mean
+             a row showing a transport allowance against nothing, and on
+             save the day is removed outright -- so they would be numbers
+             waiting to be deleted without anybody being told. */
+          if (!patch.attendance_type_id || (type && !type.is_working_day)) {
             next.late_minutes = 0
             next.transport = ''
             next.add_to_leave_balance = false
             next.clock_in = ''
             next.clock_out = ''
           }
+          // The note goes only when the day itself goes. On a non-worked
+          // day "called in sick" belongs more than anywhere else; on no
+          // day at all it belongs nowhere.
+          if (!patch.attendance_type_id) next.note = ''
         }
 
         return { ...current, [iso]: next }
@@ -229,6 +244,28 @@ export default function Attendance() {
     setError(null)
     setNotice(null)
     try {
+      /* Days set back to no type, which were saved before.
+
+         Without this, choosing "—" looked like clearing the day and did
+         nothing at all: the row below drops anything without a type, so
+         the record stayed in the database exactly as it was while the
+         screen showed it empty. No type has to mean the day is removed,
+         or the option is a lie.
+
+         Only days that were actually saved are listed. A blank day
+         somebody clicked into and back out of has nothing to delete, and
+         asking the database to remove it would be a write for nothing.
+         Locked and future days are skipped here for the same reason they
+         are skipped below -- the database refuses them, and one refusal
+         takes the whole statement down. */
+      const toClear = [...dirty].filter(
+        (iso) =>
+          !rows[iso]?.attendance_type_id &&
+          savedDays.has(iso) &&
+          !locks.isLocked(iso) &&
+          !isFutureDay(iso),
+      )
+
       const payload = [...dirty]
         .map((iso) => {
           const row = rows[iso]
@@ -256,14 +293,36 @@ export default function Attendance() {
         })
         .filter(Boolean)
 
-      if (payload.length === 0) {
+      if (payload.length === 0 && toClear.length === 0) {
         setError('Nothing to save — every changed day still needs an attendance type.')
         setSaving(false)
         return
       }
 
-      const saved = await run(supabase.rpc('save_attendance_rows', { p_rows: payload }))
-      setNotice(`Saved ${saved} day${saved === 1 ? '' : 's'}.`)
+      // Removals first. If the save that follows fails, the days meant to
+      // be cleared are gone and the rest is untouched, which reloads into
+      // a screen that matches the database; doing it the other way round
+      // leaves saved days and uncleared ones in the same failed attempt.
+      if (toClear.length > 0) {
+        await run(
+          supabase
+            .from('attendance_records')
+            .delete()
+            .eq('employee_id', employeeId)
+            .in('work_date', toClear),
+        )
+      }
+
+      const saved = payload.length
+        ? await run(supabase.rpc('save_attendance_rows', { p_rows: payload }))
+        : 0
+
+      const parts = []
+      if (saved) parts.push(`Saved ${saved} day${saved === 1 ? '' : 's'}`)
+      if (toClear.length) {
+        parts.push(`cleared ${toClear.length} day${toClear.length === 1 ? '' : 's'}`)
+      }
+      setNotice(`${parts.join(', ')}.`)
       await loadRecords()
     } catch (err) {
       setError(err.message)
@@ -519,12 +578,17 @@ function DayRow({ iso, row, types, typeById, isDirty, lock, readOnly, isRest, fu
      is the same flag the Employee Report's Attended / Not attended
      filter uses, so the two cannot drift apart. */
   const notAttended = !!type && !type.is_working_day
-  const detailsLocked = locked || notAttended
+  // No type is no day: nothing to be late for, travel to, or clock. The
+  // fields are cleared when it is chosen and stay shut until a type is.
+  const noType = !row.attendance_type_id
+  const detailsLocked = locked || notAttended || noType
   const detailTitle = locked
     ? undefined
-    : notAttended
-      ? `${type.name_en} is not a worked day`
-      : undefined
+    : noType
+      ? 'Choose an attendance type first'
+      : notAttended
+        ? `${type.name_en} is not a worked day`
+        : undefined
 
   const lockTitle = lock
     ? `${lockRangeLabel(lock)} is locked${lock.note ? ` — ${lock.note}` : ''}`
