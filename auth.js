@@ -295,8 +295,8 @@
      login() revokes the other sessions, which stops them refreshing.
      But an access token stays cryptographically valid until it expires,
      so without this the other device would carry on working for up to
-     an hour. This asks the server, once a minute, whether the session is
-     still there.
+     an hour. This asks the server, every seven minutes, whether the
+     session is still there.
 
      Only 401 and 403 count. Those are the server saying this session is
      gone. A dropped request, a 5xx, a tunnel going down -- none of those
@@ -304,10 +304,26 @@
      as if they did is how an admin ends up thrown out mid-form. The same
      distinction loadProfile draws, for the same reason.
 
-     One check per minute for the whole browser, not per tab: the time of
-     the last check is shared, so ten open tabs still make one request.
-     Hidden tabs skip it, since nobody is looking at them. */
-  const SESSION_CHECK_MS = 60 * 1000;
+     One check per interval for the whole browser, not per tab: the time
+     of the last check is shared, so ten open tabs still make one
+     request. Hidden tabs skip it, since nobody is looking at them.
+
+     WHY SEVEN MINUTES, not the one it was. This timer is the only thing
+     in the whole site that makes a request when nobody is doing
+     anything, so at a minute it was the largest single source of
+     requests against the Supabase quota: about 480 per person per day
+     for an answer that is almost always "still signed in". At seven it
+     is about 68 -- the same answer, a seventh of the asking.
+
+     What it costs is how long a revoked session keeps working on the
+     device it was revoked from: up to seven minutes rather than up to
+     one. Three things bound that. The same check runs the moment a
+     hidden tab is looked at again, so anybody actually using the other
+     device is caught at once. The ten-minute idle timeout is untouched
+     and still signs out an unattended tab. And the database decides
+     what that session may read or write regardless, so what is being
+     bounded here is a stale page, not an open door. */
+  const SESSION_CHECK_MS = 7 * 60 * 1000;
   const CHECK_KEY = 'ienergy-session-checked';
 
   function claimCheck() {
