@@ -16,10 +16,36 @@ import {
   Checkbox,
   Field,
   Input,
+  Select,
   Spinner,
   Td,
   Th,
 } from '../components/ui'
+
+/* The balance effect a type carries, and the words for it.
+
+   Offered when adding because it is the one thing about a type that
+   cannot be changed afterwards anywhere in this app -- the table shows
+   it as a badge and the edit row does not touch it. A leave type created
+   without its effect would look right and quietly fail to come off
+   anybody's balance. */
+const EFFECTS = [
+  ['none', 'None — does not touch a balance'],
+  ['annual', 'Deducts annual leave'],
+  ['unplanned', 'Deducts un-planned leave'],
+  ['added_days', 'Deducts added days'],
+  ['deducted', 'Counted as deducted leave'],
+  ['absence', 'Unauthorised absence'],
+]
+
+const blankType = () => ({
+  name_en: '',
+  name_ar: '',
+  effect: 'none',
+  is_working_day: false,
+  is_active: true,
+  sort_order: '',
+})
 
 export default function Settings() {
   const lookups = useLookups()
@@ -37,6 +63,8 @@ export default function Settings() {
   const [editingSite, setEditingSite] = useState(null)
   const [newSiteName, setNewSiteName] = useState('')
   const [siteBusy, setSiteBusy] = useState(false)
+  const [newType, setNewType] = useState(blankType)
+  const [typeBusy, setTypeBusy] = useState(false)
 
   async function saveSite(event, site = null) {
     event.preventDefault()
@@ -130,6 +158,121 @@ export default function Settings() {
       lookups.reload()
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  /* Availability is is_active. A type that is not available is not
+     offered when recording a day, and stays everywhere else: on this
+     page, and behind every record already saved against it. Retiring a
+     type is not deleting it, and the days it was used on still have to
+     read back. */
+  async function toggleTypeAvailable(type) {
+    setError(null)
+    setNotice(null)
+    try {
+      await run(
+        supabase
+          .from('attendance_types')
+          .update({ is_active: !type.is_active })
+          .eq('id', type.id),
+      )
+      setNotice(
+        type.is_active
+          ? `"${type.name_en}" is no longer offered when recording. Days already recorded with it are unchanged.`
+          : `"${type.name_en}" can be used when recording again.`,
+      )
+      lookups.reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  /* The order everybody sees them in, on the Attendance page's dropdown
+     and everywhere else that lists types. Saved on leaving the box
+     rather than on every keystroke, so typing 12 is not three writes. */
+  async function saveTypeOrder(type, value) {
+    const order = Number(value)
+    if (!Number.isFinite(order) || order === type.sort_order) return
+    setError(null)
+    setNotice(null)
+    try {
+      await run(
+        supabase
+          .from('attendance_types')
+          .update({ sort_order: Math.trunc(order) })
+          .eq('id', type.id),
+      )
+      lookups.reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  /**
+   * A code for a new type, from its English name.
+   *
+   * code is the stable identifier the app matches on -- the Attendance
+   * page's bulk fill looks up 'paid_day', the reports test 'weekly_rest',
+   * 'holiday' and 'no_status' -- which is why it cannot be edited
+   * afterwards. Deriving it rather than asking for it keeps people out of
+   * a field where a typo is permanent, and the suffix makes certain a new
+   * type never lands on a code something already depends on.
+   */
+  function codeFor(nameEn, taken) {
+    const base =
+      nameEn
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 40) || 'type'
+    let code = base
+    for (let n = 2; taken.has(code); n++) code = `${base}_${n}`
+    return code
+  }
+
+  async function addType(event) {
+    event.preventDefault()
+    if (readOnly || typeBusy) return
+    setError(null)
+    setNotice(null)
+    const nameEn = newType.name_en.trim()
+    const nameAr = newType.name_ar.trim()
+    if (!nameEn || !nameAr) {
+      setError('A new attendance type needs both an English and an Arabic name.')
+      return
+    }
+    const all = lookups.allTypes ?? []
+    if (all.some((t) => t.name_en.toLowerCase() === nameEn.toLowerCase())) {
+      setError(`There is already an attendance type called "${nameEn}".`)
+      return
+    }
+    setTypeBusy(true)
+    try {
+      await run(
+        supabase.from('attendance_types').insert({
+          code: codeFor(nameEn, new Set(all.map((t) => t.code))),
+          name_en: nameEn,
+          name_ar: nameAr,
+          effect: newType.effect,
+          is_working_day: newType.is_working_day,
+          is_active: newType.is_active,
+          // Last in the list unless given a place, which is where a new
+          // one belongs until somebody decides otherwise.
+          sort_order:
+            newType.sort_order === ''
+              ? Math.max(0, ...all.map((t) => t.sort_order ?? 0)) + 1
+              : Math.trunc(Number(newType.sort_order)),
+        }),
+      )
+      setNewType(blankType())
+      setNotice(
+        `Added "${nameEn}". Meal, extra and added hours start at zero — use Edit to set them.`,
+      )
+      lookups.reload()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setTypeBusy(false)
     }
   }
 
@@ -305,6 +448,9 @@ export default function Settings() {
           <table className="sticky-head w-full border-collapse">
             <thead>
               <tr>
+                <Th className="text-right" title="The order these appear in when recording">
+                  Order
+                </Th>
                 <Th>Status</Th>
                 <Th>الحالة</Th>
                 <Th className="text-right">Meal ×</Th>
@@ -315,11 +461,19 @@ export default function Settings() {
                 <Th className="text-center" title="Counts toward required hours">
                   Required hrs
                 </Th>
+                <Th
+                  className="text-center"
+                  title="Offered when recording attendance. Unticking hides it from the list without touching days already recorded."
+                >
+                  Available
+                </Th>
                 <Th className="sticky right-0 bg-panel text-right">Edit</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {lookups.types?.map((t) =>
+              {/* allTypes, not types: this is the page that decides what
+                  is available, so it has to show what is not. */}
+              {lookups.allTypes?.map((t) =>
                 editingType?.id === t.id ? (
                   <TypeEditRow
                     key={t.id}
@@ -329,7 +483,22 @@ export default function Settings() {
                     onSave={() => saveType(editingType)}
                   />
                 ) : (
-                <tr key={t.id} className="hover:bg-hover">
+                <tr key={t.id} className={`hover:bg-hover ${t.is_active ? '' : 'opacity-60'}`}>
+                  <Td className="text-right">
+                    {/* Uncontrolled, keyed on the value: it is remounted
+                        when the saved order changes, so the box never
+                        shows a number the database disagrees with. */}
+                    <Input
+                      key={`${t.id}:${t.sort_order}`}
+                      type="number"
+                      step="1"
+                      defaultValue={t.sort_order}
+                      disabled={readOnly}
+                      onBlur={(e) => saveTypeOrder(t, e.target.value)}
+                      className="w-16 py-1.5 text-right text-sm"
+                      aria-label={`Order for ${t.name_en}`}
+                    />
+                  </Td>
                   <Td className="font-medium text-ink" title={`code: ${t.code}`}>{t.name_en}</Td>
                   <Td className="arabic">{t.name_ar}</Td>
                   <Td className="tabular text-right">{t.meal_multiplier}</Td>
@@ -359,6 +528,16 @@ export default function Settings() {
                       disabled={readOnly}
                       onChange={() => toggleWorkingDay(t)}
                       label=""
+                      aria-label={`Counts toward required hours: ${t.name_en}`}
+                    />
+                  </Td>
+                  <Td className="text-center">
+                    <Checkbox
+                      checked={t.is_active}
+                      disabled={readOnly}
+                      onChange={() => toggleTypeAvailable(t)}
+                      label=""
+                      aria-label={`Available when recording: ${t.name_en}`}
                     />
                   </Td>
                   <Td className="sticky right-0 z-[1] bg-panel text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]">
@@ -376,6 +555,71 @@ export default function Settings() {
             </tbody>
           </table>
         </div>
+
+        {!readOnly && (
+          <form className="border-t border-line p-5" onSubmit={addType}>
+            <h3 className="mb-3 text-sm font-semibold text-ink">New attendance type</h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="English name">
+                <Input
+                  value={newType.name_en}
+                  onChange={(e) => setNewType((t) => ({ ...t, name_en: e.target.value }))}
+                  placeholder="e.g. Study leave"
+                />
+              </Field>
+              <Field label="Arabic name">
+                <Input
+                  className="arabic"
+                  dir="rtl"
+                  value={newType.name_ar}
+                  onChange={(e) => setNewType((t) => ({ ...t, name_ar: e.target.value }))}
+                />
+              </Field>
+              <Field
+                label="Balance effect"
+                hint="Cannot be changed afterwards."
+              >
+                <Select
+                  value={newType.effect}
+                  onChange={(e) => setNewType((t) => ({ ...t, effect: e.target.value }))}
+                >
+                  {EFFECTS.map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Order" hint="Left blank, it goes last.">
+                <Input
+                  type="number"
+                  step="1"
+                  value={newType.sort_order}
+                  onChange={(e) => setNewType((t) => ({ ...t, sort_order: e.target.value }))}
+                  placeholder="last"
+                />
+              </Field>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-5">
+              <Checkbox
+                label="Counts toward required hours"
+                checked={newType.is_working_day}
+                onChange={() => setNewType((t) => ({ ...t, is_working_day: !t.is_working_day }))}
+              />
+              <Checkbox
+                label="Available when recording"
+                checked={newType.is_active}
+                onChange={() => setNewType((t) => ({ ...t, is_active: !t.is_active }))}
+              />
+              <Button type="submit" size="sm" disabled={typeBusy}>
+                {typeBusy ? 'Adding…' : 'Add type'}
+              </Button>
+            </div>
+            <p className="mt-3 text-xs text-ink-4">
+              Meal ×, Extra and Added start at zero; set them with Edit once the type is in the
+              list. The code the app matches on is made from the English name and cannot be
+              changed, so a type is renamed freely but never re-coded.
+            </p>
+          </form>
+        )}
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -511,6 +755,9 @@ function TypeEditRow({ value, onChange, onCancel, onSave }) {
 
   return (
     <tr className="bg-tint-warning/60">
+      {/* Order and Available are changed in the row itself, not in here:
+          one tick, no Save. The cell is held so the columns line up. */}
+      <Td className="tabular text-right text-ink-4">{value.sort_order}</Td>
       <Td>
         <Input
           value={value.name_en}
@@ -544,6 +791,7 @@ function TypeEditRow({ value, onChange, onCancel, onSave }) {
         {previewOvertime.toFixed(2)}
       </Td>
       <Td className="text-xs text-ink-4">code: {value.code}</Td>
+      <Td />
       <Td />
       <Td className="sticky right-0 z-[1] bg-tint-warning text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]">
         <div className="flex justify-end gap-1">

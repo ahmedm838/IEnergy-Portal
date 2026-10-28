@@ -22,7 +22,7 @@ export function clearLookupsCache() {
 }
 
 async function fetchLookups() {
-  const [sites, sectors, departments, statuses, types, busRoutes, settings] = await Promise.all([
+  const [sites, sectors, departments, statuses, allTypes, busRoutes, settings] = await Promise.all([
     run(supabase.from('sites').select('*').order('sort_order')),
     run(supabase.from('sectors').select('*').order('sort_order')),
     run(
@@ -32,19 +32,40 @@ async function fetchLookups() {
         .order('sort_order'),
     ),
     run(supabase.from('employee_statuses').select('*').order('sort_order')),
-    run(
-      supabase
-        .from('attendance_types')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order'),
-    ),
+    /* Every type, available or not.
+
+       Availability means "not offered when recording a new day", not
+       "gone". Filtering it out of the query had two consequences that
+       only show up once somebody actually unticks one:
+
+         * Settings lists types from here, so an unavailable type would
+           disappear from the page that unticked it, and could only be
+           brought back with SQL.
+         * typeById is built from here, and the Attendance page resolves
+           every existing record through it. A day recorded last March
+           against a type retired since would have resolved to nothing.
+
+       So the whole table is fetched, and `types` below is the filtered
+       view of it. The split is in one named place rather than implied by
+       a query nobody reads. */
+    run(supabase.from('attendance_types').select('*').order('sort_order')),
     run(supabase.from('bus_routes').select('*').order('sort_order')),
     run(supabase.from('app_settings').select('*')),
   ])
 
   const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]))
-  return { sites, sectors, departments, statuses, types, busRoutes, settings: settingsMap }
+  return {
+    sites,
+    sectors,
+    departments,
+    statuses,
+    // What a picker offers.
+    types: allTypes.filter((t) => t.is_active),
+    // What a record can be read through, and what Settings manages.
+    allTypes,
+    busRoutes,
+    settings: settingsMap,
+  }
 }
 
 /**
@@ -93,9 +114,12 @@ export function useLookups() {
 
   const reload = useCallback(() => load({ force: true }), [load])
 
+  /* Built from every type, not only the available ones: this is how a
+     saved record is read back, and a record outlives the availability of
+     the type it was recorded against. */
   const typeById = useMemo(() => {
     const map = new Map()
-    for (const type of data?.types ?? []) map.set(type.id, type)
+    for (const type of data?.allTypes ?? []) map.set(type.id, type)
     return map
   }, [data])
 

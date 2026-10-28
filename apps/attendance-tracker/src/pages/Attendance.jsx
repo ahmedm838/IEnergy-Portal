@@ -186,11 +186,14 @@ export default function Attendance() {
     const type = lookups.types?.find((t) => t.code === typeCode)
     if (!type) {
       // Say so rather than appearing to work. These buttons match on the
-      // attendance type's code, so if one is renamed in the database the
-      // button would otherwise do nothing at all, with no clue why.
+      // attendance type's code, so without this they would do nothing at
+      // all with no clue why. Two things can cause it now -- the type
+      // being unticked under Available, or its code having changed -- so
+      // the message names both rather than only the second.
       setError(
-        `No attendance type with code "${typeCode}" exists, so this bulk fill did nothing. ` +
-          'Check Settings — the code is an internal identifier and must not be renamed.',
+        `No attendance type with code "${typeCode}" is available, so this bulk fill did nothing. ` +
+          'Check Settings: either it has been unticked under Available, or its code has ' +
+          'changed — the code is an internal identifier these buttons match on.',
       )
       return
     }

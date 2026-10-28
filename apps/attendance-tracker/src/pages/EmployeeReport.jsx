@@ -181,7 +181,7 @@ export default function EmployeeReport() {
           ? 'Not attended'
           : dayFilter === 'leave'
             ? 'Leave'
-            : (lookups.types?.find((t) => `type:${t.id}` === dayFilter)?.name_en ?? 'Filtered')
+            : (lookups.allTypes?.find((t) => `type:${t.id}` === dayFilter)?.name_en ?? 'Filtered')
 
   const employee = employees.find((e) => e.id === employeeId) || null
 
@@ -544,7 +544,10 @@ export default function EmployeeReport() {
                     onChange={(e) => setDayFilter(e.target.value || 'all')}
                   >
                     <option value="">Any type…</option>
-                    {lookups.types?.map((t) => (
+                    {/* allTypes: this filters days already recorded, and
+                        a type retired since is exactly the one somebody
+                        wants to look back for. */}
+                    {lookups.allTypes?.map((t) => (
                       <option key={t.id} value={`type:${t.id}`}>
                         {t.name_en}
                       </option>
