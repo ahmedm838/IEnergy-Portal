@@ -7,6 +7,8 @@ import DepartmentsCard from '../components/DepartmentsCard'
 import AccessCard from '../components/AccessCard'
 import BusRoutesCard from '../components/BusRoutesCard'
 import ChangeLogCard from '../components/ChangeLogCard'
+import SaveBar from '../components/SaveBar'
+import { usePendingEdits } from '../lib/usePendingEdits'
 import {
   Alert,
   Badge,
@@ -65,6 +67,7 @@ export default function Settings() {
   const [siteBusy, setSiteBusy] = useState(false)
   const [newType, setNewType] = useState(blankType)
   const [typeBusy, setTypeBusy] = useState(false)
+  const typeEdits = usePendingEdits()
 
   async function saveSite(event, site = null) {
     event.preventDefault()
@@ -161,50 +164,44 @@ export default function Settings() {
     }
   }
 
-  /* Availability is is_active. A type that is not available is not
-     offered when recording a day, and stays everywhere else: on this
-     page, and behind every record already saved against it. Retiring a
-     type is not deleting it, and the days it was used on still have to
-     read back. */
-  async function toggleTypeAvailable(type) {
+  /**
+   * Save the order, availability and required-hours ticks together.
+   *
+   * Availability is is_active: a type that is not available is not
+   * offered when recording a day, and stays everywhere else -- on this
+   * page, and behind every record already saved against it. Retiring a
+   * type is not deleting it, and the days it was used on still read back.
+   */
+  async function saveTypeEdits() {
+    const changes = typeEdits.pending(lookups.allTypes ?? [])
+    if (changes.length === 0) return
     setError(null)
     setNotice(null)
+    setTypeBusy(true)
     try {
-      await run(
-        supabase
-          .from('attendance_types')
-          .update({ is_active: !type.is_active })
-          .eq('id', type.id),
-      )
+      for (const { row, patch } of changes) {
+        const values = {}
+        if ('sort_order' in patch) {
+          const order = Number(patch.sort_order)
+          if (!Number.isFinite(order)) {
+            throw new Error(`"${row.name_en}" needs a whole number for its order.`)
+          }
+          values.sort_order = Math.trunc(order)
+        }
+        if ('is_active' in patch) values.is_active = patch.is_active
+        if ('is_working_day' in patch) values.is_working_day = patch.is_working_day
+        await run(supabase.from('attendance_types').update(values).eq('id', row.id))
+      }
+      typeEdits.discard()
       setNotice(
-        type.is_active
-          ? `"${type.name_en}" is no longer offered when recording. Days already recorded with it are unchanged.`
-          : `"${type.name_en}" can be used when recording again.`,
+        `Saved ${changes.length} attendance type${changes.length === 1 ? '' : 's'}. ` +
+          'Days already recorded are unchanged.',
       )
       lookups.reload()
     } catch (err) {
       setError(err.message)
-    }
-  }
-
-  /* The order everybody sees them in, on the Attendance page's dropdown
-     and everywhere else that lists types. Saved on leaving the box
-     rather than on every keystroke, so typing 12 is not three writes. */
-  async function saveTypeOrder(type, value) {
-    const order = Number(value)
-    if (!Number.isFinite(order) || order === type.sort_order) return
-    setError(null)
-    setNotice(null)
-    try {
-      await run(
-        supabase
-          .from('attendance_types')
-          .update({ sort_order: Math.trunc(order) })
-          .eq('id', type.id),
-      )
-      lookups.reload()
-    } catch (err) {
-      setError(err.message)
+    } finally {
+      setTypeBusy(false)
     }
   }
 
@@ -276,20 +273,6 @@ export default function Settings() {
     }
   }
 
-  async function toggleWorkingDay(type) {
-    setError(null)
-    try {
-      await run(
-        supabase
-          .from('attendance_types')
-          .update({ is_working_day: !type.is_working_day })
-          .eq('id', type.id),
-      )
-      lookups.reload()
-    } catch (err) {
-      setError(err.message)
-    }
-  }
 
   async function toggleSiteAvailable(site) {
     if (readOnly || siteBusy) return
@@ -483,19 +466,25 @@ export default function Settings() {
                     onSave={() => saveType(editingType)}
                   />
                 ) : (
-                <tr key={t.id} className={`hover:bg-hover ${t.is_active ? '' : 'opacity-60'}`}>
+                <tr
+                  key={t.id}
+                  className={`hover:bg-hover ${
+                    typeEdits.valueOf(t, 'is_active') ? '' : 'opacity-60'
+                  }`}
+                >
                   <Td className="text-right">
                     {/* Uncontrolled, keyed on the value: it is remounted
                         when the saved order changes, so the box never
                         shows a number the database disagrees with. */}
                     <Input
-                      key={`${t.id}:${t.sort_order}`}
                       type="number"
                       step="1"
-                      defaultValue={t.sort_order}
-                      disabled={readOnly}
-                      onBlur={(e) => saveTypeOrder(t, e.target.value)}
-                      className="w-16 py-1.5 text-right text-sm"
+                      value={typeEdits.valueOf(t, 'sort_order')}
+                      disabled={readOnly || typeBusy}
+                      onChange={(e) => typeEdits.stage(t, { sort_order: e.target.value })}
+                      className={`w-16 py-1.5 text-right text-sm ${
+                        typeEdits.isEdited(t, 'sort_order') ? 'border-edge-warning' : ''
+                      }`}
                       aria-label={`Order for ${t.name_en}`}
                     />
                   </Td>
@@ -524,18 +513,24 @@ export default function Settings() {
                   </Td>
                   <Td className="text-center">
                     <Checkbox
-                      checked={t.is_working_day}
-                      disabled={readOnly}
-                      onChange={() => toggleWorkingDay(t)}
+                      checked={typeEdits.valueOf(t, 'is_working_day')}
+                      disabled={readOnly || typeBusy}
+                      onChange={() =>
+                        typeEdits.stage(t, {
+                          is_working_day: !typeEdits.valueOf(t, 'is_working_day'),
+                        })
+                      }
                       label=""
                       aria-label={`Counts toward required hours: ${t.name_en}`}
                     />
                   </Td>
                   <Td className="text-center">
                     <Checkbox
-                      checked={t.is_active}
-                      disabled={readOnly}
-                      onChange={() => toggleTypeAvailable(t)}
+                      checked={typeEdits.valueOf(t, 'is_active')}
+                      disabled={readOnly || typeBusy}
+                      onChange={() =>
+                        typeEdits.stage(t, { is_active: !typeEdits.valueOf(t, 'is_active') })
+                      }
                       label=""
                       aria-label={`Available when recording: ${t.name_en}`}
                     />
@@ -619,6 +614,16 @@ export default function Settings() {
               changed, so a type is renamed freely but never re-coded.
             </p>
           </form>
+        )}
+
+        {!readOnly && (
+          <SaveBar
+            count={typeEdits.count}
+            busy={typeBusy}
+            onSave={saveTypeEdits}
+            onDiscard={typeEdits.discard}
+            hint="Order and the two ticks are saved here. Add, and Edit's own Save, are immediate."
+          />
         )}
       </Card>
 

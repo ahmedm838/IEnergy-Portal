@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { useEmployees } from '../lib/useLookups'
 import { setTemporaryPassword, generateTemporaryPassword } from '../lib/invites'
+import { usePendingEdits } from '../lib/usePendingEdits'
+import SaveBar from './SaveBar'
 import { Alert, Badge, Button, Card, CardHeader, Field, Input, Select, Td, Th } from './ui'
 
 const ROLES = [
@@ -38,6 +40,8 @@ export default function AccessCard({ readOnly }) {
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [passwordFor, setPasswordFor] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const edits = usePendingEdits()
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -57,32 +61,50 @@ export default function AccessCard({ readOnly }) {
     return out
   }, [employees])
 
-  async function changeRole(employee, role) {
-    if (role === employee.role) return
-    const name = employee.name
-    if (
-      (role === 'admin' || role === 'super_admin') &&
-      !window.confirm(
-        `Give ${name} the ${LABEL[role]} role?\n\n` +
-          (role === 'super_admin'
-            ? 'A super admin can change every setting here, lock and unlock payroll periods, and grant this role to others.'
-            : 'An admin can record attendance and adjustments for everyone and edit employee records.'),
-      )
-    ) {
-      return
+  /**
+   * Save the roles that were changed.
+   *
+   * The warning about granting admin or super admin used to appear the
+   * moment the dropdown moved. It belongs here instead: choosing a role
+   * does nothing on its own now, so asking then would be asking about
+   * something that has not happened -- and asking once per row would be
+   * three dialogs for three people. Every grant is listed in one, at the
+   * moment it is about to be real.
+   */
+  async function saveRoles() {
+    const changes = edits.pending(employees)
+    if (changes.length === 0) return
+
+    const grants = changes.filter(
+      ({ patch }) => patch.role === 'admin' || patch.role === 'super_admin',
+    )
+    if (grants.length > 0) {
+      const lines = grants.map(({ row, patch }) => `  - ${row.name} to ${LABEL[patch.role]}`)
+      const anySuper = grants.some(({ patch }) => patch.role === 'super_admin')
+      const warning = anySuper
+        ? 'A super admin can change every setting here, lock and unlock payroll periods, and grant this role to others.'
+        : 'An admin can record attendance and adjustments for everyone and edit employee records.'
+      if (!window.confirm(`Grant these roles?\n\n${lines.join('\n')}\n\n${warning}`)) return
     }
 
-    setBusyId(employee.id)
+    setSaving(true)
     setError(null)
     setNotice(null)
     try {
-      await run(supabase.from('employees').update({ role }).eq('id', employee.id))
-      setNotice(`${name} is now ${LABEL[role]}.`)
+      for (const { row, patch } of changes) {
+        await run(supabase.from('employees').update({ role: patch.role }).eq('id', row.id))
+      }
+      edits.discard()
+      setNotice(
+        changes.length === 1
+          ? `${changes[0].row.name} is now ${LABEL[changes[0].patch.role]}.`
+          : `Saved ${changes.length} role changes.`,
+      )
       reload()
     } catch (err) {
       setError(explain(err))
     } finally {
-      setBusyId(null)
+      setSaving(false)
     }
   }
 
@@ -176,10 +198,12 @@ export default function AccessCard({ readOnly }) {
                   </Td>
                   <Td>
                     <Select
-                      value={e.role}
-                      disabled={readOnly || busyId === e.id}
-                      className="py-1 text-sm"
-                      onChange={(event) => changeRole(e, event.target.value)}
+                      value={edits.valueOf(e, 'role')}
+                      disabled={readOnly || busyId === e.id || saving}
+                      className={`py-1 text-sm ${
+                        edits.isEdited(e, 'role') ? 'border-edge-warning' : ''
+                      }`}
+                      onChange={(event) => edits.stage(e, { role: event.target.value })}
                     >
                       {ROLES.map(([value, label]) => (
                         <option key={value} value={value}>
@@ -217,6 +241,16 @@ export default function AccessCard({ readOnly }) {
           </span>
         ))}
       </p>
+
+      {!readOnly && (
+        <SaveBar
+          count={edits.count}
+          busy={saving}
+          onSave={saveRoles}
+          onDiscard={edits.discard}
+          hint="Role changes are saved here. Setting a password happens straight away."
+        />
+      )}
     </Card>
   )
 }

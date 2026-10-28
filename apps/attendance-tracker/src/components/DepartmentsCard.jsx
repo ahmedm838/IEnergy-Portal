@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { supabase, run } from '../lib/supabase'
+import { usePendingEdits } from '../lib/usePendingEdits'
+import SaveBar from './SaveBar'
 import { Alert, Button, Card, CardHeader, Field, Input, Select, Td, Th } from './ui'
 
 /**
@@ -19,6 +21,10 @@ export default function DepartmentsCard({ lookups, readOnly }) {
   const [busy, setBusy] = useState(false)
   const [newSector, setNewSector] = useState('')
   const [newDept, setNewDept] = useState({ name: '', sector_id: '' })
+  // A buffer each: the two lists have their own ids, and the one button
+  // below them saves both together.
+  const sectorEdits = usePendingEdits()
+  const deptEdits = usePendingEdits()
 
   const sectors = lookups.sectors ?? []
   const departments = lookups.departments ?? []
@@ -70,21 +76,41 @@ export default function DepartmentsCard({ lookups, readOnly }) {
     })
   }
 
-  const renameSector = (sector, name) =>
-    name.trim() && name.trim() !== sector.name
-      ? act(`Renamed to ${name.trim()}.`, () =>
-          run(supabase.from('sectors').update({ name: name.trim() }).eq('id', sector.id)))
-      : undefined
+  /* Renames and sector moves wait for Save. Adding and deleting do not:
+     each is already a press of its own button, and delete asks first. */
+  const changeCount = sectorEdits.count + deptEdits.count
 
-  const renameDepartment = (dept, name) =>
-    name.trim() && name.trim() !== dept.name
-      ? act(`Renamed to ${name.trim()}.`, () =>
-          run(supabase.from('departments').update({ name: name.trim() }).eq('id', dept.id)))
-      : undefined
+  function discardAll() {
+    sectorEdits.discard()
+    deptEdits.discard()
+  }
 
-  const moveDepartment = (dept, sectorId) =>
-    act('Moved to a different sector.', () =>
-      run(supabase.from('departments').update({ sector_id: Number(sectorId) }).eq('id', dept.id)))
+  async function saveEdits() {
+    const sectorChanges = sectorEdits.pending(sectors)
+    const deptChanges = deptEdits.pending(departments)
+
+    const blank = [...sectorChanges, ...deptChanges].find(
+      ({ patch }) => 'name' in patch && !patch.name.trim(),
+    )
+    if (blank) {
+      setError('A name cannot be left empty. Put it back, or press Discard.')
+      return
+    }
+
+    const total = sectorChanges.length + deptChanges.length
+    await act(`Saved ${total} change${total === 1 ? '' : 's'}.`, async () => {
+      for (const { row, patch } of sectorChanges) {
+        await run(supabase.from('sectors').update({ name: patch.name.trim() }).eq('id', row.id))
+      }
+      for (const { row, patch } of deptChanges) {
+        const values = {}
+        if ('name' in patch) values.name = patch.name.trim()
+        if ('sector_id' in patch) values.sector_id = Number(patch.sector_id)
+        await run(supabase.from('departments').update(values).eq('id', row.id))
+      }
+      discardAll()
+    })
+  }
 
   function removeSector(sector) {
     if (!window.confirm(`Delete the ${sector.name} sector?`)) return
@@ -120,11 +146,12 @@ export default function DepartmentsCard({ lookups, readOnly }) {
                   <tr key={s.id}>
                     <Td>
                       <Input
-                        defaultValue={s.name}
+                        value={sectorEdits.valueOf(s, 'name')}
                         disabled={readOnly || busy}
-                        className="py-1 text-sm"
-                        onBlur={(e) => renameSector(s, e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                        className={`py-1 text-sm ${
+                          sectorEdits.isEdited(s, 'name') ? 'border-edge-warning' : ''
+                        }`}
+                        onChange={(e) => sectorEdits.stage(s, { name: e.target.value })}
                       />
                     </Td>
                     <Td className="w-16 text-right">
@@ -172,19 +199,24 @@ export default function DepartmentsCard({ lookups, readOnly }) {
                   <tr key={d.id}>
                     <Td>
                       <Input
-                        defaultValue={d.name}
+                        value={deptEdits.valueOf(d, 'name')}
                         disabled={readOnly || busy}
-                        className="py-1 text-sm"
-                        onBlur={(e) => renameDepartment(d, e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                        className={`py-1 text-sm ${
+                          deptEdits.isEdited(d, 'name') ? 'border-edge-warning' : ''
+                        }`}
+                        onChange={(e) => deptEdits.stage(d, { name: e.target.value })}
                       />
                     </Td>
                     <Td>
                       <Select
-                        value={d.sector_id ?? ''}
+                        value={deptEdits.valueOf(d, 'sector_id') ?? ''}
                         disabled={readOnly || busy}
-                        className="py-1 text-sm"
-                        onChange={(e) => moveDepartment(d, e.target.value)}
+                        className={`py-1 text-sm ${
+                          deptEdits.isEdited(d, 'sector_id') ? 'border-edge-warning' : ''
+                        }`}
+                        onChange={(e) =>
+                          deptEdits.stage(d, { sector_id: Number(e.target.value) })
+                        }
                       >
                         {sectors.map((s) => (
                           <option key={s.id} value={s.id}>
@@ -238,6 +270,16 @@ export default function DepartmentsCard({ lookups, readOnly }) {
         deleted — move them first. Renaming is safe at any time: records point at the row, not the
         name.
       </p>
+
+      {!readOnly && (
+        <SaveBar
+          count={changeCount}
+          busy={busy}
+          onSave={saveEdits}
+          onDiscard={discardAll}
+          hint="Renames and sector moves are saved here. Add and Delete happen straight away."
+        />
+      )}
     </Card>
   )
 }

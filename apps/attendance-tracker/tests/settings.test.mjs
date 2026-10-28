@@ -7,6 +7,13 @@ import { transformSync } from 'esbuild'
 const source = readFileSync(new URL('../src/pages/Settings.jsx', import.meta.url), 'utf8')
 const code = transformSync(source.replace(/^import[\s\S]*?from ['"][^'"]+['"]\r?\n/gm, '')
   .replace('export default function Settings', 'function Settings'), { loader: 'jsx' }).code
+
+// The pending-edits hook is built the same way as the page: its real source,
+// imports stripped, run against the mocks below. Stubbing it would leave the
+// buffering untested, and buffering is the whole point of these cards.
+const hookCode = readFileSync(new URL('../src/lib/usePendingEdits.js', import.meta.url), 'utf8')
+  .replace(/^import[\s\S]*?from ['"][^'"]+['"]\r?\n/gm, '')
+  .replace('export function usePendingEdits', 'function usePendingEdits')
 function setup(superAdmin = true) {
   const state = [], writes = [], tables = []
   let cursor = 0, failure = null, pending = null, reloads = 0
@@ -37,7 +44,13 @@ function setup(superAdmin = true) {
     supabase: { from: table => { tables.push(table); return query } },
     run: async () => { if (pending) await pending; if (failure) throw Error(failure); return { id: 7 } },
   }
-  for (const name of ['LockedPeriods', 'DepartmentsCard', 'AccessCard', 'BusRoutesCard', 'ChangeLogCard', 'Alert', 'Badge', 'Button', 'Card', 'CardHeader', 'Checkbox', 'Field', 'Input', 'Select', 'Spinner', 'Td', 'Th']) mocks[name] = name
+  for (const name of ['LockedPeriods', 'DepartmentsCard', 'AccessCard', 'BusRoutesCard', 'ChangeLogCard', 'SaveBar', 'Alert', 'Badge', 'Button', 'Card', 'CardHeader', 'Checkbox', 'Field', 'Input', 'Select', 'Spinner', 'Td', 'Th']) mocks[name] = name
+  // useCallback is itself and useMemo is its result: faithful enough for
+  // one synchronous render, which is all this harness does.
+  const hookDeps = { useState: mocks.useState, useCallback: (fn) => fn, useMemo: (fn) => fn() }
+  mocks.usePendingEdits = new Function(
+    ...Object.keys(hookDeps), hookCode + '\nreturn usePendingEdits',
+  )(...Object.values(hookDeps))
   const Settings = new Function(...Object.keys(mocks), code + '\nreturn Settings')( ...Object.values(mocks))
   function render() { cursor = 0; return Settings() }
   function nodes(tree) {
@@ -176,13 +189,52 @@ test('an explicit order is used instead of going last', async () => {
   assert.equal(h.writes[0].values.sort_order, 2)
 })
 
-test('availability toggles is_active on that type, and nothing else', async () => {
+const availability = (h, name) =>
+  h.find('Checkbox', p => p['aria-label'] === `Available when recording: ${name}`)
+const saveBar = h => h.find('SaveBar', p => typeof p.onSave === 'function')
+
+test('ticking availability writes nothing until Save is pressed', async () => {
   const h = setup()
-  const retired = h.allTypes[1]                       // Study leave, is_active false
-  const box = h.find('Checkbox', p => p['aria-label'] === 'Available when recording: Study leave')
-  await box.props.onChange()
+  await availability(h, 'Study leave').props.onChange()
+  assert.deepEqual(h.writes, [], 'nothing is written on the tick')
+  assert.equal(saveBar(h).props.count, 1, 'but it is counted as unsaved')
+  // The box shows the pending value, not the stored one.
+  assert.equal(availability(h, 'Study leave').props.checked, true)
+
+  await saveBar(h).props.onSave()
   assert.deepEqual(h.writes, [
-    { op: 'update', values: { is_active: !retired.is_active }, filter: ['id', retired.id] },
+    { op: 'update', values: { is_active: true }, filter: ['id', 2] },
+  ])
+})
+
+test('Discard puts a staged tick back and writes nothing', async () => {
+  const h = setup()
+  await availability(h, 'Study leave').props.onChange()
+  saveBar(h).props.onDiscard()
+  assert.equal(saveBar(h).props.count, 0)
+  assert.equal(availability(h, 'Study leave').props.checked, false)
+  assert.deepEqual(h.writes, [])
+})
+
+test('ticking back to the stored value leaves nothing to save', async () => {
+  const h = setup()
+  await availability(h, 'Attended').props.onChange()   // true -> false
+  assert.equal(saveBar(h).props.count, 1)
+  await availability(h, 'Attended').props.onChange()   // false -> true again
+  assert.equal(saveBar(h).props.count, 0, 'back where it started is not a change')
+  await saveBar(h).props.onSave()
+  assert.deepEqual(h.writes, [])
+})
+
+test('two fields on one row are one row to save, written together', async () => {
+  const h = setup()
+  await availability(h, 'Attended').props.onChange()
+  h.find('Input', p => p['aria-label'] === 'Order for Attended')
+    .props.onChange({ target: { value: '9' } })
+  assert.equal(saveBar(h).props.count, 1, 'one row, not two changes')
+  await saveBar(h).props.onSave()
+  assert.deepEqual(h.writes, [
+    { op: 'update', values: { sort_order: 9, is_active: false }, filter: ['id', 1] },
   ])
 })
 

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { supabase, run } from '../lib/supabase'
+import { usePendingEdits } from '../lib/usePendingEdits'
+import SaveBar from './SaveBar'
 import { Alert, Button, Card, CardHeader, Input, Td } from './ui'
 
 /**
@@ -23,6 +25,7 @@ export default function BusRoutesCard({ lookups, readOnly }) {
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(false)
   const [newRoute, setNewRoute] = useState('')
+  const edits = usePendingEdits()
 
   const routes = lookups.busRoutes ?? []
   const isNone = (route) => route.name.trim().toLowerCase() === 'none'
@@ -53,11 +56,36 @@ export default function BusRoutesCard({ lookups, readOnly }) {
     })
   }
 
-  const rename = (route, name) =>
-    name.trim() && name.trim() !== route.name
-      ? act(`Renamed to ${name.trim()}.`, () =>
-          run(supabase.from('bus_routes').update({ name: name.trim() }).eq('id', route.id)))
-      : undefined
+  /* Renames wait for Save. Adding and deleting do not: both are already
+     a press of their own button, and delete asks first. */
+  async function saveEdits() {
+    const changes = edits.pending(routes)
+    const blank = changes.find(({ patch }) => !String(patch.name ?? '').trim())
+    if (blank) {
+      setError('A route cannot be left without a name. Put the name back, or press Discard.')
+      return
+    }
+    const clash = changes.find(({ row, patch }) =>
+      routes.some(
+        (other) =>
+          other.id !== row.id &&
+          (edits.valueOf(other, 'name') ?? '').trim().toLowerCase() ===
+            patch.name.trim().toLowerCase(),
+      ),
+    )
+    if (clash) {
+      setError(`Two routes would both be called "${clash.patch.name.trim()}".`)
+      return
+    }
+    await act(`Saved ${changes.length} route${changes.length === 1 ? '' : 's'}.`, async () => {
+      for (const { row, patch } of changes) {
+        await run(
+          supabase.from('bus_routes').update({ name: patch.name.trim() }).eq('id', row.id),
+        )
+      }
+      edits.discard()
+    })
+  }
 
   function remove(route) {
     if (!window.confirm(`Delete the ${route.name} route?`)) return
@@ -99,11 +127,12 @@ export default function BusRoutesCard({ lookups, readOnly }) {
                       </span>
                     ) : (
                       <Input
-                        defaultValue={route.name}
+                        value={edits.valueOf(route, 'name')}
                         disabled={readOnly || busy}
-                        className="py-1 text-sm"
-                        onBlur={(e) => rename(route, e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                        className={`py-1 text-sm ${
+                          edits.isEdited(route, 'name') ? 'border-edge-warning' : ''
+                        }`}
+                        onChange={(e) => edits.stage(route, { name: e.target.value })}
                       />
                     )}
                   </Td>
@@ -143,6 +172,16 @@ export default function BusRoutesCard({ lookups, readOnly }) {
           </Button>
         </form>
       </div>
+
+      {!readOnly && (
+        <SaveBar
+          count={edits.count}
+          busy={busy}
+          onSave={saveEdits}
+          onDiscard={edits.discard}
+          hint="Renames are saved here. Add and Delete happen straight away."
+        />
+      )}
     </Card>
   )
 }
