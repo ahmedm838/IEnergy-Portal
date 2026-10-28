@@ -17,6 +17,98 @@ import {
   Th,
 } from '../components/ui'
 
+const blankUsage = () => ({ annual: 0, unplanned: 0, added_days: 0, addedEarned: 0 })
+
+/**
+ * Leave days taken and earned, per employee, for a calendar year.
+ *
+ * Postgres counts them and sends four numbers per employee who has any.
+ * This page used to download the rows and count them here: two
+ * paginated scans of a year of attendance_records, a thousand rows a
+ * request, to arrive at the same four integers. The counting rules are
+ * unchanged -- they are leave_balances()'s, now stated once in SQL
+ * instead of restated here -- and the function reads as the caller, so
+ * the figures still cover the caller's own sector and no more.
+ */
+async function countLeaveUsage(year, isCancelled) {
+  const { data, error } = await supabase.rpc('report_leave_usage', { p_year: year })
+
+  // PGRST202: PostgREST cannot find the function. 42883: Postgres cannot.
+  if (error && (error.code === 'PGRST202' || error.code === '42883')) {
+    return countLeaveUsageInBrowser(year, isCancelled)
+  }
+  if (error) throw new Error(error.message ?? 'Request failed')
+  if (isCancelled()) return null
+
+  const usage = new Map()
+  for (const row of data ?? []) {
+    usage.set(row.emp_id, {
+      annual: Number(row.annual_used || 0),
+      unplanned: Number(row.unplanned_used || 0),
+      added_days: Number(row.added_used || 0),
+      addedEarned: Number(row.added_earned || 0),
+    })
+  }
+  // Employees with nothing to report are not sent; leaves() already
+  // reads a missing employee as four zeros.
+  return usage
+}
+
+/*
+ * The same counting, done here, for a browser holding a bundle newer
+ * than the database has migrations -- the ordinary state of affairs for
+ * the few minutes between a deploy and a migration. It is the code this
+ * replaced, unchanged, and is kept for that reason; it is not dead.
+ */
+async function countLeaveUsageInBrowser(year, isCancelled) {
+  const usage = new Map()
+  const forEmployee = (id) => {
+    if (!usage.has(id)) usage.set(id, blankUsage())
+    return usage.get(id)
+  }
+
+  // Days taken. Same calendar-year and effect rules as leave_balances,
+  // with added_days joining the two leave kinds. The caller's attendance
+  // permissions still apply.
+  for (let offset = 0; ; offset += 1000) {
+    const records = await run(supabase.from('attendance_records')
+      .select('id, employee_id, attendance_types!inner(effect)')
+      .gte('work_date', `${year}-01-01`)
+      .lt('work_date', `${year + 1}-01-01`)
+      .in('attendance_types.effect', ['annual', 'unplanned', 'added_days'])
+      .order('id')
+      .range(offset, offset + 999))
+    if (isCancelled()) return null
+    for (const record of records) {
+      forEmployee(record.employee_id)[record.attendance_types.effect] += 1
+    }
+    if (records.length < 1000) break
+  }
+
+  /* Days earned, which has to be asked for separately.
+
+     An added day is earned by ticking "add to balance" on a day that
+     was worked -- normally an Attended day, whose effect is 'none'.
+     The query above filters on effect and would never see one, so
+     widening its list would have counted the days taken and none of
+     the days that paid for them: every balance would have read zero
+     earned against however many were used. */
+  for (let offset = 0; ; offset += 1000) {
+    const earned = await run(supabase.from('attendance_records')
+      .select('id, employee_id')
+      .gte('work_date', `${year}-01-01`)
+      .lt('work_date', `${year + 1}-01-01`)
+      .eq('add_to_leave_balance', true)
+      .order('id')
+      .range(offset, offset + 999))
+    if (isCancelled()) return null
+    for (const record of earned) forEmployee(record.employee_id).addedEarned += 1
+    if (earned.length < 1000) break
+  }
+
+  return usage
+}
+
 export default function Employees() {
   const lookups = useLookups()
   const { isSuperAdmin } = useAuth()
@@ -38,52 +130,8 @@ export default function Employees() {
       setLeavesLoading(true)
       setLeavesError(null)
       try {
-        const usage = new Map()
-        const blank = () => ({ annual: 0, unplanned: 0, added_days: 0, addedEarned: 0 })
-        const forEmployee = (id) => {
-          if (!usage.has(id)) usage.set(id, blank())
-          return usage.get(id)
-        }
-
-        // Days taken. Same calendar-year and effect rules as
-        // leave_balances, with added_days joining the two leave kinds.
-        // The caller's attendance permissions still apply.
-        for (let offset = 0; ; offset += 1000) {
-          const records = await run(supabase.from('attendance_records')
-            .select('id, employee_id, attendance_types!inner(effect)')
-            .gte('work_date', `${year}-01-01`)
-            .lt('work_date', `${year + 1}-01-01`)
-            .in('attendance_types.effect', ['annual', 'unplanned', 'added_days'])
-            .order('id')
-            .range(offset, offset + 999))
-          if (cancelled) return
-          for (const record of records) {
-            forEmployee(record.employee_id)[record.attendance_types.effect] += 1
-          }
-          if (records.length < 1000) break
-        }
-
-        /* Days earned, which has to be asked for separately.
-
-           An added day is earned by ticking "add to balance" on a day that
-           was worked -- normally an Attended day, whose effect is 'none'.
-           The query above filters on effect and would never see one, so
-           widening its list would have counted the days taken and none of
-           the days that paid for them: every balance would have read zero
-           earned against however many were used. */
-        for (let offset = 0; ; offset += 1000) {
-          const earned = await run(supabase.from('attendance_records')
-            .select('id, employee_id')
-            .gte('work_date', `${year}-01-01`)
-            .lt('work_date', `${year + 1}-01-01`)
-            .eq('add_to_leave_balance', true)
-            .order('id')
-            .range(offset, offset + 999))
-          if (cancelled) return
-          for (const record of earned) forEmployee(record.employee_id).addedEarned += 1
-          if (earned.length < 1000) break
-        }
-        if (!cancelled) setLeaveUsage(usage)
+        const usage = await countLeaveUsage(year, () => cancelled)
+        if (!cancelled && usage) setLeaveUsage(usage)
       } catch (err) {
         if (!cancelled) setLeavesError(err.message)
       } finally {
@@ -95,9 +143,7 @@ export default function Employees() {
   }, [year])
 
   function leaves(employee) {
-    const used = leaveUsage.get(employee.id) ?? {
-      annual: 0, unplanned: 0, added_days: 0, addedEarned: 0,
-    }
+    const used = leaveUsage.get(employee.id) ?? blankUsage()
     return {
       annual: Number(employee.annual_leave_balance || 0),
       unplanned: Number(employee.unplanned_leave_balance || 0),
