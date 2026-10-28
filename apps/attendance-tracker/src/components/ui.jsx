@@ -4,7 +4,25 @@ export function cx(...parts) {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Button({ variant = 'primary', size = 'md', className, ...props }) {
+/**
+ * A button, or -- given an href -- a link that looks exactly like one.
+ *
+ * The distinction is not cosmetic. "Open link in new tab", "Open in new
+ * window", "Copy link address", ctrl-click and middle-click are the
+ * browser's own, and the browser offers them for <a href> and nothing
+ * else. A <button> that calls location.assign() does navigate, but
+ * right-clicking it produces the page's menu rather than a link's, and
+ * ctrl-clicking it opens nothing. No amount of styling adds those back;
+ * only being a real link does.
+ *
+ * So anything that goes somewhere passes href and becomes an anchor
+ * here, once, instead of every page hand-rolling one that has to be
+ * kept looking like a button. Anything that *does* something -- save,
+ * delete, export, print -- stays a button, which is right: there is no
+ * address behind it to open in a second tab, and offering to would be a
+ * lie that ends in a blank page.
+ */
+export function Button({ variant = 'primary', size = 'md', className, href, ...props }) {
   // whitespace-nowrap: a label broken across two lines is never what was
   // wanted, and it also stops the button being squeezed -- a nowrap flex
   // item will not shrink below its text, so a tight row keeps its buttons
@@ -24,7 +42,28 @@ export function Button({ variant = 'primary', size = 'md', className, ...props }
     ghost: 'text-ink-2 hover:bg-hover',
     danger: 'bg-red-600 text-white hover:bg-red-700 shadow-sm',
   }
-  return <button className={cx(base, sizes[size], variants[variant], className)} {...props} />
+  const classes = cx(base, sizes[size], variants[variant], className)
+
+  if (href != null) {
+    /* disabled does nothing to an anchor -- it is not a form control --
+       so a disabled link would still be followable by keyboard and by
+       the very context menu this exists for. It is turned back into
+       something unreachable instead: no href to open, out of the tab
+       order, and announced as disabled. */
+    const { disabled, ...rest } = props
+    return (
+      <a
+        href={disabled ? undefined : href}
+        role="button"
+        aria-disabled={disabled || undefined}
+        tabIndex={disabled ? -1 : undefined}
+        className={cx(classes, disabled && 'pointer-events-none opacity-50')}
+        {...rest}
+      />
+    )
+  }
+
+  return <button className={classes} {...props} />
 }
 
 export function Card({ className, children, ...props }) {

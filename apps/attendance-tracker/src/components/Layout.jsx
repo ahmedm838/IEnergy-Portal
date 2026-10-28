@@ -91,8 +91,12 @@ export default function Layout() {
             </Badge>
             <ThemeToggle />
             {/* Back to the portal with the session intact -- the other
-                button is the one that ends it. */}
-            <Button variant="secondary" size="sm" onClick={() => window.location.assign(PORTAL)}>
+                button is the one that ends it.
+
+                A real link, so it opens in a new tab like anything else
+                that goes somewhere. It called location.assign() before:
+                the same destination, with none of that on offer. */}
+            <Button variant="secondary" size="sm" href={PORTAL}>
               Main page
             </Button>
             <Button variant="secondary" size="sm" onClick={handleSignOut}>

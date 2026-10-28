@@ -68,6 +68,22 @@ select{cursor:pointer}
   border-radius:12px;
   cursor:pointer;
   font-weight:600;
+  /* Stated here, not left to the element: a <button> does not inherit
+     the page's font and an <a> does, so a link styled as a button would
+     otherwise sit next to one at a visibly different size. 13px is what
+     the browser's own button font came to, so the buttons look as they
+     did. */
+  font-family:inherit;
+  font-size:13px;
+}
+/* The rest of what a <button> is given for free and a link is not.
+   Without these the Portal link arrives underlined, left-aligned, and a
+   few pixels taller than Logout beside it. */
+a.btn{
+  display:inline-block;
+  text-align:center;
+  text-decoration:none;
+  line-height:normal;
 }
 .btn:hover{border-color:rgba(58,130,246,.6)}
 .btn.primary{background:rgba(58,130,246,.15);border-color:rgba(58,130,246,.6)}
