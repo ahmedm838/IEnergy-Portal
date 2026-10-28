@@ -251,6 +251,29 @@ export default function EmployeeReport() {
           `${b.label} — balance / consumed / remaining`,
           `${num(b.balance)} / ${num(b.consumed)} / ${num(b.remaining)}`,
         ]),
+        /* The same three totals the screen now shows, so a file read
+           away from this page says what the page said. The export had
+           the three balances and no sum at all, and never mentioned the
+           other leaves -- which are days the employee took. */
+        [
+          'Total — balance / consumed / remaining',
+          `${num(sumBalances.balance, 1)} / ${num(sumBalances.consumed, 1)} / ${num(
+            sumBalances.remaining,
+            1,
+          )}`,
+        ],
+        ['Other leaves (days)', Number(summary.other_leaves || 0)],
+        ...(summary.other_leave_types ?? []).map((t) => [
+          `    ${t.name_en} (days)`,
+          Number(t.days),
+        ]),
+        [
+          'Grand Total — balance / consumed / remaining',
+          `${num(sumBalances.balance, 1)} / ${num(
+            sumBalances.consumed + Number(summary.other_leaves || 0),
+            1,
+          )} / ${num(sumBalances.remaining, 1)}`,
+        ],
       ],
       columns: exportColumns,
       rows: visibleRecords.map((r) => ({
@@ -473,15 +496,10 @@ export default function EmployeeReport() {
                       </Td>
                     </tr>
                   ))}
-                </tbody>
-                {/* The three rows above, added up.
 
-                    Only those three. The dashboard carries the same table
-                    with an Other leaves row and folds it into Consumed,
-                    which is right there because the row is on screen; here
-                    it is not, and a Consumed total larger than the figures
-                    above it is a column that does not add up. */}
-                <tfoot>
+                  {/* Total, under the three rows it adds up and nothing
+                      else. Each figure is the column above it added
+                      together, so it can be checked by eye. */}
                   <tr className="border-t-2 border-line-strong">
                     <Td className="font-semibold text-ink">Total</Td>
                     <Td className="tabular text-right font-semibold">
@@ -492,7 +510,60 @@ export default function EmployeeReport() {
                     </Td>
                     <Td
                       className={`tabular text-right font-semibold ${
-                        sumBalances.remaining < 0 ? "text-on-danger" : "text-on-success"
+                        sumBalances.remaining < 0 ? 'text-on-danger' : 'text-on-success'
+                      }`}
+                    >
+                      {num(sumBalances.remaining, 1)}
+                    </Td>
+                  </tr>
+
+                  {/* The leave days none of the three account for. They
+                      sit below the Total rather than above it because
+                      they have no entitlement behind them -- which is
+                      why Balance and Remaining are dashes here, and why
+                      folding them into that Total would leave it not
+                      matching the rows it claims to add up.
+
+                      The report used to leave them out altogether for
+                      that reason. Showing them under their own heading,
+                      with a Grand Total beneath, says the same thing
+                      without hiding days the employee actually took. */}
+                  <tr>
+                    <Td className="font-medium text-ink">Other leaves</Td>
+                    <Td className="text-right text-ink-4">—</Td>
+                    <Td className="tabular text-right">{num(summary.other_leaves, 1)}</Td>
+                    <Td className="text-right text-ink-4">—</Td>
+                  </tr>
+
+                  {/* What those days were, each count in the Consumed
+                      column rather than written into its label, lined up
+                      under the figure it makes up. */}
+                  {(summary.other_leave_types ?? []).map((t) => (
+                    <tr key={t.name_en}>
+                      <Td className="pl-6 text-sm text-ink-3">{t.name_en}</Td>
+                      <Td className="text-right text-ink-4">—</Td>
+                      <Td className="tabular text-right text-ink-3">{num(t.days, 1)}</Td>
+                      <Td className="text-right text-ink-4">—</Td>
+                    </tr>
+                  ))}
+                </tbody>
+
+                {/* Everything above. Only Consumed gains -- those days
+                    were taken -- and Balance and Remaining repeat the
+                    Total rather than showing a dash, so the row reads as
+                    a total of the table rather than of one column. */}
+                <tfoot>
+                  <tr className="border-t-2 border-line-strong">
+                    <Td className="font-semibold text-ink">Grand Total</Td>
+                    <Td className="tabular text-right font-semibold">
+                      {num(sumBalances.balance, 1)}
+                    </Td>
+                    <Td className="tabular text-right font-semibold">
+                      {num(sumBalances.consumed + Number(summary.other_leaves || 0), 1)}
+                    </Td>
+                    <Td
+                      className={`tabular text-right font-semibold ${
+                        sumBalances.remaining < 0 ? 'text-on-danger' : 'text-on-success'
                       }`}
                     >
                       {num(sumBalances.remaining, 1)}
