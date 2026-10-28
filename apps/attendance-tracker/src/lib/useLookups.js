@@ -21,7 +21,64 @@ export function clearLookupsCache() {
   lookupsValue = null
 }
 
+/**
+ * Arrange the raw tables into what the pages read.
+ *
+ * Both paths below end here, so the one RPC and the seven requests
+ * cannot drift into returning different shapes.
+ */
+function shapeLookups({ sites, sectors, departments, statuses, allTypes, busRoutes, settings }) {
+  const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]))
+  return {
+    sites,
+    sectors,
+    departments,
+    statuses,
+    // What a picker offers.
+    types: allTypes.filter((t) => t.is_active),
+    // What a record can be read through, and what Settings manages.
+    allTypes,
+    busRoutes,
+    settings: settingsMap,
+  }
+}
+
+/*
+ * One request instead of seven.
+ *
+ * app_lookups() is SECURITY INVOKER, so row-level security applies to
+ * each table inside it exactly as it applied when the client asked for
+ * them one at a time. This is a cheaper way to ask the same question,
+ * not a wider one.
+ *
+ * If the function is not there -- a browser holding a newer bundle than
+ * the database has migrations, which is the ordinary state of affairs
+ * for the few minutes between a deploy and a migration -- it falls back
+ * to the seven requests rather than leaving the app with no reference
+ * data. The fallback is the old code, unchanged, and is kept for that
+ * reason; it is not dead.
+ */
 async function fetchLookups() {
+  const { data, error } = await supabase.rpc('app_lookups')
+
+  // PGRST202: PostgREST cannot find the function. 42883: Postgres cannot.
+  if (error && (error.code === 'PGRST202' || error.code === '42883')) {
+    return fetchLookupsSeparately()
+  }
+  if (error) throw new Error(error.message ?? 'Request failed')
+
+  return shapeLookups({
+    sites: data.sites ?? [],
+    sectors: data.sectors ?? [],
+    departments: data.departments ?? [],
+    statuses: data.statuses ?? [],
+    allTypes: data.types ?? [],
+    busRoutes: data.bus_routes ?? [],
+    settings: data.settings ?? [],
+  })
+}
+
+async function fetchLookupsSeparately() {
   const [sites, sectors, departments, statuses, allTypes, busRoutes, settings] = await Promise.all([
     run(supabase.from('sites').select('*').order('sort_order')),
     run(supabase.from('sectors').select('*').order('sort_order')),
@@ -53,19 +110,7 @@ async function fetchLookups() {
     run(supabase.from('app_settings').select('*')),
   ])
 
-  const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]))
-  return {
-    sites,
-    sectors,
-    departments,
-    statuses,
-    // What a picker offers.
-    types: allTypes.filter((t) => t.is_active),
-    // What a record can be read through, and what Settings manages.
-    allTypes,
-    busRoutes,
-    settings: settingsMap,
-  }
+  return shapeLookups({ sites, sectors, departments, statuses, allTypes, busRoutes, settings })
 }
 
 /**
