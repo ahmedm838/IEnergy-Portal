@@ -591,11 +591,26 @@ body > .theme-toggle {
 .dash-table td.bad { color: var(--danger-text); font-weight: 700; }
 .dash-table td.muted { color: var(--muted); }
 .dash-table .dash-note-row td {
-  padding: 3px 8px 3px 24px;
+  padding: 3px 8px;
   font-weight: 400;
   font-size: 11.5px;
   color: var(--muted);
   border-bottom: 0;
+}
+/* The indent belongs to the label alone. These rows carry four cells
+   now rather than one spanning the table, and indenting all of them
+   would push the figures out of their columns. */
+.dash-table .dash-note-row td:first-child { padding-left: 24px; }
+
+/* Total, which is no longer the last row.
+   It used to be the only one, in the foot, and took its weight and rule
+   from `tfoot td`. Sitting in the body under the three rows it adds up,
+   it needs them of its own -- otherwise the sum reads as another
+   entitlement. */
+.dash-table tbody .dash-total-row td {
+  border-top: 2px solid var(--line);
+  font-weight: 750;
+  padding-top: 9px;
 }
 .dash-note-line { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 

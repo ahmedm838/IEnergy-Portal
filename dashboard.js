@@ -162,6 +162,25 @@
         body.appendChild(tr);
       }
 
+      /* Total, directly under the three rows it adds up.
+
+         It sums the entitlements and nothing else -- annual, un-planned
+         and added days -- so each figure is the column above it added
+         together and can be checked by eye. The other leaves sit below
+         it precisely because they do not belong in it: there is no
+         entitlement behind a sick or a deducted day, so folding them in
+         here would leave Balance and Remaining not matching the rows
+         they claim to total. */
+      const sum = (key) => mine.balances.reduce((acc, b) => acc + Number(b[key] || 0), 0);
+      const total = document.createElement('tr');
+      total.className = 'dash-total-row';
+      total.innerHTML =
+        '<td>Total</td>' +
+        `<td>${num(sum('balance'), 1)}</td>` +
+        `<td>${num(sum('consumed'), 1)}</td>` +
+        `<td class="${sum('remaining') < 0 ? 'bad' : 'good'}">${num(sum('remaining'), 1)}</td>`;
+      body.appendChild(total);
+
       // The leave days none of the three rows above account for.
       const other = document.createElement('tr');
       other.innerHTML =
@@ -169,37 +188,41 @@
         `<td class="muted">—</td><td>${num(mine.other_leaves, 1)}</td><td class="muted">—</td>`;
       body.appendChild(other);
 
-      // Informational sub-rows only; totals still use the summary figures.
-      const notes = (mine.other_leave_types ?? []).map((t) => `${t.name_en} ${t.days}`);
-      for (const note of notes.length ? notes : ['sick', 'deducted', 'granted']) {
+      /* What those days were, each with its count in the Consumed
+         column rather than written into its label. They line up under
+         the figure they make up, so Other leaves above reads as their
+         sum instead of as a number with a list beside it. */
+      for (const t of mine.other_leave_types ?? []) {
         const row = document.createElement('tr');
         row.className = 'dash-note-row';
-        const cell = document.createElement('td');
-        cell.colSpan = 4;
-        cell.textContent = note;
-        row.appendChild(cell);
+        row.innerHTML =
+          `<td>${t.name_en}</td>` +
+          '<td class="muted">—</td>' +
+          `<td>${num(t.days, 1)}</td>` +
+          '<td class="muted">—</td>';
         body.appendChild(row);
       }
 
       table.appendChild(body);
 
-      /* The totals.
-         Consumed includes the other leaves, because those days were
-         taken. Balance and remaining do not: there is no entitlement
-         behind a sick or deducted day to add up, and quietly folding a
-         dash into a sum would make the row stop adding up. */
-      const totals = document.createElement('tfoot');
-      const sum = (key) => mine.balances.reduce((acc, b) => acc + Number(b[key] || 0), 0);
+      /* Grand Total: the whole table, entitlements and other leaves.
+
+         Only Consumed gains anything, because those days were taken and
+         they count. Balance and Remaining are the Total row's figures
+         again -- no entitlement was added to change them -- and they are
+         repeated rather than dashed so the row reads as a total of
+         everything above it rather than of one column. */
+      const grand = document.createElement('tfoot');
       const consumed = sum('consumed') + Number(mine.other_leaves || 0);
       const foot = document.createElement('tr');
       foot.className = 'dash-total-row';
       foot.innerHTML =
-        '<td>Total</td>' +
+        '<td>Grand Total</td>' +
         `<td>${num(sum('balance'), 1)}</td>` +
         `<td>${num(consumed, 1)}</td>` +
         `<td class="${sum('remaining') < 0 ? 'bad' : 'good'}">${num(sum('remaining'), 1)}</td>`;
-      totals.appendChild(foot);
-      table.appendChild(totals);
+      grand.appendChild(foot);
+      table.appendChild(grand);
       balancesEl.appendChild(table);
 
     }
