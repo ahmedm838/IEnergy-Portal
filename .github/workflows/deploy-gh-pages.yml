@@ -151,6 +151,11 @@ jobs:
             --exclude 'docs' --exclude '*.md' --exclude '*.sql'
             --exclude '.cpanel.yml' --exclude '*.bundle'
             --exclude '.gitattributes' --exclude '.gitignore'
+            # Test files are internal. By directory, NOT by extension:
+            # *.mjs is a browser module format, and excluding that once
+            # took export-workbook.mjs off the server and left the
+            # Employee Database blank.
+            --exclude 'tests'
           )
           rsync -av "${EXCLUDES[@]}" ./ _site/
 
