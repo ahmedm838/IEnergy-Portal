@@ -201,7 +201,19 @@ export function useLookups() {
   }
 }
 
-/** Employees the current user may see, for pickers and report filters. */
+/**
+ * Employees the current user may see, for pickers and report filters.
+ *
+ * The select list below is sent to PostgREST verbatim as a query
+ * parameter. It is a string, not code: a // or /* comment written
+ * inside it is not stripped by anything -- it goes down the wire and
+ * the server rejects the whole parameter, which empties every employee
+ * picker in the app at once. Notes about the shape belong here.
+ *
+ * departments carries its sector because an employee has no sector of
+ * their own; it belongs to the department, and the employee report
+ * prints it under the department name.
+ */
 export function useEmployees({ activeOnly = true } = {}) {
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
@@ -219,9 +231,6 @@ export function useEmployees({ activeOnly = true } = {}) {
            has_meal, has_allowance, has_overtime, has_incentive, has_deductions,
            annual_leave_balance, unplanned_leave_balance,
            sites ( id, name ),
-           /* The sector rides along on the department, which is where it
-              lives -- an employee has no sector of their own. The report
-              prints it under the department. */
            departments ( id, name, sectors ( id, name ) ),
            employee_levels ( id, code, name ),
            employee_statuses ( id, name, in_payroll, allows_records )`,
