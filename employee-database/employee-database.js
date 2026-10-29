@@ -453,6 +453,11 @@ const totalLists = {
        document named here is named identically everywhere else. */
     select: 'missing_documents',
     columns: [
+      /* The count before the names. A column of document names is read
+         one row at a time; a column of numbers is read down, which is
+         how you spot the file that needs one more thing and the one
+         nobody has started. */
+      ['Missing', (e) => String((e.missing_documents ?? []).length)],
       ['Missing documents', (e) => (e.missing_documents ?? []).join(', ') || '—'],
     ],
   },
@@ -491,6 +496,9 @@ async function showTotalList(key) {
   $('totalDialogStatus').textContent = 'Loading employees…'
   $('totalDialogTable').hidden = true
   $('totalDialogRows').replaceChildren()
+  // Off while loading: there is nothing to print yet, and the rows
+  // still on screen belong to the list that was open before this one.
+  $('printTotalDialog').disabled = true
 
   /* Code and name on every list; a list that has more to say adds its
      own columns. Built here rather than written into the markup,
@@ -543,17 +551,82 @@ async function showTotalList(key) {
     $('totalDialogStatus').textContent = employees.length
       ? `${employees.length} employee${employees.length === 1 ? '' : 's'}`
       : 'No matching employees.'
+    // Nothing on screen, nothing to print.
+    $('printTotalDialog').disabled = employees.length === 0
   } catch {
     if (sequence !== totalListSequence || !dialog.open) return
     $('totalDialogStatus').textContent = 'Could not load employees. Close this window and try again.'
+    $('printTotalDialog').disabled = true
   }
 }
+
+/**
+ * Print the list that is open.
+ *
+ * The table is copied out of the dialog into a plain element in the
+ * body, and the print stylesheet shows that and nothing else. The
+ * dialog itself is not printed: a modal <dialog> lives in the browser's
+ * top layer, and browsers disagree about what the top layer does on
+ * paper -- some print it over the page behind it, some leave it out and
+ * print the page it was covering.
+ *
+ * A heading goes with it, because a sheet of codes and dates with no
+ * title on it is no use an hour after it leaves the printer: which list
+ * it is, how many rows, and when it was taken.
+ */
+function printTotalList() {
+  const table = $('totalDialogTable')
+  if (table.hidden) return
+
+  const area = $('totalPrintArea')
+  const heading = document.createElement('h1')
+  heading.textContent = $('totalDialogTitle').textContent
+
+  const caption = document.createElement('p')
+  // The figures move. Say when these were true.
+  caption.textContent = `${$('totalDialogStatus').textContent} · ${new Date().toLocaleString()}`
+
+  // cloneNode, so printing never disturbs the table being looked at,
+  // and hidden is dropped from the copy -- the original carries it as
+  // the attribute that hides an empty list.
+  const copy = table.cloneNode(true)
+  copy.removeAttribute('hidden')
+  copy.removeAttribute('id')
+
+  area.replaceChildren(heading, caption, copy)
+
+  /* The class is what tells the print stylesheet this is a list and not
+     an employee record -- the page prints records too, and without it a
+     list asked for while a record is open prints the record.
+
+     It comes off on afterprint and nowhere else. Removing it straight
+     after print() returns looks tidier and is wrong: print() blocks
+     until the sheet is dealt with in some browsers and returns at once
+     in others, and in the second kind the class would be gone before
+     the page was rendered -- which prints the record, the bug this
+     exists to prevent. If afterprint never fires, the class simply
+     stays, and every rule that reads it is inside @media print, so
+     nothing on screen changes. */
+  document.body.classList.add('printing-list')
+  window.print()
+}
+
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('printing-list')
+})
 
 document.querySelectorAll('[data-total-list]').forEach((button) => {
   button.addEventListener('click', () => showTotalList(button.dataset.totalList))
 })
 $('closeTotalDialog').addEventListener('click', () => $('totalDialog').close())
-$('totalDialog').addEventListener('close', () => { totalListSequence++ })
+$('printTotalDialog').addEventListener('click', printTotalList)
+$('totalDialog').addEventListener('close', () => {
+  totalListSequence++
+  // The copy is a second set of every row on the page. Dropped when the
+  // dialog closes rather than left to be replaced next time, so it is
+  // not sitting in the document for the rest of the session.
+  $('totalPrintArea').replaceChildren()
+})
 
 async function loadTotals() {
   const count = async (apply) => {

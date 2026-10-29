@@ -336,6 +336,8 @@
 .total-dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
 .total-dialog h2 { margin: 0; font-size: 20px; }
 .total-dialog .row-between { gap: 12px; flex-wrap: wrap; }
+/* Print and Close, kept together at the right of the dialog's header. */
+.row-gap { display: flex; align-items: center; gap: 8px; }
 .total-list-scroll { overflow: auto; max-height: 60vh; }
 .total-list-table { width: 100%; border-collapse: collapse; }
 .total-list-table th, .total-list-table td {
@@ -350,6 +352,11 @@
    The name and the document list are the ones that may wrap. */
 .total-list-table th:first-child,
 .total-list-table td:first-child { white-space: nowrap; }
+
+/* Holds a copy of the open list while it is being printed. Never seen
+   on screen; see the note in the markup for why the dialog itself is
+   not the thing that goes on paper. */
+.total-print-area { display: none; }
 
 .input {
   width: 100%;
@@ -730,4 +737,31 @@ body:has(#app) .container { max-width: 1500px; }
   .db-field, .db-doc, .derived-item { min-width: 0; break-inside: avoid; }
   .db-print-value { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
   .derived-val { white-space: normal; overflow-wrap: anywhere; }
+
+  /* ---- Printing one of the totals lists ---------------------------
+     The rules above lay out an employee record for paper, which is what
+     Print on the page itself does. Printing a list is a different sheet
+     entirely, so the body carries a class for the duration and
+     everything else goes, the record included -- otherwise asking for
+     the list while a record happens to be open prints the record. */
+  body.printing-list > *:not(.total-print-area) { display: none !important; }
+  body.printing-list .total-print-area { display: block; }
+
+  .total-print-area h1 { font-size: 18px; margin: 0 0 4px; }
+  .total-print-area p { margin: 0 0 12px; font-size: 12px; color: #000; }
+  .total-print-area table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .total-print-area th, .total-print-area td {
+    text-align: left;
+    padding: 5px 8px;
+    border-bottom: 1px solid #999;
+    overflow-wrap: anywhere;
+    color: #000;
+  }
+  /* A list runs to several pages, and a page of codes with no headings
+     on it cannot be read on its own. */
+  .total-print-area thead { display: table-header-group; }
+  .total-print-area tr { break-inside: avoid; }
+  /* The scroll box is a screen thing: on paper it would clip the list
+     to one box-height and print the rest nowhere. */
+  .total-print-area .total-list-scroll { overflow: visible; max-height: none; }
 }
