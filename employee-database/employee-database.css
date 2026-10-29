@@ -320,7 +320,10 @@
 .total-action:hover { background: var(--sunken); }
 .total-action:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 .total-dialog {
-  width: min(640px, calc(100% - 32px));
+  /* Wider than the two columns it was built for. The contracts list now
+     carries a date and a countdown, and the incomplete-files list a
+     sentence of document names; at 640 both wrapped into ribbons. */
+  width: min(880px, calc(100% - 32px));
   max-height: 85vh;
   box-sizing: border-box;
   padding: 20px;
@@ -342,6 +345,11 @@
   overflow-wrap: anywhere;
 }
 .total-list-table th { color: var(--muted); }
+/* The code is six digits and should never be broken across two lines;
+   overflow-wrap: anywhere above would happily do it in a narrow window.
+   The name and the document list are the ones that may wrap. */
+.total-list-table th:first-child,
+.total-list-table td:first-child { white-space: nowrap; }
 
 .input {
   width: 100%;

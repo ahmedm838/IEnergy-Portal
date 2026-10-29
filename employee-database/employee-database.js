@@ -150,7 +150,7 @@ const GROUPS = [
   },
   {
     title: 'Employment',
-    // Six, and two rows of six: title, level, sector, department, site
+    // Six, and two rows of six: title, level, department, sector, site
     // and weekend fill the first row exactly, and the second is bus
     // route, the two dates, the two leave balances and the status.
     columns: 6,
@@ -166,6 +166,7 @@ const GROUPS = [
          below their level in their own department, so an employee with
          no level set is visible to admins and to themself alone. */
       { key: 'level_id', label: 'Level', type: 'select', source: 'levels' },
+      { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
       /* Read out, never filled in.
 
          An employee has no sector of their own: the sector belongs to
@@ -176,10 +177,8 @@ const GROUPS = [
          keeps it out of WRITABLE, out of the required check and out of
          validation; it is a label, not a field.
 
-         It sits before the department it is read from rather than
-         after, which puts the pair in the same order the rest of the
-         app lists them. The department still drives it either way --
-         nothing about the box depends on where it stands. */
+         It sits directly after the department it is read from, so the
+         box that changes is next to the one that changes it. */
       {
         key: 'sector',
         label: 'Sector',
@@ -187,7 +186,6 @@ const GROUPS = [
         derived: true,
         from: (employee) => sectorOf(employee?.department_id),
       },
-      { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
       { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
       { key: 'weekend', label: 'Weekend', type: 'select', options: [['fri_sat', 'Friday + Saturday'], ['fri', 'Friday only']] },
       { key: 'bus_route_id', label: 'Bus route', type: 'select', source: 'busRoutes', noBlank: true },
@@ -438,11 +436,48 @@ const totalLists = {
   contracts: {
     title: 'Contracts due/expired',
     apply: (q) => q.eq('is_active', true).not('contract_expiry', 'is', null).lte('contract_expiry', monthsAhead(4)),
+    /* The date and the count both, not one or the other. The date is
+       what you act on -- it goes in a letter and on a calendar -- and
+       the count is what tells you how urgent it is without working it
+       out from today's date for forty rows. */
+    select: 'contract_expiry',
+    columns: [
+      ['Expiry date', (e) => isoToDMY(e.contract_expiry)],
+      ['Days remaining', (e) => daysRemaining(e.contract_expiry)],
+    ],
   },
   incomplete: {
     title: 'Non completed files',
     apply: (q) => q.eq('file_complete', false),
+    /* The same array the record page and the export read, so a
+       document named here is named identically everywhere else. */
+    select: 'missing_documents',
+    columns: [
+      ['Missing documents', (e) => (e.missing_documents ?? []).join(', ') || '—'],
+    ],
   },
+}
+
+/**
+ * Whole days from today until that date, as something to read.
+ *
+ * Counted in UTC from midnight to midnight so the answer does not
+ * change with the hour of the day: a contract expiring tomorrow reads
+ * "1" at nine in the morning and at eleven at night, rather than
+ * rounding down to today's date somewhere in between.
+ *
+ * Past dates say so in words. A bare "-12" in a column headed Days
+ * remaining is the kind of thing somebody reads as twelve days left.
+ */
+function daysRemaining(iso, today = new Date()) {
+  if (!iso) return '—'
+  const target = new Date(iso + 'T00:00:00Z')
+  if (Number.isNaN(target.getTime())) return '—'
+  const now = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  const days = Math.round((target.getTime() - now) / 86400000)
+  if (days === 0) return 'Expires today'
+  if (days < 0) return `Expired ${-days} ${-days === 1 ? 'day' : 'days'} ago`
+  return String(days)
 }
 
 let totalListSequence = 0
@@ -456,14 +491,36 @@ async function showTotalList(key) {
   $('totalDialogStatus').textContent = 'Loading employees…'
   $('totalDialogTable').hidden = true
   $('totalDialogRows').replaceChildren()
+
+  /* Code and name on every list; a list that has more to say adds its
+     own columns. Built here rather than written into the markup,
+     because the header and the cells have to come from one place or a
+     list gains a column and the heading above it stays wrong. */
+  const columns = [
+    ['Code', (e) => e.code],
+    ['Name', (e) => e.name],
+    ...(list.columns ?? []),
+  ]
+  const head = document.createElement('tr')
+  for (const [label] of columns) {
+    const th = document.createElement('th')
+    th.scope = 'col'
+    th.textContent = label
+    head.appendChild(th)
+  }
+  $('totalDialogHead').replaceChildren(head)
+
   if (!dialog.open) dialog.showModal()
   try {
     // Fetch every page so large lists are not cut off by the API row limit.
     const employees = []
     const pageSize = 500
+    // Only what this list shows. select is a string sent to the server
+    // as-is: no comments in it, ever.
+    const select = ['id, code, name', list.select].filter(Boolean).join(', ')
     for (let offset = 0; ; offset += pageSize) {
       const { data, error } = await list.apply(
-        supabase.from('employee_profiles').select('id, code, name'),
+        supabase.from('employee_profiles').select(select),
       ).order('code').order('id').range(offset, offset + pageSize - 1)
       if (sequence !== totalListSequence || !dialog.open) return
       if (error) throw error
@@ -473,9 +530,10 @@ async function showTotalList(key) {
     const rows = document.createDocumentFragment()
     for (const employee of employees) {
       const row = document.createElement('tr')
-      for (const value of [employee.code, employee.name]) {
+      for (const [, read] of columns) {
         const cell = document.createElement('td')
-        cell.textContent = value ?? '—'
+        const value = read(employee)
+        cell.textContent = value == null || value === '' ? '—' : value
         row.appendChild(cell)
       }
       rows.appendChild(row)
