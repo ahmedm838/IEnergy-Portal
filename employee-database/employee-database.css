@@ -322,8 +322,9 @@
 .total-dialog {
   /* Wider than the two columns it was built for. The contracts list now
      carries a date and a countdown, and the incomplete-files list a
-     sentence of document names; at 640 both wrapped into ribbons. */
-  width: min(880px, calc(100% - 32px));
+     sentence of document names; at 640 both wrapped into ribbons, and
+     880 was still tight once the count column arrived. */
+  width: min(1012px, calc(100% - 32px));
   max-height: 85vh;
   box-sizing: border-box;
   padding: 20px;
@@ -338,7 +339,11 @@
 .total-dialog .row-between { gap: 12px; flex-wrap: wrap; }
 /* Print and Close, kept together at the right of the dialog's header. */
 .row-gap { display: flex; align-items: center; gap: 8px; }
-.total-list-scroll { overflow: auto; max-height: 60vh; }
+/* 69vh, the same 15% taller the dialog is wider. The dialog's own
+   85vh cap above is left where it is -- it is what keeps the window on
+   the screen, and growing it by the same proportion would put it past
+   the viewport rather than making it bigger. */
+.total-list-scroll { overflow: auto; max-height: 69vh; }
 .total-list-table { width: 100%; border-collapse: collapse; }
 .total-list-table th, .total-list-table td {
   text-align: left;

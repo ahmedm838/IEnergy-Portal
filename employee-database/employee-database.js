@@ -457,7 +457,7 @@ const totalLists = {
          one row at a time; a column of numbers is read down, which is
          how you spot the file that needs one more thing and the one
          nobody has started. */
-      ['Missing', (e) => String((e.missing_documents ?? []).length)],
+      ['Count', (e) => String((e.missing_documents ?? []).length)],
       ['Missing documents', (e) => (e.missing_documents ?? []).join(', ') || '—'],
     ],
   },
