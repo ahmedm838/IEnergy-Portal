@@ -206,6 +206,17 @@ body {
 .frozen-id-cols tbody tr:hover > td:nth-child(1),
 .frozen-id-cols tbody tr:hover > td:nth-child(2) { background: var(--hover); }
 
+/* A frozen cell paints its own opaque background, which would cover the
+   tint marking a row as inactive and leave those two columns looking
+   like the only living part of a dead row. Stated, so the whole row
+   greys together. Before the hover rule above in specificity terms it
+   is not -- both are one class and two elements -- so it is written
+   after it on purpose: hovering an inactive row still highlights it. */
+.frozen-id-cols tbody tr.row-inactive > td:nth-child(1),
+.frozen-id-cols tbody tr.row-inactive > td:nth-child(2) { background: var(--subtle); }
+.frozen-id-cols tbody tr.row-inactive:hover > td:nth-child(1),
+.frozen-id-cols tbody tr.row-inactive:hover > td:nth-child(2) { background: var(--hover); }
+
 /* Paper does not scroll. Pinning columns on it only risks them printing
    over what they were pinned above. */
 @media print {

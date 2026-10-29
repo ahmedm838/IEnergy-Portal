@@ -17,6 +17,45 @@ import {
   Th,
 } from '../components/ui'
 
+/* The five payroll switches, in the order the Employee Database lists
+   them. Abbreviated because five words per row would be wider than
+   everything before it put together; each carries its full name as a
+   tooltip, and the column header names all five. */
+const PAYROLL_SWITCHES = [
+  ['has_meal', 'M', 'Meal allowance'],
+  ['has_allowance', 'A', 'Allowance'],
+  ['has_overtime', 'O', 'Overtime'],
+  ['has_incentive', 'I', 'Incentive'],
+  ['has_deductions', 'D', 'Deductions'],
+]
+
+/**
+ * Which payroll switches are on, as five fixed positions.
+ *
+ * Off is shown as a dimmed letter rather than left out, so the letters
+ * stay in the same place on every row: a column where M sometimes means
+ * meals and sometimes means the first switch that happens to be on
+ * cannot be read down.
+ */
+function PayrollSwitches({ employee }) {
+  return (
+    <span className="tabular inline-flex gap-1 text-xs">
+      {PAYROLL_SWITCHES.map(([key, letter, label]) => {
+        const on = !!employee[key]
+        return (
+          <span
+            key={key}
+            title={`${label}: ${on ? 'on' : 'off'}`}
+            className={on ? 'font-semibold text-ink' : 'text-ink-4 opacity-50'}
+          >
+            {letter}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 const blankUsage = () => ({ annual: 0, unplanned: 0, added_days: 0, addedEarned: 0 })
 
 /**
@@ -188,13 +227,15 @@ export default function Employees() {
         sheetName: 'Employees',
         meta: [['Employees', filtered.length], ['Search', search || 'All employees'], ['Generated', new Date().toLocaleString()]],
         columns: [
+          // The same order as the table on screen, so a column counted
+          // off the page is the same column in the file.
           { header: 'Code', key: 'code', numFmt: '0' },
           { header: 'Name', key: 'name' },
           { header: 'Title', key: 'title' },
-          { header: 'Site', key: 'site' },
+          { header: 'Level', key: 'level' },
           { header: 'Department', key: 'department' },
-          { header: 'Status', key: 'status' },
-          { header: 'Login', key: 'login' },
+          { header: 'Sector', key: 'sector' },
+          { header: 'Site', key: 'site' },
           { header: 'Annual leave balance', key: 'annual', numFmt: 'General' },
           { header: 'Unplanned leave balance', key: 'unplanned', numFmt: 'General' },
           { header: 'Annual consumed', key: 'annualUsed', numFmt: 'General' },
@@ -204,12 +245,24 @@ export default function Employees() {
           { header: 'Added days balance', key: 'addedBalance', numFmt: 'General' },
           { header: 'Added days consumed', key: 'addedUsed', numFmt: 'General' },
           { header: 'Added days remaining', key: 'addedRemaining', numFmt: 'General' },
+          { header: 'Login', key: 'login' },
+          { header: 'Status', key: 'status' },
+          // Spelt out one per column rather than squeezed into the five
+          // letters the table shows: a spreadsheet gets filtered and
+          // summed, and "M A O" filters as nothing.
+          ...PAYROLL_SWITCHES.map(([key, , label]) => ({ header: label, key })),
         ],
         rows: filtered.map((employee) => ({
           code: Number(employee.code), name: employee.name, title: employee.title,
-          site: employee.sites?.name, department: employee.departments?.name,
+          level: employee.employee_levels?.code ?? '',
+          department: employee.departments?.name,
+          sector: employee.departments?.sectors?.name ?? '',
+          site: employee.sites?.name,
           status: employee.employee_statuses?.name, login: loginLabel(employee),
           ...leaves(employee),
+          ...Object.fromEntries(
+            PAYROLL_SWITCHES.map(([key]) => [key, employee[key] ? 'Yes' : 'No']),
+          ),
         })),
       }, `employees-${year}.xlsx`)
     } catch (err) {
@@ -271,16 +324,20 @@ export default function Employees() {
           <EmptyState title="No matching employees" />
         ) : (
           <div className="max-h-[70vh] overflow-auto">
-            <table className="sticky-head w-full border-collapse">
+            {/* frozen-id-cols: the same two columns stay against the
+                left edge here as on the monthly and hours reports. The
+                row is wide enough now that without it the figures at
+                the right belong to nobody. */}
+            <table className="sticky-head frozen-id-cols w-full border-collapse">
               <thead>
                 <tr>
                   <Th>Code</Th>
                   <Th>Name</Th>
                   <Th>Title</Th>
-                  <Th>Site</Th>
+                  <Th>Level</Th>
                   <Th>Department</Th>
-                  <Th>Status</Th>
-                  <Th>Login</Th>
+                  <Th>Sector</Th>
+                  <Th>Site</Th>
                   {/* Annual / un-planned / added, in that order, in all
                       three columns. The order is not readable off the
                       numbers, so each header says it rather than leaving
@@ -288,32 +345,30 @@ export default function Employees() {
                   <Th title="Annual / Un-planned / Added days">Leaves</Th>
                   <Th title="Annual / Un-planned / Added days">Consumed</Th>
                   <Th title="Annual / Un-planned / Added days">Remaining</Th>
+                  <Th>Login</Th>
+                  <Th>Status</Th>
+                  <Th title="Meal · Allowance · Overtime · Incentive · Deductions">Payroll</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {filtered.map((e) => (
-                  <tr key={e.id} className={e.is_active ? 'hover:bg-hover' : 'bg-subtle/60 opacity-70'}>
+                  <tr
+                    key={e.id}
+                    className={
+                      e.is_active ? 'hover:bg-hover' : 'row-inactive bg-subtle/60 opacity-70'
+                    }
+                  >
                     <Td className="tabular font-medium">{e.code}</Td>
                     <Td className="font-medium text-ink">{e.name}</Td>
                     <Td>{e.title}</Td>
-                    <Td>{e.sites?.name}</Td>
+                    {/* The grade code alone. The full name is on the
+                        employee's record; a column of "Section
+                        Head/Senior/Supervisor" would push everything
+                        after it off the screen. */}
+                    <Td className="tabular">{e.employee_levels?.code ?? '—'}</Td>
                     <Td>{e.departments?.name}</Td>
-                    {/* Role lives in Settings, under Access, with the
-                        password that goes with it. */}
-                    <Td>
-                      <Badge tone={e.employee_statuses?.in_payroll ? 'green' : 'amber'}>
-                        {e.employee_statuses?.name ?? '—'}
-                      </Badge>
-                    </Td>
-                    <Td>
-                      {e.auth_user_id ? (
-                        <Badge tone="green">Active</Badge>
-                      ) : e.email ? (
-                        <Badge tone="amber">Not invited</Badge>
-                      ) : (
-                        <Badge tone="slate">No email</Badge>
-                      )}
-                    </Td>
+                    <Td>{e.departments?.sectors?.name ?? '—'}</Td>
+                    <Td>{e.sites?.name}</Td>
                     <Td className="tabular text-xs text-ink-3">
                       {leavesLoading || leavesError
                         ? `${num(e.annual_leave_balance, 0)} / ${num(e.unplanned_leave_balance, 0)} / —`
@@ -328,6 +383,25 @@ export default function Employees() {
                       {leavesLoading || leavesError
                         ? '—'
                         : `${num(leaves(e).annualRemaining, 0)} / ${num(leaves(e).unplannedRemaining, 0)} / ${num(leaves(e).addedRemaining, 0)}`}
+                    </Td>
+                    <Td>
+                      {e.auth_user_id ? (
+                        <Badge tone="green">Active</Badge>
+                      ) : e.email ? (
+                        <Badge tone="amber">Not invited</Badge>
+                      ) : (
+                        <Badge tone="slate">No email</Badge>
+                      )}
+                    </Td>
+                    {/* Role lives in Settings, under Access, with the
+                        password that goes with it. */}
+                    <Td>
+                      <Badge tone={e.employee_statuses?.in_payroll ? 'green' : 'amber'}>
+                        {e.employee_statuses?.name ?? '—'}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <PayrollSwitches employee={e} />
                     </Td>
                   </tr>
                 ))}

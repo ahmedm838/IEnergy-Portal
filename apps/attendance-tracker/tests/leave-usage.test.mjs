@@ -23,6 +23,17 @@ const end = file.indexOf('export default function Employees')
 assert.ok(start > 0 && end > start, 'found the counting functions in the page')
 const source = file.slice(start, end)
 
+/* The slice is run through new Function, which parses JavaScript and
+   not JSX. A component added between blankUsage and the page's default
+   export lands inside it and fails with a bare "Unexpected token '<'"
+   that says nothing about why. This has happened. Say what to do. */
+assert.doesNotMatch(
+  source,
+  /<[A-Za-z/]/,
+  'JSX between blankUsage and the default export: this slice is parsed as plain JavaScript, ' +
+    'so put the component above blankUsage instead.',
+)
+
 /* ---- the rows, as each path would receive them ---- */
 
 const ANA = '11111111-1111-1111-1111-111111111111'

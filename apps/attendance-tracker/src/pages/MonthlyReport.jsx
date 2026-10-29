@@ -20,6 +20,30 @@ import {
 } from '../components/ui'
 
 /** Report 2 — the "monthly report" sheet (payroll input). */
+/**
+ * A number Excel will treat as one, or the original text.
+ *
+ * si_no is a text column in the database, so it arrives as a string
+ * and ExcelJS writes a text cell -- a number format on the column
+ * does nothing to a value that is not a number, which is why the
+ * column looked unchanged however it was formatted. The value itself
+ * has to be converted.
+ *
+ * Only all-digit values are converted, and only when no leading zero
+ * would be lost: "0123" as a number is 123, which is a different
+ * insurance number, and silently changing one in a payroll sheet is
+ * worse than leaving it as text. Anything else -- blank, a hyphen, a
+ * letter -- is left exactly as it came.
+ */
+function digitsOrText(value) {
+  const text = String(value ?? '').trim()
+  if (!/^[0-9]+$/.test(text)) return value ?? ''
+  if (text.length > 1 && text.startsWith('0')) return text
+  // Beyond this, a number loses precision rather than being stored.
+  if (!Number.isSafeInteger(Number(text))) return text
+  return Number(text)
+}
+
 export default function MonthlyReport() {
   const lookups = useLookups()
 
@@ -125,7 +149,9 @@ export default function MonthlyReport() {
       // edge, and the narrow fixed-width one belongs on the outside.
       { header: 'Code', key: 'code', numFmt: '0' },
       { header: 'Name', key: 'name' },
-      { header: 'S.I. No.', key: 'si_no' },
+      // Stored as text, exported as a number -- see digitsOrText below
+      // for what happens to one that is not all digits.
+      { header: 'S.I. No.', key: 'si_no', numFmt: '0' },
       { header: 'Title', key: 'title' },
       { header: 'Site', key: 'site' },
       { header: 'Department', key: 'department' },
@@ -176,6 +202,7 @@ export default function MonthlyReport() {
         rows: visibleRows.map((r) => ({
           ...r,
           code: Number(r.code),
+          si_no: digitsOrText(r.si_no),
           records: Number(r.records),
           total_allowances: Number(r.total_allowances),
           incentive: Number(r.incentive),

@@ -308,22 +308,31 @@
      of the last check is shared, so ten open tabs still make one
      request. Hidden tabs skip it, since nobody is looking at them.
 
-     WHY SEVEN MINUTES, not the one it was. This timer is the only thing
-     in the whole site that makes a request when nobody is doing
+     WHY NINE MINUTES, not the one it started at. This timer is the only
+     thing in the whole site that makes a request when nobody is doing
      anything, so at a minute it was the largest single source of
      requests against the Supabase quota: about 480 per person per day
-     for an answer that is almost always "still signed in". At seven it
-     is about 68 -- the same answer, a seventh of the asking.
+     for an answer that is almost always "still signed in". At nine it is
+     about 53 -- the same answer, a ninth of the asking.
+
+     NINE IS THE CEILING, not a round number picked for looks. IDLE_MS at
+     the top of this file is ten minutes, and this has to stay under it:
+     a tab somebody is using must be checked at least once before the
+     idle timer can sign it out, or nothing ever notices a revoked
+     session on a live tab except the timer that was going to end it
+     anyway. Raising this further means raising IDLE_MS first, and that
+     is a different decision -- it is about unattended screens, not
+     about requests.
 
      What it costs is how long a revoked session keeps working on the
-     device it was revoked from: up to seven minutes rather than up to
+     device it was revoked from: up to nine minutes rather than up to
      one. Three things bound that. The same check runs the moment a
      hidden tab is looked at again, so anybody actually using the other
      device is caught at once. The ten-minute idle timeout is untouched
      and still signs out an unattended tab. And the database decides
      what that session may read or write regardless, so what is being
      bounded here is a stale page, not an open door. */
-  const SESSION_CHECK_MS = 7 * 60 * 1000;
+  const SESSION_CHECK_MS = 9 * 60 * 1000;
   const CHECK_KEY = 'ienergy-session-checked';
 
   function claimCheck() {

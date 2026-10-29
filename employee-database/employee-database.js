@@ -150,11 +150,9 @@ const GROUPS = [
   },
   {
     title: 'Employment',
-    // Six, and still two rows of six. The job title gave up its double
-    // width to make room for the level beside it: title, level, site,
-    // department, sector and weekend fill the first row exactly, and the
-    // second is unchanged -- bus route, the two dates, the two leave
-    // balances and the status.
+    // Six, and two rows of six: title, level, sector, department, site
+    // and weekend fill the first row exactly, and the second is bus
+    // route, the two dates, the two leave balances and the status.
     columns: 6,
     fields: [
       // One column now, not two. It held the extra width to make the old
@@ -168,8 +166,6 @@ const GROUPS = [
          below their level in their own department, so an employee with
          no level set is visible to admins and to themself alone. */
       { key: 'level_id', label: 'Level', type: 'select', source: 'levels' },
-      { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
-      { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
       /* Read out, never filled in.
 
          An employee has no sector of their own: the sector belongs to
@@ -178,7 +174,12 @@ const GROUPS = [
          employees row has no sector column, and adding one would be a
          second place for the same fact to live and go stale. derived
          keeps it out of WRITABLE, out of the required check and out of
-         validation; it is a label, not a field. */
+         validation; it is a label, not a field.
+
+         It sits before the department it is read from rather than
+         after, which puts the pair in the same order the rest of the
+         app lists them. The department still drives it either way --
+         nothing about the box depends on where it stands. */
       {
         key: 'sector',
         label: 'Sector',
@@ -186,6 +187,8 @@ const GROUPS = [
         derived: true,
         from: (employee) => sectorOf(employee?.department_id),
       },
+      { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
+      { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
       { key: 'weekend', label: 'Weekend', type: 'select', options: [['fri_sat', 'Friday + Saturday'], ['fri', 'Friday only']] },
       { key: 'bus_route_id', label: 'Bus route', type: 'select', source: 'busRoutes', noBlank: true },
       { key: 'hired_on', label: 'Hiring date', type: 'date' },
