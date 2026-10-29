@@ -441,9 +441,12 @@ const totalLists = {
        the count is what tells you how urgent it is without working it
        out from today's date for forty rows. */
     select: 'contract_expiry',
+    /* A third entry on a column is a class, put on the heading and on
+       every cell under it, so a column's width belongs to the column
+       rather than to whichever position it happens to sit in. */
     columns: [
-      ['Expiry date', (e) => isoToDMY(e.contract_expiry)],
-      ['Days remaining', (e) => daysRemaining(e.contract_expiry)],
+      ['Expiry date', (e) => isoToDMY(e.contract_expiry), 'col-date'],
+      ['Days remaining', (e) => daysRemaining(e.contract_expiry), 'col-days'],
     ],
   },
   incomplete: {
@@ -457,7 +460,7 @@ const totalLists = {
          one row at a time; a column of numbers is read down, which is
          how you spot the file that needs one more thing and the one
          nobody has started. */
-      ['Count', (e) => String((e.missing_documents ?? []).length)],
+      ['Count', (e) => String((e.missing_documents ?? []).length), 'col-count'],
       ['Missing documents', (e) => (e.missing_documents ?? []).join(', ') || '—'],
     ],
   },
@@ -505,15 +508,16 @@ async function showTotalList(key) {
      because the header and the cells have to come from one place or a
      list gains a column and the heading above it stays wrong. */
   const columns = [
-    ['Code', (e) => e.code],
-    ['Name', (e) => e.name],
+    ['Code', (e) => e.code, 'col-code'],
+    ['Name', (e) => e.name, 'col-name'],
     ...(list.columns ?? []),
   ]
   const head = document.createElement('tr')
-  for (const [label] of columns) {
+  for (const [label, , className] of columns) {
     const th = document.createElement('th')
     th.scope = 'col'
     th.textContent = label
+    if (className) th.className = className
     head.appendChild(th)
   }
   $('totalDialogHead').replaceChildren(head)
@@ -538,10 +542,11 @@ async function showTotalList(key) {
     const rows = document.createDocumentFragment()
     for (const employee of employees) {
       const row = document.createElement('tr')
-      for (const [, read] of columns) {
+      for (const [, read, className] of columns) {
         const cell = document.createElement('td')
         const value = read(employee)
         cell.textContent = value == null || value === '' ? '—' : value
+        if (className) cell.className = className
         row.appendChild(cell)
       }
       rows.appendChild(row)

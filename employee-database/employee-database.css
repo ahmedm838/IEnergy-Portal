@@ -352,11 +352,23 @@
   overflow-wrap: anywhere;
 }
 .total-list-table th { color: var(--muted); }
-/* The code is six digits and should never be broken across two lines;
-   overflow-wrap: anywhere above would happily do it in a narrow window.
-   The name and the document list are the ones that may wrap. */
-.total-list-table th:first-child,
-.total-list-table td:first-child { white-space: nowrap; }
+/* Column widths, by the class each column carries rather than by the
+   position it happens to sit in: the lists do not all have the same
+   columns, and :nth-child would widen the days-remaining column on one
+   list and the document names on another.
+
+   overflow-wrap: anywhere above will break anything, including a
+   six-digit code and the word "Count". These say what must not break
+   and how much room to keep for it. The long document list is the one
+   column meant to wrap, and it takes whatever is left. */
+.total-list-table .col-code { white-space: nowrap; }
+/* Wide enough for three Arabic-transliterated names on one line. */
+.total-list-table .col-name { min-width: 16rem; }
+/* The number is one or two digits; the width is for the heading, which
+   was wrapping to two lines over a column of single characters. */
+.total-list-table .col-count { white-space: nowrap; width: 6rem; }
+.total-list-table .col-date { white-space: nowrap; }
+.total-list-table .col-days { white-space: nowrap; }
 
 /* Holds a copy of the open list while it is being printed. Never seen
    on screen; see the note in the markup for why the dialog itself is
