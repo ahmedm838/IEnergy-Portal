@@ -46,6 +46,9 @@
 .result-header { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
 .result-name { font-size: 18px; font-weight: 700; line-height: 1.2; }
 .result-title { margin-top: 4px; opacity: 0.85; }
+/* The code and the grade, one under the other, kept to the right of the
+   header they share. */
+.result-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .badge {
   border: 1px solid rgba(var(--ink-rgb), 0.18);
   background: rgba(var(--ink-rgb), 0.06);

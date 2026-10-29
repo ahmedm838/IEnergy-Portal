@@ -225,9 +225,14 @@ export default function EmployeeReport() {
       from: range.from,
       to: range.to,
       summary: [
+        // Same order as the heading on screen.
         ['Title', employee.title ?? ''],
-        ['Site', employee.sites?.name ?? ''],
+        ['Level', employee.employee_levels
+          ? `${employee.employee_levels.code} — ${employee.employee_levels.name}`
+          : ''],
         ['Department', employee.departments?.name ?? ''],
+        ['Sector', employee.departments?.sectors?.name ?? ''],
+        ['Site', employee.sites?.name ?? ''],
         ['Working days', summary.working_days],
         // The same rule as on screen: a file that still carried the
         // numbers would be read as the real answer the moment it left
@@ -369,9 +374,21 @@ export default function EmployeeReport() {
               {summary.employee.name}{' '}
               <span className="font-normal text-ink-3">#{summary.employee.code}</span>
             </h2>
+            {/* Title, level, department, sector, site -- widest thing
+                first, then outwards: the job, the grade it sits at, the
+                department, the sector that holds it, and where they
+                work. A missing one shows a dash rather than collapsing
+                the line, so the order stays readable across records. */}
             <p className="text-sm text-ink-3">
-              {employee?.title} · {employee?.sites?.name ?? '—'} ·{' '}
-              {employee?.departments?.name ?? '—'}
+              {[
+                employee?.title,
+                employee?.employee_levels?.code,
+                employee?.departments?.name,
+                employee?.departments?.sectors?.name,
+                employee?.sites?.name,
+              ]
+                .map((part) => part || '—')
+                .join(' · ')}
             </p>
             <p className="mt-1 text-sm text-ink-3">
               {longDateLabel(range.from)} to {longDateLabel(range.to)}

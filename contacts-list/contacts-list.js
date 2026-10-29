@@ -35,6 +35,7 @@
   const elRName = document.getElementById('rName');
   const elRTitle = document.getElementById('rTitle');
   const elRCode = document.getElementById('rCode');
+  const elRLevel = document.getElementById('rLevel');
   const elRMobile = document.getElementById('rMobile');
   const elREmail = document.getElementById('rEmail');
   const elROffice = document.getElementById('rOffice');
@@ -152,7 +153,8 @@
       const sub = document.createElement('div');
       sub.className = 'match-sub';
       const office = safeIntString(pickField(it.row, ['Office Number', 'Office', 'Office No.']));
-      const bits = [normStr(it.title), office ? `Office: ${office}` : ''].filter(Boolean);
+      const level = normStr(pickField(it.row, ['Level', 'Grade']));
+      const bits = [normStr(it.title), level, office ? `Office: ${office}` : ''].filter(Boolean);
       sub.textContent = bits.join(' • ') || '—';
 
       btn.appendChild(top);
@@ -181,6 +183,15 @@
     if (elRName) elRName.textContent = name || '—';
     if (elRTitle) elRTitle.textContent = title || '—';
     if (elRCode) elRCode.textContent = `Code: ${code || '—'}`;
+
+    /* The grade, when the record has one. Hidden rather than dashed:
+       levels are being filled in record by record, and an empty badge
+       on everyone who has not been done yet is noise. */
+    const level = normStr(pickField(row, ['Level', 'Grade']));
+    if (elRLevel) {
+      elRLevel.textContent = level ? `Level: ${level}` : '';
+      elRLevel.hidden = !level;
+    }
 
     if (elRMobile) elRMobile.textContent = mobile || '—';
     if (elREmail) elREmail.textContent = email || '—';
@@ -265,7 +276,7 @@
 
     const pattern = `"*${safe}*"`;
     const params = new URLSearchParams({
-      select: 'code,name,title,department,site,email,company_mobile,office_number',
+      select: 'code,name,title,department,site,email,company_mobile,office_number,level',
       or: `(name.ilike.${pattern},title.ilike.${pattern},code_text.ilike.${pattern})`,
       order: 'code.asc',
       limit: String(SEARCH_LIMIT),
@@ -291,6 +302,7 @@
         'Email': r.email,
         'Mobile Number': r.company_mobile,
         'Office Number': r.office_number,
+        'Level': r.level,
       };
     });
   }

@@ -27,7 +27,7 @@ export function clearLookupsCache() {
  * Both paths below end here, so the one RPC and the seven requests
  * cannot drift into returning different shapes.
  */
-function shapeLookups({ sites, sectors, departments, statuses, allTypes, busRoutes, settings }) {
+function shapeLookups({ sites, sectors, departments, statuses, allTypes, busRoutes, levels, settings }) {
   const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]))
   return {
     sites,
@@ -39,6 +39,9 @@ function shapeLookups({ sites, sectors, departments, statuses, allTypes, busRout
     // What a record can be read through, and what Settings manages.
     allTypes,
     busRoutes,
+    // Job grades, L1 to L7. Set in the portal's Employee Database; read
+    // here so a report can print one beside the job title.
+    levels,
     settings: settingsMap,
   }
 }
@@ -74,12 +77,15 @@ async function fetchLookups() {
     statuses: data.statuses ?? [],
     allTypes: data.types ?? [],
     busRoutes: data.bus_routes ?? [],
+    levels: data.levels ?? [],
     settings: data.settings ?? [],
   })
 }
 
 async function fetchLookupsSeparately() {
-  const [sites, sectors, departments, statuses, allTypes, busRoutes, settings] = await Promise.all([
+  const [
+    sites, sectors, departments, statuses, allTypes, busRoutes, levels, settings,
+  ] = await Promise.all([
     run(supabase.from('sites').select('*').order('sort_order')),
     run(supabase.from('sectors').select('*').order('sort_order')),
     run(
@@ -107,10 +113,13 @@ async function fetchLookupsSeparately() {
        a query nobody reads. */
     run(supabase.from('attendance_types').select('*').order('sort_order')),
     run(supabase.from('bus_routes').select('*').order('sort_order')),
+    run(supabase.from('employee_levels').select('*').order('sort_order')),
     run(supabase.from('app_settings').select('*')),
   ])
 
-  return shapeLookups({ sites, sectors, departments, statuses, allTypes, busRoutes, settings })
+  return shapeLookups({
+    sites, sectors, departments, statuses, allTypes, busRoutes, levels, settings,
+  })
 }
 
 /**
@@ -206,11 +215,15 @@ export function useEmployees({ activeOnly = true } = {}) {
         .select(
           `id, code, name, arabic_name, title, email, username, role, is_active, si_no, auth_user_id,
            company_mobile, office_number, weekend,
-           site_id, department_id, status_id,
+           site_id, department_id, status_id, level_id,
            has_meal, has_allowance, has_overtime, has_incentive, has_deductions,
            annual_leave_balance, unplanned_leave_balance,
            sites ( id, name ),
-           departments ( id, name ),
+           /* The sector rides along on the department, which is where it
+              lives -- an employee has no sector of their own. The report
+              prints it under the department. */
+           departments ( id, name, sectors ( id, name ) ),
+           employee_levels ( id, code, name ),
            employee_statuses ( id, name, in_payroll, allows_records )`,
         )
         .order('code')

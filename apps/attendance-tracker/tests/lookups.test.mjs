@@ -37,6 +37,11 @@ const ALL_TYPES = [
   { id: 9, code: 'old_leave', name_en: 'Old leave', sort_order: 9, is_active: false },
 ]
 const BUS_ROUTES = [{ id: 1, name: 'October', sort_order: 1 }]
+const LEVELS = [
+  { id: 1, code: 'L7', name: 'Chief Executive Officer', rank: 7, sort_order: 1 },
+  { id: 4, code: 'L4', name: 'Manager', rank: 4, sort_order: 4 },
+  { id: 7, code: 'L1', name: 'Worker', rank: 1, sort_order: 7 },
+]
 const SETTINGS = [
   { key: 'required_hours_per_day', value: '8' },
   { key: 'currency', value: 'EGP' },
@@ -49,6 +54,7 @@ const TABLES = {
   employee_statuses: STATUSES,
   attendance_types: ALL_TYPES,
   bus_routes: BUS_ROUTES,
+  employee_levels: LEVELS,
   app_settings: SETTINGS,
 }
 
@@ -61,6 +67,7 @@ const rpcPayload = {
   statuses: STATUSES,
   types: ALL_TYPES,
   bus_routes: BUS_ROUTES,
+  levels: LEVELS,
   settings: SETTINGS,
 }
 
@@ -111,6 +118,9 @@ test('the shape the pages read', async () => {
   // Named busRoutes here, bus_routes in SQL.
   assert.equal(lookups.busRoutes.length, 1)
 
+  // Job grades, highest first, as the sheet lists them.
+  assert.deepEqual(lookups.levels.map((l) => l.code), ['L7', 'L4', 'L1'])
+
   // A department with no sector survives the trip.
   assert.equal(lookups.departments.at(-1).sectors, null)
 })
@@ -127,7 +137,7 @@ test('a bundle newer than the database falls back to the seven', async () => {
   const api = load({ rpc: missing })
   const lookups = await api.fetchLookups()
   assert.deepEqual(lookups.allTypes, ALL_TYPES)
-  assert.equal(api.calls.tables.length, 7)
+  assert.equal(api.calls.tables.length, 8)
 })
 
 test('a real failure is not mistaken for a missing function', async () => {

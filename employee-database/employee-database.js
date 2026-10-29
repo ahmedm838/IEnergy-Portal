@@ -150,15 +150,24 @@ const GROUPS = [
   },
   {
     title: 'Employment',
-    // Six, so both rows land where they were asked to: the job title
-    // spans two of them, which fills the first row exactly with site,
-    // department, sector and weekend, and leaves the second for the bus
-    // route, the two dates, the two leave balances and the status.
+    // Six, and still two rows of six. The job title gave up its double
+    // width to make room for the level beside it: title, level, site,
+    // department, sector and weekend fill the first row exactly, and the
+    // second is unchanged -- bus route, the two dates, the two leave
+    // balances and the status.
     columns: 6,
     fields: [
-      // Double width. db-field-half is the existing span-2 class; the
-      // name comes from the four-column section it was written for.
-      { key: 'title', label: 'Job title', type: 'text', placeholder: 'English only', half: true },
+      // One column now, not two. It held the extra width to make the old
+      // row of five come out even; the level is the sixth field, so it
+      // no longer needs to.
+      { key: 'title', label: 'Job title', type: 'text', placeholder: 'English only' },
+      /* The job grade, L1 to L7.
+
+         Required like everything else here -- it is not in OPTIONAL --
+         and it is not only a label: a read-only user sees the people
+         below their level in their own department, so an employee with
+         no level set is visible to admins and to themself alone. */
+      { key: 'level_id', label: 'Level', type: 'select', source: 'levels' },
       { key: 'site_id', label: 'Site', type: 'select', source: 'sites' },
       { key: 'department_id', label: 'Department', type: 'select', source: 'departments' },
       /* Read out, never filled in.
@@ -332,7 +341,7 @@ $('signOutBtn').addEventListener('click', async () => {
 
 async function loadLookups() {
   const q = (table, select, order) => supabase.from(table).select(select).order(order)
-  const [sites, departments, sectors, statuses, degrees, busRoutes, govs] = await Promise.all([
+  const [sites, departments, sectors, statuses, degrees, busRoutes, govs, levels] = await Promise.all([
     q('sites', 'id, name', 'sort_order'),
     // sector_id rides along for the Sector box, which reads the sector
     // off the chosen department rather than off the employee.
@@ -347,6 +356,7 @@ async function loadLookups() {
     // signing in, the governorate names were never fetched at all and
     // every ID resolved to "code not listed".
     q('governorates', 'code, name_ar', 'code'),
+    q('employee_levels', 'id, code, name', 'sort_order'),
   ])
   const rows = (r) => (r.error ? [] : r.data ?? [])
   lookups = {
@@ -365,6 +375,9 @@ async function loadLookups() {
     degrees: rows(degrees).map((r) => [r.id, `${r.name_en} — ${r.name_ar}`]),
     busRoutes: rows(busRoutes).map((r) => [r.id, r.name]),
     governorates: Object.fromEntries(rows(govs).map((r) => [Number(r.code), r.name_ar])),
+    // "L4 — Manager": the grade on its own is not a job and the job on
+    // its own is not a grade, and the sheet these came from pairs them.
+    levels: rows(levels).map((r) => [r.id, `${r.code} — ${r.name}`]),
   }
 }
 
@@ -1467,6 +1480,7 @@ function exportRow(e) {
 
     /* Employment */
     'Job title': e.title ?? '',
+    'Level': nameFrom(lookups.levels, e.level_id),
     'Site': nameFrom(lookups.sites, e.site_id),
     'Department': nameFrom(lookups.departments, e.department_id),
     'Status': nameFrom(lookups.statuses, e.status_id),
