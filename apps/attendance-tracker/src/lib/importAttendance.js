@@ -165,10 +165,10 @@ export function findHeaderRow(rows) {
  * edge.
  *
  * Returns:
- *   days    { iso: { clock_in, clock_out } } -- the days to fill in
- *   issues  [ { date, reason, detail } ]     -- the days left alone
- *   noPunch how many days in range had neither time
- *   matched how many rows were this employee's, inside the range
+ *   days         { iso: { clock_in, clock_out } } -- the days to fill in
+ *   issues       [ { date, reason, detail } ]     -- the days left alone
+ *   noPunchDays  [ iso ] -- days in range the machine saw nothing on
+ *   matched      how many rows were this employee's, inside the range
  *
  * THE TWO RULES, both of which mean "do not guess":
  *
@@ -181,9 +181,11 @@ export function findHeaderRow(rows) {
  *   and picking the earliest would quietly turn a late arrival into an
  *   on-time one.
  *
- * A day with neither time is not an issue. It is an ordinary absence or
- * a day off, the machine has nothing to say about it, and listing a
- * thousand of them would bury the handful that need a person.
+ * A day with neither time is not an issue -- it is an ordinary absence
+ * or a day off, and the machine has nothing to say about it. It is
+ * still reported, separately from the issues, because "the machine saw
+ * nothing on these days" is worth reading before marking a month
+ * absent; it is just not something anybody has to fix.
  */
 export function buildImport(rows, { acNo, from, to }) {
   if (acNo == null) {
@@ -222,13 +224,13 @@ export function buildImport(rows, { acNo, from, to }) {
 
   const days = {}
   const issues = []
-  let noPunch = 0
+  const noPunchDays = []
 
   for (const iso of [...perDay.keys()].sort()) {
     const { in: ins, out: outs } = perDay.get(iso)
 
     if (ins.length === 0 && outs.length === 0) {
-      noPunch += 1
+      noPunchDays.push(iso)
       continue
     }
     if (ins.length > 1 || outs.length > 1) {
@@ -251,5 +253,50 @@ export function buildImport(rows, { acNo, from, to }) {
     days[iso] = { clock_in: ins[0], clock_out: outs[0] }
   }
 
-  return { days, issues, noPunch, matched }
+  return { days, issues, noPunchDays, matched }
+}
+
+/**
+ * Work out the grid after an import, and what it did, together.
+ *
+ * These used to be apart: the page looped inside a setRows updater and
+ * incremented counters the next line then read to build its message.
+ * React queues an updater rather than running it there and then, so the
+ * days were filled correctly and the message was written while every
+ * counter was still zero -- "0 days filled" over a grid that had
+ * visibly just been filled.
+ *
+ * Returning both from one pass is what stops that coming back: there is
+ * no moment where the figures and the rows can disagree, because
+ * neither exists without the other.
+ *
+ * `blocked(iso)` is the page's -- a locked period or a day that has not
+ * happened yet. Kept out here so this knows nothing about either.
+ */
+export function applyImport({ rows, dirty, days, imported, typeId, emptyRow, blocked }) {
+  const next = { ...rows }
+  const touched = new Set(dirty)
+  const counts = { filled: 0, kept: 0, blocked: 0 }
+  const inRange = new Set(days)
+
+  for (const [iso, times] of Object.entries(imported)) {
+    if (!inRange.has(iso)) continue
+    if (blocked(iso)) { counts.blocked += 1; continue }
+    // A day already given a type is left as it is. The machine knows
+    // somebody badged in; it does not know the day was agreed as annual
+    // leave, and overwriting would lose a person's decision in favour
+    // of a turnstile.
+    if (next[iso]?.attendance_type_id) { counts.kept += 1; continue }
+    next[iso] = {
+      ...emptyRow,
+      ...next[iso],
+      attendance_type_id: typeId,
+      clock_in: times.clock_in,
+      clock_out: times.clock_out,
+    }
+    touched.add(iso)
+    counts.filled += 1
+  }
+
+  return { next, touched, ...counts }
 }

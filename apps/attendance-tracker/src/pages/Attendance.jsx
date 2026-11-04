@@ -7,7 +7,7 @@ import { useLocks, lockRangeLabel } from '../lib/useLocks'
 import { recordBlockReason } from '../lib/recordable'
 import { summarise } from '../lib/calc'
 import { readSheetRows, prefetchWorkbookReader } from '../lib/readWorkbook'
-import { acNumberFor, buildImport } from '../lib/importAttendance'
+import { acNumberFor, applyImport, buildImport } from '../lib/importAttendance'
 import {
   dateRange,
   dayLabel,
@@ -75,7 +75,7 @@ export default function Attendance() {
   // null until an upload has been read; [] afterwards when it was clean,
   // which is worth showing rather than leaving the last file's problems
   // on screen beside a new one's results.
-  const [importIssues, setImportIssues] = useState(null)
+  const [importReport, setImportReport] = useState(null)
   const fileInput = useRef(null)
 
   // The reader is a large chunk and most sessions never upload, so it is
@@ -260,7 +260,7 @@ export default function Attendance() {
     if (!file || !selectedEmployee || readOnlyEmployee) return
     setError(null)
     setNotice(null)
-    setImportIssues(null)
+    setImportReport(null)
     setImporting(true)
     try {
       const acNo = acNumberFor(selectedEmployee.code)
@@ -291,39 +291,34 @@ export default function Attendance() {
         return
       }
 
-      let filled = 0
-      let kept = 0
-      let blocked = 0
-      setRows((current) => {
-        const next = { ...current }
-        const touched = new Set(dirty)
-        for (const [iso, times] of Object.entries(result.days)) {
-          if (!days.includes(iso)) continue
-          if (locks.isLocked(iso) || isFutureDay(iso)) { blocked += 1; continue }
-          if (next[iso]?.attendance_type_id) { kept += 1; continue }
-          next[iso] = {
-            ...EMPTY_ROW,
-            ...next[iso],
-            attendance_type_id: type.id,
-            clock_in: times.clock_in,
-            clock_out: times.clock_out,
-          }
-          touched.add(iso)
-          filled += 1
-        }
-        setDirty(touched)
-        return next
+      /* The new grid and the figures describing it come back from one
+         pass, and the state is handed over finished rather than
+         computed inside a setRows updater. It was computed in one, and
+         the counters it incremented were read on the next line to build
+         the message -- but React queues an updater rather than running
+         it there and then, so the days were filled in correctly while
+         the message was written with every counter still at zero. */
+      const { next, touched, filled, kept, blocked } = applyImport({
+        rows,
+        dirty,
+        days,
+        imported: result.days,
+        typeId: type.id,
+        emptyRow: EMPTY_ROW,
+        blocked: (iso) => locks.isLocked(iso) || isFutureDay(iso),
       })
 
-      setImportIssues(result.issues)
+      setRows(next)
+      setDirty(touched)
+      setImportReport({ issues: result.issues, noPunchDays: result.noPunchDays })
 
       // A line per thing that happened and nothing for the things that
       // did not: a summary of four zeroes reads as a failure.
-      const parts = [`${filled} day${filled === 1 ? '' : 's'} filled in as Paid Day`]
+      const parts = [`${filled} day${filled === 1 ? '' : 's'} filled in as attended`]
       if (kept) parts.push(`${kept} already had a type and were left alone`)
       if (blocked) parts.push(`${blocked} locked or in the future`)
       if (result.issues.length) parts.push(`${result.issues.length} need a look, listed below`)
-      if (result.noPunch) parts.push(`${result.noPunch} had no punches at all`)
+      if (result.noPunchDays.length) parts.push(`${result.noPunchDays.length} had no punches at all`)
       setNotice(`${parts.join('. ')}. Nothing is saved yet — press Save to keep it.`)
     } catch (err) {
       setError(err.message)
@@ -336,7 +331,7 @@ export default function Attendance() {
     if (!window.confirm('Clear every unsaved entry in this view? Saved rows stay in the database.')) {
       return
     }
-    setImportIssues(null)
+    setImportReport(null)
     loadRecords()
   }
 
@@ -692,23 +687,23 @@ export default function Attendance() {
               refused to act on -- not rows to type into. Each says what
               was found, so the day can be settled in the grid above
               without opening the spreadsheet again. */}
-          {importIssues !== null && (
+          {importReport !== null && (
             <Card>
               <CardHeader
                 title="Days the upload left alone"
                 subtitle={
-                  importIssues.length
+                  importReport.issues.length
                     ? 'A day with only one punch, or with more than one, is not filled in automatically. ' +
                       'Set these in the grid above.'
                     : 'Every day the file covered had exactly one clock in and one clock out.'
                 }
                 actions={
-                  <Button variant="ghost" size="sm" onClick={() => setImportIssues(null)}>
+                  <Button variant="ghost" size="sm" onClick={() => setImportReport(null)}>
                     Dismiss
                   </Button>
                 }
               />
-              {importIssues.length > 0 && (
+              {importReport.issues.length > 0 && (
                 <div className="max-h-[40vh] overflow-auto">
                   <table className="sticky-head w-full border-collapse">
                     <thead>
@@ -719,7 +714,7 @@ export default function Attendance() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
-                      {importIssues.map((issue) => (
+                      {importReport.issues.map((issue) => (
                         <tr key={`${issue.date}-${issue.reason}`}>
                           <Td className="whitespace-nowrap">{dayLabel(issue.date)}</Td>
                           <Td>{issue.reason}</Td>
@@ -728,6 +723,34 @@ export default function Attendance() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Below the days that need a look, and separate from
+                  them, because these need nothing done: the machine
+                  simply recorded nothing. They are worth reading before
+                  marking a stretch absent -- a run of them across one
+                  week is as likely to be a machine that was off as a
+                  person who was away. */}
+              {importReport.noPunchDays.length > 0 && (
+                <div className="border-t border-line px-5 py-4">
+                  <p className="text-sm font-medium text-ink">
+                    {importReport.noPunchDays.length} day
+                    {importReport.noPunchDays.length === 1 ? '' : 's'} with no punches
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-3">
+                    The file covers these days and has no clock in and no clock out on them.
+                    Nothing was filled in; set them in the grid above if they need a type.
+                  </p>
+                  <div className="mt-2 max-h-[30vh] overflow-auto">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {importReport.noPunchDays.map((iso) => (
+                        <span key={iso} className="tabular whitespace-nowrap text-xs text-ink-3">
+                          {dayLabel(iso)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </Card>
