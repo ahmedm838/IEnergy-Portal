@@ -12,9 +12,11 @@ import { test } from 'node:test'
 const source = readFileSync(new URL('../src/lib/importAttendance.js', import.meta.url), 'utf8')
   .replace(/^export /gm, '')
 const api = new Function(
-  `${source}\nreturn { acNumberFor, parseSheetDate, parseTimes, findColumns, findHeaderRow, buildImport, applyImport }`,
+  `${source}\nreturn { acNumberFor, parseSheetDate, parseTimes, findColumns, findHeaderRow, buildImport, applyImport, notUploadedRows }`,
 )()
-const { acNumberFor, parseSheetDate, parseTimes, findHeaderRow, buildImport, applyImport } = api
+const {
+  acNumberFor, parseSheetDate, parseTimes, findHeaderRow, buildImport, applyImport, notUploadedRows,
+} = api
 
 /* ---- the code-to-machine mapping ---- */
 
@@ -105,8 +107,8 @@ test('a day missing one of the two is an issue, not half a day', () => {
   )
   assert.deepEqual(out.days, {})
   assert.deepEqual(out.issues.map((i) => [i.date, i.reason]), [
-    ['2026-07-06', 'No clock out'],
-    ['2026-07-07', 'No clock in'],
+    ['2026-07-06', 'Missing clock out'],
+    ['2026-07-07', 'Missing clock in'],
   ])
 })
 
@@ -121,9 +123,9 @@ test('more than one punch is an issue, in one cell or in two rows', () => {
     RANGE,
   )
   assert.deepEqual(out.days, {})
-  assert.deepEqual(out.issues.map((i) => i.reason), ['More than one punch', 'More than one punch'])
+  assert.deepEqual(out.issues.map((i) => i.reason), ['Multiple punches', 'Multiple punches'])
   // The detail has to show what was found, or there is nothing to act on.
-  assert.match(out.issues[1].detail, /08:00, 13:00/)
+  assert.match(out.issues[1].fileStatus, /08:00, 13:00/)
 })
 
 test('a day with no punches at all is not an issue, but is reported', () => {
@@ -269,7 +271,10 @@ test('a locked or future day is counted as blocked and left alone', () => {
 test('a day outside the shown range is not counted at all', () => {
   // Not filled, not kept, not blocked: it is not part of this view.
   const out = apply({ imported: { '2026-08-15': { clock_in: '08:00', clock_out: '16:00' } } })
-  assert.deepEqual(out, { next: {}, touched: new Set(), filled: 0, kept: 0, blocked: 0 })
+  assert.deepEqual(out, {
+    next: {}, touched: new Set(), filled: 0,
+    keptDays: [], blockedDays: [], kept: 0, blocked: 0,
+  })
 })
 
 test('days already unsaved stay unsaved', () => {
@@ -286,4 +291,86 @@ test('the grid handed in is not modified', () => {
   const before = JSON.stringify(rows)
   apply({ rows, imported: { '2026-07-01': { clock_in: '08:00', clock_out: '16:00' } } })
   assert.equal(JSON.stringify(rows), before)
+})
+
+/* ---- the one table under the grid ---- */
+
+const typeName = (id) => ({ 4: 'Annual Leave', 7: 'Paid Day' })[id] ?? 'Unknown type'
+
+test('three kinds of day become one list, in date order', () => {
+  const out = notUploadedRows(
+    {
+      issues: [
+        { date: '2026-07-10', reason: 'Missing clock out', fileStatus: 'In 09:25' },
+        { date: '2026-07-02', reason: 'Missing clock in', fileStatus: 'Out 16:22' },
+      ],
+      noPunchDays: ['2026-07-20', '2026-07-05'],
+      keptDays: [{ date: '2026-07-15', typeId: 4, clock_in: '08:00', clock_out: '16:00' }],
+    },
+    typeName,
+  )
+  // Sorted across all three sources, not grouped by where they came
+  // from: the point of one table is reading down a month.
+  assert.deepEqual(out.map((r) => r.date), [
+    '2026-07-02', '2026-07-05', '2026-07-10', '2026-07-15', '2026-07-20',
+  ])
+  assert.deepEqual(out.map((r) => r.reason), [
+    'Missing clock in', 'No punch', 'Missing clock out', 'Already recorded', 'No punch',
+  ])
+})
+
+test('a no-punch day says so in both columns', () => {
+  const [row] = notUploadedRows({ noPunchDays: ['2026-07-05'] }, typeName)
+  assert.equal(row.reason, 'No punch')
+  assert.equal(row.fileStatus, 'No punch')
+})
+
+test('an already-recorded day shows its type and the times the file had', () => {
+  // Both together are what says whether to go and change the day: what
+  // it is recorded as, and what the machine would have made it.
+  const [row] = notUploadedRows(
+    { keptDays: [{ date: '2026-07-15', typeId: 4, clock_in: '08:03', clock_out: '16:11' }] },
+    typeName,
+  )
+  assert.equal(row.reason, 'Already recorded')
+  assert.equal(row.fileStatus, 'Annual Leave · In 08:03 · Out 16:11')
+})
+
+test('a type that is no longer in the lookups does not blank the row', () => {
+  const [row] = notUploadedRows(
+    { keptDays: [{ date: '2026-07-15', typeId: 999, clock_in: '08:00', clock_out: '16:00' }] },
+    typeName,
+  )
+  assert.match(row.fileStatus, /Unknown type/)
+})
+
+test('a locked or future day is listed too, with what the file had', () => {
+  const [row] = notUploadedRows(
+    { blockedDays: [{ date: '2026-07-15', clock_in: '08:00', clock_out: '16:00' }] },
+    typeName,
+  )
+  assert.equal(row.reason, 'Locked or future')
+  assert.equal(row.fileStatus, 'In 08:00 · Out 16:00')
+})
+
+test('nothing left out means an empty list, not a missing one', () => {
+  assert.deepEqual(notUploadedRows({}, typeName), [])
+})
+
+test('every row carries the three columns the table shows', () => {
+  const out = notUploadedRows(
+    {
+      issues: [{ date: '2026-07-10', reason: 'Multiple punches', fileStatus: 'In 08:00, 13:00 · Out 17:00' }],
+      noPunchDays: ['2026-07-05'],
+      keptDays: [{ date: '2026-07-15', typeId: 7, clock_in: '08:00', clock_out: '16:00' }],
+      blockedDays: [{ date: '2026-07-16', clock_in: '08:00', clock_out: '16:00' }],
+    },
+    typeName,
+  )
+  for (const row of out) {
+    assert.deepEqual(Object.keys(row).sort(), ['date', 'fileStatus', 'reason'])
+    for (const key of ['date', 'reason', 'fileStatus']) {
+      assert.ok(row[key], `${key} is empty on ${JSON.stringify(row)}`)
+    }
+  }
 })

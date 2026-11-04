@@ -236,17 +236,17 @@ export function buildImport(rows, { acNo, from, to }) {
     if (ins.length > 1 || outs.length > 1) {
       issues.push({
         date: iso,
-        reason: 'More than one punch',
-        detail: `In: ${ins.join(', ') || '—'} · Out: ${outs.join(', ') || '—'}`,
+        reason: 'Multiple punches',
+        fileStatus: `In ${ins.join(', ') || '—'} · Out ${outs.join(', ') || '—'}`,
       })
       continue
     }
     if (ins.length === 0) {
-      issues.push({ date: iso, reason: 'No clock in', detail: `Out: ${outs[0]}` })
+      issues.push({ date: iso, reason: 'Missing clock in', fileStatus: `Out ${outs[0]}` })
       continue
     }
     if (outs.length === 0) {
-      issues.push({ date: iso, reason: 'No clock out', detail: `In: ${ins[0]}` })
+      issues.push({ date: iso, reason: 'Missing clock out', fileStatus: `In ${ins[0]}` })
       continue
     }
 
@@ -276,17 +276,25 @@ export function buildImport(rows, { acNo, from, to }) {
 export function applyImport({ rows, dirty, days, imported, typeId, emptyRow, blocked }) {
   const next = { ...rows }
   const touched = new Set(dirty)
-  const counts = { filled: 0, kept: 0, blocked: 0 }
   const inRange = new Set(days)
+  // Not just counted: each kept day goes in the table below the grid
+  // with what the file had for it, so "already recorded" can be checked
+  // rather than taken on trust.
+  const keptDays = []
+  const blockedDays = []
+  let filled = 0
 
   for (const [iso, times] of Object.entries(imported)) {
     if (!inRange.has(iso)) continue
-    if (blocked(iso)) { counts.blocked += 1; continue }
+    if (blocked(iso)) { blockedDays.push({ date: iso, ...times }); continue }
     // A day already given a type is left as it is. The machine knows
     // somebody badged in; it does not know the day was agreed as annual
     // leave, and overwriting would lose a person's decision in favour
     // of a turnstile.
-    if (next[iso]?.attendance_type_id) { counts.kept += 1; continue }
+    if (next[iso]?.attendance_type_id) {
+      keptDays.push({ date: iso, typeId: next[iso].attendance_type_id, ...times })
+      continue
+    }
     next[iso] = {
       ...emptyRow,
       ...next[iso],
@@ -295,8 +303,59 @@ export function applyImport({ rows, dirty, days, imported, typeId, emptyRow, blo
       clock_out: times.clock_out,
     }
     touched.add(iso)
-    counts.filled += 1
+    filled += 1
   }
 
-  return { next, touched, ...counts }
+  return {
+    next,
+    touched,
+    filled,
+    keptDays,
+    blockedDays,
+    kept: keptDays.length,
+    blocked: blockedDays.length,
+  }
+}
+
+/**
+ * Every day the upload did not fill in, as one list in date order.
+ *
+ * Three things end up here and they are different in kind -- a day the
+ * machine recorded nothing on, a day it recorded half of, and a day
+ * that already had a type -- but they are one question to whoever is
+ * looking: what did this upload not do, and why. Separate tables made
+ * that three places to look and no way to read down a month.
+ *
+ * `typeName` turns a type id into its name, so the already-recorded
+ * rows can say what they are recorded as. It is passed in because this
+ * file knows nothing about the lookups.
+ */
+export function notUploadedRows({ issues = [], noPunchDays = [], keptDays = [], blockedDays = [] }, typeName) {
+  const rows = [
+    ...issues.map((issue) => ({
+      date: issue.date,
+      reason: issue.reason,
+      fileStatus: issue.fileStatus,
+    })),
+    ...noPunchDays.map((date) => ({
+      date,
+      reason: 'No punch',
+      fileStatus: 'No punch',
+    })),
+    ...keptDays.map((day) => ({
+      date: day.date,
+      reason: 'Already recorded',
+      // What it is recorded as, beside what the file would have made it
+      // -- the two together are what tells you whether to go and change
+      // the day by hand.
+      fileStatus: `${typeName(day.typeId)} · In ${day.clock_in} · Out ${day.clock_out}`,
+    })),
+    ...blockedDays.map((day) => ({
+      date: day.date,
+      reason: 'Locked or future',
+      fileStatus: `In ${day.clock_in} · Out ${day.clock_out}`,
+    })),
+  ]
+
+  return rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
 }
