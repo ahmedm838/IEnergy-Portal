@@ -23,6 +23,54 @@
     .docs-meta { color:rgba(var(--text-rgb), 0.60); font-size:13px; }
     .download { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(var(--ink-rgb), 0.03); padding:8px 10px; border-radius:12px; white-space:nowrap; }
     .state { color:rgba(var(--text-rgb), 0.75); padding:12px 14px; }
+
+    /* ---- The policy ------------------------------------------------- */
+
+    /* Not selectable, and so not copyable by the ordinary means. Worth
+       being honest about what this is: anybody determined can read the
+       text from the page source, and this does not try to stop them.
+       It stops the casual copy-paste out of an internal document,
+       which is what was asked for. Printing is left alone -- the page
+       is meant to be readable, and a staff handbook nobody can print
+       is a worse document, not a safer one. */
+    .pol-doc, .pol-toc {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .pol-toc { list-style:none; margin:10px 0 0; padding:0; columns:2; column-gap:28px; }
+    @media (max-width: 760px) { .pol-toc { columns:1; } }
+    .pol-toc li { break-inside:avoid; }
+    .pol-toc a {
+      display:block; padding:5px 8px; border-radius:10px;
+      color:rgba(var(--text-rgb), 0.86); text-decoration:none;
+    }
+    .pol-toc a:hover { background:rgba(var(--ink-rgb), 0.05); color:var(--text); }
+    .toc-major a { font-weight:700; margin-top:8px; }
+    .toc-minor a { padding-left:22px; font-size:14px; color:rgba(var(--text-rgb), 0.72); }
+    .toc-num { display:inline-block; min-width:2.2em; color:rgba(var(--text-rgb), 0.55); }
+
+    /* scroll-margin so a heading jumped to does not hide under the
+       sticky page bar at the top of the window. */
+    .pol-h2, .pol-h3 { scroll-margin-top:78px; }
+    .pol-h2 {
+      margin:34px 0 10px; padding-top:18px; font-size:19px;
+      border-top:1px solid var(--line);
+    }
+    .pol-doc > .pol-h2:first-child { border-top:0; padding-top:0; margin-top:6px; }
+    .pol-h3 { margin:22px 0 6px; font-size:16px; }
+    .pol-num { color:rgba(var(--text-rgb), 0.55); margin-right:6px; }
+    .pol-doc p { margin:8px 0; line-height:1.65; color:rgba(var(--text-rgb), 0.88); }
+    .pol-list { margin:8px 0; padding-left:22px; line-height:1.65; }
+    .pol-list li { margin:5px 0; color:rgba(var(--text-rgb), 0.88); }
+
+    .pol-table-wrap { overflow-x:auto; margin:12px 0; }
+    .pol-table { width:100%; border-collapse:collapse; font-size:14px; }
+    .pol-table th, .pol-table td {
+      text-align:left; padding:9px 12px; border:1px solid var(--line); vertical-align:top;
+    }
+    .pol-table th { background:rgba(var(--ink-rgb), 0.04); font-weight:700; }
   </style>
   <script src="../theme.js?v=4"></script>
   <!-- Fetch a page when the pointer settles on its link, so the click
@@ -81,23 +129,196 @@
       <div>
         <div class="pill">Policy</div>
         <h1 style="margin:10px 0 6px;">Company Policy</h1>
-        <p class="tagline">Latest company policy documents and announcements.</p>
+        <p class="tagline">Attendance, working hours, employee benefits and special leave. HR-POL-001, version 1.0, effective 01.01.2026.</p>
       </div>
     </div>
 
     <section class="section">
-      <h2>Documents</h2>
-      <p class="section-sub">Download the latest company policy files.</p>
-
-      <div class="docs" aria-live="polite">
-        <div class="docs-head">
-          <b>Available files</b>
-          <small id="generatedAt"></small>
-        </div>
-        <div id="state" class="state">Loading documents…</div>
-        <ul id="docsList" class="docs-list" style="display:none;"></ul>
-      </div>
+      <h2>Contents</h2>
+      <p class="section-sub">Jump to any part of the policy.</p>
+      <ol class="pol-toc">
+      <li class="toc-major"><a href="#s-1"><span class="toc-num">1.</span> ATTENDANCE & WORKING HOURS POLICY</a></li>
+      <li class="toc-minor"><a href="#s-1-1"><span class="toc-num">1.1</span> Purpose</a></li>
+      <li class="toc-minor"><a href="#s-1-2"><span class="toc-num">1.2</span> Scope</a></li>
+      <li class="toc-minor"><a href="#s-1-3"><span class="toc-num">1.3</span> Standard Working Hours</a></li>
+      <li class="toc-minor"><a href="#s-1-4"><span class="toc-num">1.4</span> Mandatory Core Attendance Hours</a></li>
+      <li class="toc-minor"><a href="#s-1-5"><span class="toc-num">1.5</span> Monthly Working Hours Shortage</a></li>
+      <li class="toc-minor"><a href="#s-1-6"><span class="toc-num">1.6</span> Overtime and Off-Site Assignments</a></li>
+      <li class="toc-minor"><a href="#s-1-7"><span class="toc-num">1.7</span> Absence and No-Show Policy</a></li>
+      <li class="toc-minor"><a href="#s-1-8"><span class="toc-num">1.8</span> Attendance Monitoring</a></li>
+      <li class="toc-major"><a href="#s-2"><span class="toc-num">2.</span> EMPLOYEE LIFE EVENT AWARDS POLICY</a></li>
+      <li class="toc-minor"><a href="#s-2-1"><span class="toc-num">2.1</span> Purpose</a></li>
+      <li class="toc-minor"><a href="#s-2-2"><span class="toc-num">2.2</span> Award Entitlements</a></li>
+      <li class="toc-minor"><a href="#s-2-3"><span class="toc-num">2.3</span> Marriage Award</a></li>
+      <li class="toc-minor"><a href="#s-2-4"><span class="toc-num">2.4</span> Childbirth Award</a></li>
+      <li class="toc-minor"><a href="#s-2-5"><span class="toc-num">2.5</span> Bereavement Support Award</a></li>
+      <li class="toc-minor"><a href="#s-2-6"><span class="toc-num">2.6</span> General Award Conditions</a></li>
+      <li class="toc-major"><a href="#s-3"><span class="toc-num">3.</span> SPECIAL PAID LEAVE POLICY</a></li>
+      <li class="toc-minor"><a href="#s-3-1"><span class="toc-num">3.1</span> Purpose</a></li>
+      <li class="toc-minor"><a href="#s-3-2"><span class="toc-num">3.2</span> Special Leave Entitlements</a></li>
+      <li class="toc-minor"><a href="#s-3-3"><span class="toc-num">3.3</span> Marriage Leave</a></li>
+      <li class="toc-minor"><a href="#s-3-4"><span class="toc-num">3.4</span> Birthday Leave</a></li>
+      <li class="toc-minor"><a href="#s-3-5"><span class="toc-num">3.5</span> Bereavement Leave</a></li>
+      <li class="toc-minor"><a href="#s-3-6"><span class="toc-num">3.6</span> Special Leave Administration</a></li>
+      </ol>
     </section>
+
+    <section class="section pol-doc" id="policy">
+      <p>IENERGY METERS MANUFACTURING</p>
+      <p>COMPANY EMPLOYEE POLICY</p>
+      <p>Attendance, Working Hours, Employee Benefits &amp; Special Leave</p>
+      <div class="pol-table-wrap"><table class="pol-table">
+      <thead><tr><th>Document Information</th><th>Details</th></tr></thead>
+      <tbody><tr><td>Policy Number</td><td>HR-POL-001</td></tr><tr><td>Version</td><td>1.0</td></tr><tr><td>Effective Date</td><td>01.01.2026</td></tr><tr><td>Policy Owner</td><td>Human Resources Department</td></tr><tr><td>Approved By</td><td>Chief Executive Officer</td></tr></tbody>
+      </table></div>
+      <h2 id="s-1" class="pol-h2"><span class="pol-num">1.</span> ATTENDANCE &amp; WORKING HOURS POLICY</h2>
+      <h3 id="s-1-1" class="pol-h3"><span class="pol-num">1.1</span> Purpose</h3>
+      <p>This policy establishes the company's requirements concerning working hours, attendance, absences, overtime, and leave administration to ensure operational efficiency, employee accountability, and fairness.</p>
+      <h3 id="s-1-2" class="pol-h3"><span class="pol-num">1.2</span> Scope</h3>
+      <p>This attendance policy applies to all white-collar employees unless otherwise specified in their employment agreements or approved departmental policies.</p>
+      <h3 id="s-1-3" class="pol-h3"><span class="pol-num">1.3</span> Standard Working Hours</h3>
+      <ul class="pol-list">
+      <li>The standard working requirement is 40 hours per week, based on five working days.</li>
+      <li>Employees may follow flexible working schedules according to departmental requirements and subject to management approval.</li>
+      <li>Flexible working arrangements do not exempt employees from mandatory core attendance hours.</li>
+      <li>Employees are responsible for completing their required weekly working hours.</li>
+      <li>All working hours must be accurately recorded through the company's approved attendance tracking system.</li>
+      </ul>
+      <h3 id="s-1-4" class="pol-h3"><span class="pol-num">1.4</span> Mandatory Core Attendance Hours</h3>
+      <ul class="pol-list">
+      <li>All employees must be present during the mandatory core hours of 10:00 AM to 2:00 PM on each scheduled working day.</li>
+      <li>Arriving after 10:00 AM or leaving before 2:00 PM requires authorization.</li>
+      <li>Exceptions must be supported by an approved day-off or time-off request submitted by email to the direct manager, with HR copied.</li>
+      <li>Requests should preferably be submitted in advance unless an emergency prevents prior notification.</li>
+      </ul>
+      <h3 id="s-1-5" class="pol-h3"><span class="pol-num">1.5</span> Monthly Working Hours Shortage</h3>
+      <ul class="pol-list">
+      <li>Employees are permitted a maximum monthly working hours shortage of 8 hours without an attendance-shortage deduction.</li>
+      <li>If the total monthly shortage exceeds 8 hours, the entire shortage will be considered for deduction, not merely the hours exceeding the permitted allowance.</li>
+      <li>Deductions will be calculated in complete blocks of 8 shortage hours, equivalent to one working day.</li>
+      <li>Any remaining shortage hours that do not constitute a complete 8-hour block will not result in an additional day deduction.</li>
+      <li>The calculated deduction will first be applied against the employee's available annual leave balance, subject to applicable law.</li>
+      <li>Once the employee's annual leave balance is fully consumed, any further deductible days will be deducted from the employee's monthly salary, in accordance with applicable labor laws.</li>
+      <li>The monthly shortage allowance is not cumulative and cannot be transferred to subsequent months.</li>
+      <li>The monthly shortage allowance does not exempt employees from mandatory core attendance requirements.</li>
+      </ul>
+      <p>Calculation Rule:</p>
+      <p>If total monthly shortage is 8 hours or less, no deduction applies.</p>
+      <p>If total monthly shortage exceeds 8 hours, the deduction is calculated by rounding down the total shortage hours to complete multiples of 8, with a minimum deduction of one day.</p>
+      <p>Example: An employee with 20 shortage hours and an available annual leave balance of 1 day will have 1 day deducted from annual leave and 1 day deducted from salary.</p>
+      <h3 id="s-1-6" class="pol-h3"><span class="pol-num">1.6</span> Overtime and Off-Site Assignments</h3>
+      <ul class="pol-list">
+      <li>All overtime work and off-site assignments must receive prior written approval from the employee's direct manager.</li>
+      <li>Approval must be communicated by email, with HR copied where required.</li>
+      <li>Unauthorized additional working hours will not automatically qualify for compensatory leave, subject to statutory requirements.</li>
+      <li>Approved excess working hours may be converted into compensatory leave and added to the employee's leave balance, provided the arrangement complies with applicable labor laws.</li>
+      <li>Compensatory leave credits will be calculated in complete blocks of 8 approved hours, equivalent to one working day.</li>
+      <li>Approved excess hours that are not an exact multiple of 8 will be rounded down to the nearest complete 8-hour block for internal compensatory leave purposes.</li>
+      <li>Statutory overtime compensation rights remain applicable regardless of the internal leave-credit mechanism.</li>
+      <li>HR shall maintain records of approved overtime, off-site assignments, and resulting leave credits.</li>
+      </ul>
+      <h3 id="s-1-7" class="pol-h3"><span class="pol-num">1.7</span> Absence and No-Show Policy</h3>
+      <ul class="pol-list">
+      <li>Employees unable to attend work must notify their direct manager and submit a day-off request by email, with HR copied.</li>
+      <li>Where advance notice is not possible, the employee must submit the request within 48 hours of the missed working day.</li>
+      <li>Failure to submit the required request within 48 hours will result in the missed day being provisionally recorded as an unauthorized absence, subject to review of legitimate emergencies and legally protected circumstances.</li>
+      <li>Unauthorized absences will be handled under the company's disciplinary procedures and applicable labor laws.</li>
+      <li>Repeated unauthorized absences may result in progressive disciplinary action, following the required procedures.</li>
+      </ul>
+      <h3 id="s-1-8" class="pol-h3"><span class="pol-num">1.8</span> Attendance Monitoring</h3>
+      <ul class="pol-list">
+      <li>HR is responsible for maintaining accurate attendance and leave records.</li>
+      <li>Employees must regularly review their attendance records through the company portal.</li>
+      <li>Any discrepancies must be reported promptly to HR.</li>
+      <li>Direct managers are responsible for reviewing and approving attendance exceptions within their departments.</li>
+      </ul>
+      <h2 id="s-2" class="pol-h2"><span class="pol-num">2.</span> EMPLOYEE LIFE EVENT AWARDS POLICY</h2>
+      <h3 id="s-2-1" class="pol-h3"><span class="pol-num">2.1</span> Purpose</h3>
+      <p>IENERGY METERS MANUFACTURING recognizes significant personal milestones and provides financial support to employees during important family events.</p>
+      <h3 id="s-2-2" class="pol-h3"><span class="pol-num">2.2</span> Award Entitlements</h3>
+      <div class="pol-table-wrap"><table class="pol-table">
+      <thead><tr><th>Occasion</th><th>Award Amount</th></tr></thead>
+      <tbody><tr><td>Employee Marriage</td><td>EGP 2,000</td></tr><tr><td>Birth of a Child</td><td>EGP 3,000</td></tr><tr><td>Death of a First-Degree Relative or Spouse</td><td>EGP 4,000</td></tr></tbody>
+      </table></div>
+      <h3 id="s-2-3" class="pol-h3"><span class="pol-num">2.3</span> Marriage Award</h3>
+      <ul class="pol-list">
+      <li>Employees who legally marry during their employment are eligible for a marriage award of EGP 2,000.</li>
+      <li>The marriage award may be granted a maximum of two times during the employee's employment with the company.</li>
+      <li>An official marriage certificate must be submitted to HR.</li>
+      <li>The award will be paid with the next monthly salary following submission and verification of the required documents.</li>
+      </ul>
+      <h3 id="s-2-4" class="pol-h3"><span class="pol-num">2.4</span> Childbirth Award</h3>
+      <ul class="pol-list">
+      <li>Employees becoming a father or mother are eligible for EGP 3,000 per qualifying birth event.</li>
+      <li>The award applies equally to eligible male and female employees.</li>
+      <li>An official birth certificate or birth notification must be submitted to HR.</li>
+      <li>Where both parents are employed by the company, each eligible employee may receive the award.</li>
+      <li>The award will be paid with the next monthly salary following submission and verification of the required documents.</li>
+      </ul>
+      <h3 id="s-2-5" class="pol-h3"><span class="pol-num">2.5</span> Bereavement Support Award</h3>
+      <ul class="pol-list">
+      <li>Employees experiencing the death of a qualifying first-degree relative or spouse are entitled to financial support of EGP 4,000 per qualifying event.</li>
+      <li>Qualifying relatives include parents, children, and spouses.</li>
+      <li>An official death certificate or other acceptable documentation must be submitted to HR.</li>
+      <li>The award will be paid with the next monthly salary following submission and verification of the required documents.</li>
+      </ul>
+      <h3 id="s-2-6" class="pol-h3"><span class="pol-num">2.6</span> General Award Conditions</h3>
+      <ul class="pol-list">
+      <li>All awards are available to eligible active employees following HR verification.</li>
+      <li>All approved financial awards shall be paid together with the next monthly salary after submission and verification of the required supporting documents.</li>
+      <li>No separate advance payment shall be made unless specifically approved by the CEO.</li>
+      <li>Life-event awards are separate from employees' contractual base salaries.</li>
+      <li>Applicable tax and payroll treatment shall follow Egyptian law.</li>
+      <li>Award amounts may be reviewed periodically by management.</li>
+      </ul>
+      <h2 id="s-3" class="pol-h2"><span class="pol-num">3.</span> SPECIAL PAID LEAVE POLICY</h2>
+      <h3 id="s-3-1" class="pol-h3"><span class="pol-num">3.1</span> Purpose</h3>
+      <p>The company provides additional paid leave for important personal and family occasions as part of its employee welfare program.</p>
+      <p>These benefits are intended to supplement statutory leave entitlements, not reduce or replace them.</p>
+      <h3 id="s-3-2" class="pol-h3"><span class="pol-num">3.2</span> Special Leave Entitlements</h3>
+      <div class="pol-table-wrap"><table class="pol-table">
+      <thead><tr><th>Leave Type</th><th>Entitlement</th></tr></thead>
+      <tbody><tr><td>Marriage Leave</td><td>6 paid working days</td></tr><tr><td>Birthday Leave</td><td>2 paid working days annually</td></tr><tr><td>Bereavement Leave</td><td>3 paid working days</td></tr></tbody>
+      </table></div>
+      <h3 id="s-3-3" class="pol-h3"><span class="pol-num">3.3</span> Marriage Leave</h3>
+      <ul class="pol-list">
+      <li>Employees are entitled to 6 paid working days upon their marriage.</li>
+      <li>Marriage leave may be granted a maximum of two times during the employee's employment with the company, consistent with the marriage award eligibility limit.</li>
+      <li>The leave must be requested through the company's approved leave procedure.</li>
+      <li>Employees should submit the request in advance, with supporting documentation provided to HR.</li>
+      <li>Marriage leave is separate from the employee's annual leave balance.</li>
+      <li>Marriage leave cannot be converted into cash.</li>
+      <li>Unused marriage leave cannot be carried forward.</li>
+      </ul>
+      <h3 id="s-3-4" class="pol-h3"><span class="pol-num">3.4</span> Birthday Leave</h3>
+      <ul class="pol-list">
+      <li>Employees are entitled to 2 paid working days per calendar year in recognition of their birthday.</li>
+      <li>Birthday leave must be requested and approved by the employee's direct manager.</li>
+      <li>The 2 days may be taken consecutively or separately during the employee's birthday month.</li>
+      <li>Birthday leave does not reduce the employee's annual leave balance.</li>
+      <li>Unused birthday leave expires at the end of the birthday month and cannot be carried forward or converted into cash.</li>
+      </ul>
+      <h3 id="s-3-5" class="pol-h3"><span class="pol-num">3.5</span> Bereavement Leave</h3>
+      <ul class="pol-list">
+      <li>Employees are entitled to 3 paid working days following the death of a qualifying family member.</li>
+      <li>Qualifying family members include parents, children, and spouses.</li>
+      <li>The employee must inform the direct manager and HR as soon as reasonably possible.</li>
+      <li>Supporting documentation may be submitted after the employee returns to work.</li>
+      <li>Bereavement leave is separate from annual leave and does not reduce the employee's annual leave balance.</li>
+      <li>This company benefit shall not reduce any greater leave entitlement required by applicable law.</li>
+      </ul>
+      <h3 id="s-3-6" class="pol-h3"><span class="pol-num">3.6</span> Special Leave Administration</h3>
+      <ul class="pol-list">
+      <li>Special leave requests shall be recorded through the company's approved leave management system.</li>
+      <li>The direct manager is responsible for coordinating operational coverage.</li>
+      <li>HR is responsible for verifying eligibility and maintaining leave records.</li>
+      <li>Special leave cannot be converted into financial compensation unless expressly required by law.</li>
+      </ul>
+      <p>IENERGY METERS MANUFACTURING</p>
+      <p>Effective Date: 01.01.2026</p>
+      <p>Version: 1.0</p>
+    </section>
+
 
     <footer class="footer">
       <small>© <span id="year"></span> iEnergy. Internal use.</small>
@@ -108,66 +329,52 @@
   <script>
     document.getElementById('year').textContent = String(new Date().getFullYear());
 
-    async function loadDocuments() {
-      const stateEl = document.getElementById('state');
-      const listEl = document.getElementById('docsList');
-      const genEl = document.getElementById('generatedAt');
+    /* The documents list is gone: the policy itself is on this page
+       now, so there is nothing to fetch and nothing to download. The
+       loader that used to read documents.json went with it rather than
+       being left to throw on elements that no longer exist. */
 
-      try {
-        const res = await fetch('./documents.json?v=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) throw new Error('documents.json not found');
-        const data = await res.json();
+    /* Copying the policy out, discouraged.
+     *
+     * user-select:none in the stylesheet stops the text being dragged
+     * over. It does not stop ctrl+A then ctrl+C, which selects through
+     * the whole document regardless, nor the right-click menu, so those
+     * are handled here as well.
+     *
+     * WHAT THIS IS NOT. It is not protection. The text is in the page
+     * and anybody who opens the developer tools or views the source has
+     * it, and no amount of script changes that -- the browser has to be
+     * given the text in order to show it. This raises the effort from
+     * "two keystrokes" to "know where to look", which is what stops a
+     * document being forwarded on a whim. Treating it as a lock would
+     * be the mistake.
+     *
+     * Printing is deliberately left working. A staff handbook nobody
+     * can print is a worse document, not a safer one. */
+    (function () {
+      const policy = document.getElementById('policy');
+      const contents = document.querySelector('.pol-toc');
+      const guarded = (target) =>
+        (policy && policy.contains(target)) || (contents && contents.contains(target));
 
-        const docs = Array.isArray(data.documents) ? data.documents : [];
-        if (data.generatedAt) {
-          try {
-            const d = new Date(data.generatedAt);
-            genEl.textContent = 'Updated: ' + d.toLocaleString();
-          } catch (_) {}
-        }
-
-        if (!docs.length) {
-          stateEl.textContent = 'No documents found in this folder.';
-          return;
-        }
-
-        const itemsHtml = docs.map(doc => {
-          const filename = String(doc.file || '');
-          const title = String(doc.title || filename);
-          const sizeHuman = doc.sizeHuman ? String(doc.sizeHuman) : '';
-          const ext = doc.ext ? String(doc.ext).toUpperCase() : '';
-          const href = encodeURI('./' + filename);
-          const meta = [ext, sizeHuman].filter(Boolean).join(' • ');
-
-          const type = doc.type ? String(doc.type).toLowerCase() : '';
-          const isPdf = type === 'pdf' || filename.toLowerCase().endsWith('.pdf');
-          const isText = type === 'text' || filename.toLowerCase().endsWith('.html') || filename.toLowerCase().endsWith('.txt');
-
-          // Company Policy: PDFs should open in the browser (no forced download).
-          const actionLabel = isPdf ? 'Open' : (isText ? 'View' : 'Download');
-          const titleAttrs = (isPdf || isText) ? 'target="_blank" rel="noopener"' : 'download';
-          const actionAttrs = titleAttrs;
-
-          return `
-            <li class="docs-item">
-              <div class="docs-left">
-                <a class="docs-title" href="${href}" ${titleAttrs}>${title}</a>
-                <div class="docs-meta">${meta}</div>
-              </div>
-              <a class="download" href="${href}" ${actionAttrs}>${actionLabel}</a>
-            </li>
-          `;
-        }).join('');
-
-        listEl.innerHTML = itemsHtml;
-        stateEl.style.display = 'none';
-        listEl.style.display = '';
-      } catch (err) {
-        stateEl.textContent = 'Unable to load documents list. Please ensure documents.json exists in this folder.';
+      for (const type of ['copy', 'cut', 'contextmenu', 'dragstart']) {
+        document.addEventListener(type, (event) => {
+          if (guarded(event.target)) event.preventDefault();
+        });
       }
-    }
 
-    loadDocuments();
+      /* ctrl+A inside the policy would select it even though the text
+         is not selectable by pointer, and the copy handler above only
+         blocks the copy once the selection exists. Refusing the select
+         keeps the page from flashing a selection it will not let go
+         of. The shortcut still works everywhere else on the page. */
+      document.addEventListener('keydown', (event) => {
+        const key = event.key.toLowerCase();
+        if ((event.ctrlKey || event.metaKey) && (key === 'a' || key === 'c' || key === 'x')) {
+          if (guarded(document.activeElement) || guarded(event.target)) event.preventDefault();
+        }
+      });
+    })();
   </script>
 
   <script src="../auth.js?v=13"></script>
