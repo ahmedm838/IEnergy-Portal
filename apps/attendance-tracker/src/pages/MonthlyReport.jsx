@@ -186,9 +186,9 @@ export default function MonthlyReport() {
     try {
     await exportSheet(
       {
-        title: 'Monthly report',
+        title: 'Period report',
         subtitle: `${range.from} to ${range.to}`,
-        sheetName: 'Monthly report',
+        sheetName: 'Period report',
         meta: [
           ['Meal allowance rate', Number(mealRate || 0)],
           ['Site', site ? site.name : 'All sites'],
@@ -217,7 +217,7 @@ export default function MonthlyReport() {
           ...Object.fromEntries(detailColumns.map((c) => [c.key, Number(r[c.key] ?? 0)])),
         })),
       },
-      `monthly-report-${range.from}_${range.to}.xlsx`,
+      `period-report-${range.from}_${range.to}.xlsx`,
     )
     } catch (err) {
       setError(`Could not build the Excel file: ${err.message}`)
@@ -274,7 +274,7 @@ export default function MonthlyReport() {
   return (
     <div className="grid grid-cols-1 gap-5">
       <div className="no-print">
-        <h1 className="text-xl font-semibold text-ink">Monthly report</h1>
+        <h1 className="text-xl font-semibold text-ink">Period report</h1>
         <p className="mt-0.5 text-sm text-ink-3">
           Payroll input for every employee whose status is marked payable.
         </p>
@@ -323,7 +323,7 @@ export default function MonthlyReport() {
 
       {error && <Alert tone="error">{error}</Alert>}
 
-      <section aria-label="Monthly report totals" aria-busy={loading}
+      <section aria-label="Period report totals" aria-busy={loading}
         className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
         {[
           ['employees', 'Employees', `${num(totals.records, 0)} records in range`],
