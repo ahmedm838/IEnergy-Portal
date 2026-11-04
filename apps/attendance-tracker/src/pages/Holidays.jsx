@@ -42,6 +42,15 @@ export default function Holidays() {
   const [typeId, setTypeId] = useState('')
   const [description, setDescription] = useState('')
 
+  // The row being edited, and the text in its box. Only the
+  // description can change: the day and the type are what the records
+  // were written from, and editing either here would leave the
+  // declaration saying one thing and two hundred records another.
+  const [editingId, setEditingId] = useState(null)
+  const [editText, setEditText] = useState('')
+  const [busyId, setBusyId] = useState(null)
+  const [notice, setNotice] = useState(null)
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -92,6 +101,82 @@ export default function Holidays() {
     }
   }
 
+  async function saveEdit(holiday) {
+    if (!editText.trim()) return
+    setBusyId(holiday.id)
+    setError(null)
+    setNotice(null)
+    try {
+      const data = await run(
+        supabase.rpc('update_company_holiday', {
+          p_id: holiday.id,
+          p_description: editText.trim(),
+        }),
+      )
+      setEditingId(null)
+      /* Say what happened to the notes, because it is not obvious that
+         changing a description here reaches two hundred records -- and
+         not obvious either that a note somebody edited by hand is left
+         alone. Both are worth one sentence. */
+      setNotice(
+        data.notes_updated === -1
+          ? 'Description changed. The day is locked, so the notes on the records were left as they are.'
+          : `Description changed, and ${data.notes_updated} record` +
+            `${data.notes_updated === 1 ? '' : 's'} carrying the old wording followed. ` +
+            'Notes edited by hand were left alone.',
+      )
+      await load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  /**
+   * Remove a holiday and every record on its day.
+   *
+   * Every record, not only the ones the holiday wrote: somebody who was
+   * on annual leave that day was skipped when it was declared, and
+   * their record is older than the holiday. The confirmation names that
+   * number, because it is the part nobody expects and there is no undo.
+   */
+  async function handleDelete(holiday) {
+    const others = Number(holiday.other_records || 0)
+    const total = Number(holiday.employees || 0) + others
+    const warning =
+      others > 0
+        ? `\n\n${others} of them ${others === 1 ? 'is' : 'are'} NOT ${holiday.type_en} — ` +
+          'those days were recorded before this holiday and will go too. ' +
+          'Any leave they were deducted from will not come back on its own.'
+        : ''
+    if (
+      !window.confirm(
+        `Delete the holiday on ${dayLabel(holiday.holiday_date)} and all ${total} ` +
+          `attendance record${total === 1 ? '' : 's'} on that day, for every employee?` +
+          `${warning}\n\nThis cannot be undone.`,
+      )
+    ) {
+      return
+    }
+    setBusyId(holiday.id)
+    setError(null)
+    setNotice(null)
+    try {
+      const data = await run(supabase.rpc('delete_company_holiday', { p_id: holiday.id }))
+      setNotice(
+        `Holiday removed, with ${data.deleted} attendance record` +
+          `${data.deleted === 1 ? '' : 's'} on ${dayLabel(data.date)}.`,
+      )
+      setResult(null)
+      await load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   if (lookups.loading) return <Spinner />
 
   return (
@@ -105,6 +190,7 @@ export default function Holidays() {
       </div>
 
       {error && <Alert tone="error" onDismiss={() => setError(null)}>{error}</Alert>}
+      {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
 
       <Card>
         <CardHeader
@@ -237,6 +323,7 @@ export default function Holidays() {
                   <Th className="min-w-[180px]">Counts as</Th>
                   <Th>Description</Th>
                   <Th className="text-right">Employees</Th>
+                  <Th className="w-px whitespace-nowrap text-right">Actions</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -246,8 +333,86 @@ export default function Holidays() {
                     <Td className="whitespace-nowrap">
                       {h.type_en} <span className="arabic text-ink-3">{h.type_ar}</span>
                     </Td>
-                    <Td className="text-ink-3">{h.description}</Td>
-                    <Td className="tabular text-right font-semibold">{h.employees}</Td>
+                    <Td className="text-ink-3">
+                      {editingId === h.id ? (
+                        <Input
+                          value={editText}
+                          autoFocus
+                          onChange={(e) => setEditText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEdit(h)
+                            if (e.key === 'Escape') setEditingId(null)
+                          }}
+                        />
+                      ) : (
+                        h.description
+                      )}
+                    </Td>
+                    <Td className="tabular text-right font-semibold">
+                      {h.employees}
+                      {/* The records on that day that are something
+                          else. They are what delete takes by surprise,
+                          so the number is on the row and not only in
+                          the confirmation. */}
+                      {Number(h.other_records) > 0 && (
+                        <span
+                          className="ml-1 text-xs font-normal text-ink-4"
+                          title={`${h.other_records} employees have that day recorded as something other than ${h.type_en}`}
+                        >
+                          +{h.other_records} other
+                        </span>
+                      )}
+                    </Td>
+                    <Td className="whitespace-nowrap text-right">
+                      {editingId === h.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={busyId === h.id || !editText.trim()}
+                            onClick={() => saveEdit(h)}
+                          >
+                            {busyId === h.id ? 'Saving…' : 'Save'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ml-1"
+                            onClick={() => setEditingId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={busyId === h.id}
+                            onClick={() => {
+                              setEditingId(h.id)
+                              setEditText(h.description)
+                            }}
+                            title="Change the description. The day and the type cannot be changed."
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            className="ml-1"
+                            disabled={busyId === h.id || h.is_locked}
+                            onClick={() => handleDelete(h)}
+                            title={
+                              h.is_locked
+                                ? 'That day is inside a locked period'
+                                : 'Remove the holiday and every attendance record on that day'
+                            }
+                          >
+                            {busyId === h.id ? 'Working…' : 'Delete'}
+                          </Button>
+                        </>
+                      )}
+                    </Td>
                   </tr>
                 ))}
               </tbody>
