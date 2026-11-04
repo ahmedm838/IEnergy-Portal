@@ -6,6 +6,8 @@ import { useLookups, useEmployees } from '../lib/useLookups'
 import { useLocks, lockRangeLabel } from '../lib/useLocks'
 import { recordBlockReason } from '../lib/recordable'
 import { summarise } from '../lib/calc'
+import { readSheetRows, prefetchWorkbookReader } from '../lib/readWorkbook'
+import { acNumberFor, buildImport } from '../lib/importAttendance'
 import {
   dateRange,
   dayLabel,
@@ -69,6 +71,16 @@ export default function Attendance() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [importing, setImporting] = useState(false)
+  // null until an upload has been read; [] afterwards when it was clean,
+  // which is worth showing rather than leaving the last file's problems
+  // on screen beside a new one's results.
+  const [importIssues, setImportIssues] = useState(null)
+  const fileInput = useRef(null)
+
+  // The reader is a large chunk and most sessions never upload, so it is
+  // warmed in the background rather than awaited inside the click.
+  useEffect(() => { prefetchWorkbookReader() }, [])
 
   const days = useMemo(
     () => (range.from && range.to && range.from <= range.to ? dateRange(range.from, range.to) : []),
@@ -231,10 +243,100 @@ export default function Attendance() {
     setNotice(null)
   }
 
+  /**
+   * Take an attendance machine's export and fill in the days it covers.
+   *
+   * The file is read in this browser. Nothing is uploaded anywhere and
+   * nothing is written to the database: every day it fills becomes an
+   * unsaved change like any other, so Save is still what commits them
+   * and Discard still throws them away.
+   *
+   * A day that already carries a type is left alone and counted, never
+   * overwritten. The machine knows somebody badged in; it does not know
+   * that a day was agreed as annual leave, and overwriting would lose a
+   * decision a person made in favour of a turnstile.
+   */
+  async function handleUpload(file) {
+    if (!file || !selectedEmployee || readOnlyEmployee) return
+    setError(null)
+    setNotice(null)
+    setImportIssues(null)
+    setImporting(true)
+    try {
+      const acNo = acNumberFor(selectedEmployee.code)
+      const result = buildImport(await readSheetRows(file), {
+        acNo,
+        from: range.from,
+        to: range.to,
+      })
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      if (!result.matched) {
+        setError(
+          `No rows in this file are for AC-No. ${acNo} (code ${selectedEmployee.code}) ` +
+            `between ${range.from} and ${range.to}. Check that the export covers this ` +
+            'person and this date range.',
+        )
+        return
+      }
+
+      const type = lookups.types?.find((t) => t.code === 'paid_day')
+      if (!type) {
+        setError(
+          'No attendance type with code "paid_day" is available, so the upload filled nothing in. ' +
+            'Check Settings: it has either been unticked under Available or had its code changed.',
+        )
+        return
+      }
+
+      let filled = 0
+      let kept = 0
+      let blocked = 0
+      setRows((current) => {
+        const next = { ...current }
+        const touched = new Set(dirty)
+        for (const [iso, times] of Object.entries(result.days)) {
+          if (!days.includes(iso)) continue
+          if (locks.isLocked(iso) || isFutureDay(iso)) { blocked += 1; continue }
+          if (next[iso]?.attendance_type_id) { kept += 1; continue }
+          next[iso] = {
+            ...EMPTY_ROW,
+            ...next[iso],
+            attendance_type_id: type.id,
+            clock_in: times.clock_in,
+            clock_out: times.clock_out,
+          }
+          touched.add(iso)
+          filled += 1
+        }
+        setDirty(touched)
+        return next
+      })
+
+      setImportIssues(result.issues)
+
+      // A line per thing that happened and nothing for the things that
+      // did not: a summary of four zeroes reads as a failure.
+      const parts = [`${filled} day${filled === 1 ? '' : 's'} filled in as Paid Day`]
+      if (kept) parts.push(`${kept} already had a type and were left alone`)
+      if (blocked) parts.push(`${blocked} locked or in the future`)
+      if (result.issues.length) parts.push(`${result.issues.length} need a look, listed below`)
+      if (result.noPunch) parts.push(`${result.noPunch} had no punches at all`)
+      setNotice(`${parts.join('. ')}. Nothing is saved yet — press Save to keep it.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   function clearAll() {
     if (!window.confirm('Clear every unsaved entry in this view? Saved rows stay in the database.')) {
       return
     }
+    setImportIssues(null)
     loadRecords()
   }
 
@@ -488,6 +590,31 @@ export default function Attendance() {
               }`}
               actions={
                 <>
+                  {/* The input is what actually opens the file picker;
+                      the button is here so it matches the others. The
+                      value is cleared on every pick, or choosing the
+                      same file twice in a row fires no change event and
+                      the second upload appears to do nothing. */}
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept=".xls,.xlsx,.xlsm,.csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      e.target.value = ''
+                      handleUpload(file)
+                    }}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={readOnlyEmployee || importing}
+                    onClick={() => fileInput.current?.click()}
+                    title="Read clock in and clock out times from an attendance machine export"
+                  >
+                    {importing ? 'Reading…' : 'Upload'}
+                  </Button>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -557,6 +684,54 @@ export default function Attendance() {
               </div>
             )}
           </Card>
+
+          {/* The days the upload would not decide for you.
+
+              Below the grid rather than inside it, because these are
+              days the file had something to say about and the rules
+              refused to act on -- not rows to type into. Each says what
+              was found, so the day can be settled in the grid above
+              without opening the spreadsheet again. */}
+          {importIssues !== null && (
+            <Card>
+              <CardHeader
+                title="Days the upload left alone"
+                subtitle={
+                  importIssues.length
+                    ? 'A day with only one punch, or with more than one, is not filled in automatically. ' +
+                      'Set these in the grid above.'
+                    : 'Every day the file covered had exactly one clock in and one clock out.'
+                }
+                actions={
+                  <Button variant="ghost" size="sm" onClick={() => setImportIssues(null)}>
+                    Dismiss
+                  </Button>
+                }
+              />
+              {importIssues.length > 0 && (
+                <div className="max-h-[40vh] overflow-auto">
+                  <table className="sticky-head w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <Th className="min-w-[140px]">Date</Th>
+                        <Th className="min-w-[160px]">Why</Th>
+                        <Th>What the file had</Th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {importIssues.map((issue) => (
+                        <tr key={`${issue.date}-${issue.reason}`}>
+                          <Td className="whitespace-nowrap">{dayLabel(issue.date)}</Td>
+                          <Td>{issue.reason}</Td>
+                          <Td className="tabular text-ink-3">{issue.detail}</Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          )}
         </>
       )}
     </div>
