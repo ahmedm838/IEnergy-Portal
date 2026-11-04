@@ -12,6 +12,7 @@ import EmployeeReport from './pages/EmployeeReport'
 import MonthlyReport from './pages/MonthlyReport'
 import HoursReport from './pages/HoursReport'
 import Adjustments from './pages/Adjustments'
+import Holidays from './pages/Holidays'
 import Employees from './pages/Employees'
 import Settings from './pages/Settings'
 
@@ -69,6 +70,14 @@ export default function App() {
           element={
             <ProtectedRoute requireAdmin>
               <Adjustments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="holidays"
+          element={
+            <ProtectedRoute requireAdmin>
+              <Holidays />
             </ProtectedRoute>
           }
         />

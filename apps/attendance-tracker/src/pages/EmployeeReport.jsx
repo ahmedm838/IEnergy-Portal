@@ -480,6 +480,19 @@ export default function EmployeeReport() {
                       </tr>
                     ))}
                   </tbody>
+                  {/* Every recorded day in the period, which is the
+                      figure to check the list against: short of the
+                      days in the range means days nobody recorded, and
+                      that is the gap worth seeing from here. */}
+                  <tfoot>
+                    <tr className="border-t-2 border-line-strong">
+                      <Td className="font-semibold text-ink">Total</Td>
+                      <Td className="arabic text-ink-3">الإجمالي</Td>
+                      <Td className="tabular w-20 text-right font-semibold text-ink">
+                        {summary.day_counts.reduce((sum, entry) => sum + Number(entry.days || 0), 0)}
+                      </Td>
+                    </tr>
+                  </tfoot>
                 </table>
               )}
             </Card>

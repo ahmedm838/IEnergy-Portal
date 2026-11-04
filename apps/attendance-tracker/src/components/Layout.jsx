@@ -15,9 +15,14 @@ const PORTAL = '../'
 const NAV = [
   { to: '/attendance', label: 'Attendance', adminOnly: true },
   { to: '/employee-report', label: 'Employee report' },
-  { to: '/monthly-report', label: 'Monthly report', adminOnly: true },
+  /* The path stays /monthly-report though the page is called Period
+     report now. It is in people's bookmarks and in links that have
+     already been sent; renaming it would break those to no end, and
+     the address is not what anybody reads. */
+  { to: '/monthly-report', label: 'Period report', adminOnly: true },
   { to: '/hours-report', label: 'Hours report', adminOnly: true },
   { to: '/adjustments', label: 'Adjustments', adminOnly: true },
+  { to: '/holidays', label: 'Holidays', adminOnly: true },
   { to: '/employees', label: 'Employees', adminOnly: true },
 ]
 
@@ -62,7 +67,11 @@ export default function Layout() {
             <span className="text-sm font-semibold text-ink">{wordmark}</span>
           </div>
 
-          <nav className="hidden flex-1 items-center gap-1 lg:flex">
+          {/* Tighter than it was: seven tabs now, and on a laptop the
+              last of them was dropping off the end. The gap is gone and
+              the padding halved, which buys about 90px across the row
+              without the tabs touching each other. */}
+          <nav className="hidden flex-1 items-center lg:flex">
             {items.map((item) => (
               <NavLink
                 key={item.to}
@@ -70,7 +79,7 @@ export default function Layout() {
                 end={item.end}
                 className={({ isActive }) =>
                   cx(
-                    'whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition',
+                    'whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-medium transition',
                     isActive
                       ? 'bg-brand-50 text-brand-700'
                       : 'text-ink-2 hover:bg-hover hover:text-ink',
