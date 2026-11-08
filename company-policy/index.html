@@ -39,8 +39,9 @@
       -webkit-touch-callout: none;
     }
 
-    .pol-toc { list-style:none; margin:10px 0 0; padding:0; columns:2; column-gap:28px; }
-    @media (max-width: 760px) { .pol-toc { columns:1; } }
+    .pol-toc { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 28px; margin:10px 0 0; }
+    .pol-toc-column { list-style:none; margin:0; padding:0; min-width:0; }
+    @media (max-width: 760px) { .pol-toc { grid-template-columns:1fr; } }
     .pol-toc li { break-inside:avoid; }
     .pol-toc a {
       display:block; padding:5px 8px; border-radius:10px;
@@ -129,14 +130,15 @@
       <div>
         <div class="pill">Policy</div>
         <h1 style="margin:10px 0 6px;">Company Policy</h1>
-        <p class="tagline">Attendance, working hours, employee benefits and special leave. HR-POL-001, version 1.0, effective 01.01.2026.</p>
+        <p class="tagline">Attendance, working hours, employee benefits, special leave and employee loans. HR-POL-001, version 1.0, effective 01.01.2026.</p>
       </div>
     </div>
 
     <section class="section">
       <h2>Contents</h2>
       <p class="section-sub">Jump to any part of the policy.</p>
-      <ol class="pol-toc">
+      <div class="pol-toc">
+      <ol class="pol-toc-column" aria-label="Policy sections 1 and 2">
       <li class="toc-major"><a href="#s-1"><span class="toc-num">1.</span> ATTENDANCE & WORKING HOURS POLICY</a></li>
       <li class="toc-minor"><a href="#s-1-1"><span class="toc-num">1.1</span> Purpose</a></li>
       <li class="toc-minor"><a href="#s-1-2"><span class="toc-num">1.2</span> Scope</a></li>
@@ -153,6 +155,8 @@
       <li class="toc-minor"><a href="#s-2-4"><span class="toc-num">2.4</span> Childbirth Award</a></li>
       <li class="toc-minor"><a href="#s-2-5"><span class="toc-num">2.5</span> Bereavement Support Award</a></li>
       <li class="toc-minor"><a href="#s-2-6"><span class="toc-num">2.6</span> General Award Conditions</a></li>
+      </ol>
+      <ol class="pol-toc-column" aria-label="Policy sections 3 and 4">
       <li class="toc-major"><a href="#s-3"><span class="toc-num">3.</span> SPECIAL PAID LEAVE POLICY</a></li>
       <li class="toc-minor"><a href="#s-3-1"><span class="toc-num">3.1</span> Purpose</a></li>
       <li class="toc-minor"><a href="#s-3-2"><span class="toc-num">3.2</span> Special Leave Entitlements</a></li>
@@ -160,13 +164,18 @@
       <li class="toc-minor"><a href="#s-3-4"><span class="toc-num">3.4</span> Childbirth Leave</a></li>
       <li class="toc-minor"><a href="#s-3-5"><span class="toc-num">3.5</span> Bereavement Leave</a></li>
       <li class="toc-minor"><a href="#s-3-6"><span class="toc-num">3.6</span> Special Leave Administration</a></li>
+      <li class="toc-major"><a href="#s-4"><span class="toc-num">4.</span> EMPLOYEE LOANS POLICY</a></li>
+      <li class="toc-minor"><a href="#s-4-1"><span class="toc-num">4.1</span> Eligibility and Approval</a></li>
+      <li class="toc-minor"><a href="#s-4-2"><span class="toc-num">4.2</span> Loan Amount and Repayment</a></li>
+      <li class="toc-minor"><a href="#s-4-3"><span class="toc-num">4.3</span> Colleague Guarantee</a></li>
       </ol>
+      </div>
     </section>
 
     <section class="section pol-doc" id="policy">
       <p>IENERGY METERS MANUFACTURING</p>
       <p>COMPANY EMPLOYEE POLICY</p>
-      <p>Attendance, Working Hours, Employee Benefits &amp; Special Leave</p>
+      <p>Attendance, Working Hours, Employee Benefits, Special Leave &amp; Employee Loans</p>
       <div class="pol-table-wrap"><table class="pol-table">
       <thead><tr><th>Document Information</th><th>Details</th></tr></thead>
       <tbody><tr><td>Policy Number</td><td>HR-POL-001</td></tr><tr><td>Version</td><td>1.0</td></tr><tr><td>Effective Date</td><td>01.01.2026</td></tr><tr><td>Policy Owner</td><td>Human Resources Department</td></tr><tr><td>Approved By</td><td>Chief Executive Officer</td></tr></tbody>
@@ -278,7 +287,7 @@
       <h3 id="s-3-2" class="pol-h3"><span class="pol-num">3.2</span> Special Leave Entitlements</h3>
       <div class="pol-table-wrap"><table class="pol-table">
       <thead><tr><th>Leave Type</th><th>Entitlement</th></tr></thead>
-      <tbody><tr><td>Marriage Leave</td><td>6 paid working days</td></tr><tr><td>Childbirth Leave</td><td>2 paid working days per birth event</td></tr><tr><td>Bereavement Leave</td><td>3 paid working days</td></tr></tbody>
+      <tbody><tr><td>Marriage Leave</td><td>6 paid working days</td></tr><tr><td>Childbirth Leave — Fathers</td><td>3 paid working days per birth event (company benefit)</td></tr><tr><td>Childbirth Leave — Mothers</td><td>4 paid months, subject to applicable labor law</td></tr><tr><td>Bereavement Leave</td><td>3 paid working days</td></tr></tbody>
       </table></div>
       <h3 id="s-3-3" class="pol-h3"><span class="pol-num">3.3</span> Marriage Leave</h3>
       <ul class="pol-list">
@@ -292,11 +301,13 @@
       </ul>
       <h3 id="s-3-4" class="pol-h3"><span class="pol-num">3.4</span> Childbirth Leave</h3>
       <ul class="pol-list">
-      <li>Employees who become a father or mother are entitled to 2 paid working days upon the birth of their child, per birth event.</li>
-      <li>Childbirth leave must be requested and approved by the employee's direct manager.</li>
-      <li>The 2 days may be taken consecutively or separately during the month in which the child is born.</li>
+      <li>Fathers are entitled to 3 paid working days upon the birth of their child, per birth event, as a company benefit.</li>
+      <li>The father's 3 days may be taken consecutively or separately during the month in which the child is born, with scheduling coordinated with the direct manager and without limiting statutory birth-day leave.</li>
+      <li>Mothers are entitled to 4 months of paid maternity leave under Article 54 of Egyptian Labor Law No. 14 of 2025. This includes leave before and after childbirth, with at least 45 days after delivery, and is available up to three times during employment.</li>
+      <li>Mothers must provide HR with a medical certificate stating the expected delivery date.</li>
+      <li>Childbirth leave requests must be submitted through the company's approved leave procedure. The direct manager coordinates coverage, and HR verifies eligibility; administrative approval must not restrict statutory maternity leave.</li>
       <li>Childbirth leave does not reduce the employee's annual leave balance.</li>
-      <li>Unused childbirth leave expires at the end of the child's birth month and cannot be carried forward or converted into cash.</li>
+      <li>Unused company-granted leave for fathers expires at the end of the child's birth month and cannot be carried forward or converted into cash. This expiry does not apply to statutory maternity leave or limit any statutory entitlement.</li>
       </ul>
       <h3 id="s-3-5" class="pol-h3"><span class="pol-num">3.5</span> Bereavement Leave</h3>
       <ul class="pol-list">
@@ -313,6 +324,27 @@
       <li>The direct manager is responsible for coordinating operational coverage.</li>
       <li>HR is responsible for verifying eligibility and maintaining leave records.</li>
       <li>Special leave cannot be converted into financial compensation unless expressly required by law.</li>
+      </ul>
+      <h2 id="s-4" class="pol-h2"><span class="pol-num">4.</span> EMPLOYEE LOANS POLICY</h2>
+      <p>The company provides employee loans subject to the following eligibility, approval, repayment and guarantee requirements.</p>
+      <h3 id="s-4-1" class="pol-h3"><span class="pol-num">4.1</span> Eligibility and Approval</h3>
+      <ul class="pol-list">
+      <li>Employees may apply for a loan only after successfully completing their probation period.</li>
+      <li>Every loan request must be approved by the employee's direct manager before the loan is disbursed.</li>
+      <li>The employee must sign a loan agreement stating the approved amount, repayment schedule and authorization for salary deductions.</li>
+      </ul>
+      <h3 id="s-4-2" class="pol-h3"><span class="pol-num">4.2</span> Loan Amount and Repayment</h3>
+      <ul class="pol-list">
+      <li>The maximum loan amount is one month of the employee's net salary.</li>
+      <li>The loan must be repaid in full through monthly installments within 6 months of disbursement or by 31 December of the calendar year in which it is disbursed, whichever comes first.</li>
+      <li>Installments are deducted directly from the employee's monthly salary according to the signed repayment schedule.</li>
+      <li>The repayment schedule must ensure that no outstanding loan balance is carried into the next calendar year.</li>
+      <li>Loans are interest-free. Loan agreements and salary deductions must comply with applicable law.</li>
+      </ul>
+      <h3 id="s-4-3" class="pol-h3"><span class="pol-num">4.3</span> Colleague Guarantee</h3>
+      <ul class="pol-list">
+      <li>Before disbursement, another colleague must sign the loan agreement as guarantor, accepting responsibility for the outstanding balance if the borrowing employee fails or becomes unable to repay, including following termination of employment.</li>
+      <li>The guarantor's repayment responsibility and the circumstances in which it applies must be stated in the signed agreement. Any recovery from the guarantor must follow that agreement and applicable law.</li>
       </ul>
       <p>IENERGY METERS MANUFACTURING</p>
       <p>Effective Date: 01.01.2026</p>
