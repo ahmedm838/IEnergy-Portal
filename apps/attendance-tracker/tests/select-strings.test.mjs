@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 /*
  * No comments inside a PostgREST select string.
@@ -40,7 +41,7 @@ function selectStrings(source) {
   return [...source.matchAll(/\.select\(\s*`([^`]*)`/g)].map((m) => m[1])
 }
 
-const files = sourceFiles(new URL('../src', import.meta.url).pathname.replace(/^\//, ''))
+const files = sourceFiles(fileURLToPath(new URL('../src', import.meta.url)))
 
 test('every select list is free of comment markers', () => {
   let checked = 0
@@ -64,7 +65,7 @@ test('every select list is free of comment markers', () => {
 
 test('the employees select still asks for what the pages read', () => {
   const source = readFileSync(
-    new URL('../src/lib/useLookups.js', import.meta.url).pathname.replace(/^\//, ''),
+    new URL('../src/lib/useLookups.js', import.meta.url),
     'utf8',
   )
   const [employees] = selectStrings(source).filter((s) => s.includes('arabic_name'))

@@ -329,7 +329,7 @@ export default function Holidays() {
         </Card>
       )}
 
-      {/* The people behind an "+N other" figure.
+      {/* The people behind an Others count.
 
           Above the table rather than below it, because the figure that
           opened it is one of several on a long list -- put underneath,
@@ -386,7 +386,7 @@ export default function Holidays() {
       <Card>
         <CardHeader
           title="Recorded days"
-          subtitle="Newest first. The count is how many employees hold that day as that type right now."
+          subtitle="Newest first. Employees counts that day's attendance type; Others counts records with a different type."
         />
         {loading ? (
           <Spinner />
@@ -401,6 +401,7 @@ export default function Holidays() {
                   <Th className="min-w-[180px]">Counts as</Th>
                   <Th>Description</Th>
                   <Th className="text-right">Employees</Th>
+                  <Th className="text-right">Others</Th>
                   <Th className="w-px whitespace-nowrap text-right">Actions</Th>
                 </tr>
               </thead>
@@ -428,20 +429,22 @@ export default function Holidays() {
                     </Td>
                     <Td className="tabular text-right font-semibold">
                       {h.employees}
+                    </Td>
+                    <Td className="tabular text-right font-semibold">
                       {/* The records on that day that are something
                           else. They are what delete takes by surprise,
                           so the number is on the row and not only in
                           the confirmation. */}
-                      {Number(h.other_records) > 0 && (
+                      {Number(h.other_records) > 0 ? (
                         <button
                           type="button"
                           onClick={() => showOthers(h)}
-                          className="ml-1 rounded text-xs font-normal text-ink-3 underline decoration-dotted underline-offset-2 hover:text-ink"
+                          className="rounded underline decoration-dotted underline-offset-2 hover:text-ink"
                           title={`Show the ${h.other_records} who have that day recorded as something other than ${h.type_en}`}
                         >
-                          +{h.other_records} other
+                          {h.other_records}
                         </button>
-                      )}
+                      ) : 0}
                     </Td>
                     <Td className="whitespace-nowrap text-right">
                       {editingId === h.id ? (
@@ -454,7 +457,7 @@ export default function Holidays() {
                             {busyId === h.id ? 'Saving…' : 'Save'}
                           </Button>
                           <Button
-                            variant="ghost"
+                            type="button"
                             size="sm"
                             className="ml-1"
                             onClick={() => setEditingId(null)}
