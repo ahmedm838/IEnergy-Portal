@@ -82,6 +82,21 @@ export default function Attendance() {
   // warmed in the background rather than awaited inside the click.
   useEffect(() => { prefetchWorkbookReader() }, [])
 
+  /* Everything an upload left on screen belongs to the person it was
+     read for. Choosing somebody else leaves the grid showing one
+     employee and "70 days filled in as attended" plus a table of dates
+     describing another -- which reads as this employee's, because it
+     is sitting under their name.
+
+     The red message goes too, for the same reason: "no rows in this
+     file are for AC-No. 3" is about the person who was selected when
+     it was said. */
+  useEffect(() => {
+    setImportReport(null)
+    setNotice(null)
+    setError(null)
+  }, [employeeId])
+
   const days = useMemo(
     () => (range.from && range.to && range.from <= range.to ? dateRange(range.from, range.to) : []),
     [range],
