@@ -51,6 +51,12 @@ export default function Holidays() {
   const [busyId, setBusyId] = useState(null)
   const [notice, setNotice] = useState(null)
 
+  /* Who is counted as "other" on one day, fetched when the figure is
+     clicked. Not loaded with the list: it is a handful of people on a
+     handful of days, and fetching every name for every declared day to
+     show one of them would be the wrong trade. */
+  const [others, setOthers] = useState(null)
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -98,6 +104,24 @@ export default function Holidays() {
       setError(err.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function showOthers(holiday) {
+    // Toggle: clicking the same figure again puts it away.
+    if (others?.id === holiday.id) {
+      setOthers(null)
+      return
+    }
+    setOthers({ id: holiday.id, holiday, rows: null })
+    try {
+      const rows = await run(
+        supabase.rpc('list_company_holiday_others', { p_id: holiday.id }),
+      )
+      setOthers((current) => (current?.id === holiday.id ? { ...current, rows } : current))
+    } catch (err) {
+      setOthers(null)
+      setError(err.message)
     }
   }
 
@@ -152,7 +176,7 @@ export default function Holidays() {
         : ''
     if (
       !window.confirm(
-        `Delete the holiday on ${dayLabel(holiday.holiday_date)} and all ${total} ` +
+        `Delete the company day on ${dayLabel(holiday.holiday_date)} and all ${total} ` +
           `attendance record${total === 1 ? '' : 's'} on that day, for every employee?` +
           `${warning}\n\nThis cannot be undone.`,
       )
@@ -165,7 +189,7 @@ export default function Holidays() {
     try {
       const data = await run(supabase.rpc('delete_company_holiday', { p_id: holiday.id }))
       setNotice(
-        `Holiday removed, with ${data.deleted} attendance record` +
+        `Day removed, with ${data.deleted} attendance record` +
           `${data.deleted === 1 ? '' : 's'} on ${dayLabel(data.date)}.`,
       )
       setResult(null)
@@ -182,7 +206,7 @@ export default function Holidays() {
   return (
     <div className="grid grid-cols-1 gap-5">
       <div>
-        <h1 className="text-xl font-semibold text-ink">Holidays</h1>
+        <h1 className="text-xl font-semibold text-ink">Days</h1>
         <p className="mt-0.5 text-sm text-ink-3">
           Days given to the whole company. Declaring one records it for every employee who may
           hold records, and leaves alone anyone whose day is already recorded.
@@ -194,7 +218,7 @@ export default function Holidays() {
 
       <Card>
         <CardHeader
-          title="Add a company holiday"
+          title="Add a company day"
           subtitle="The day, what it counts as, and why. All three are needed."
         />
         <div className="grid gap-4 px-5 py-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -305,15 +329,69 @@ export default function Holidays() {
         </Card>
       )}
 
+      {/* The people behind an "+N other" figure.
+
+          Above the table rather than below it, because the figure that
+          opened it is one of several on a long list -- put underneath,
+          it would appear off the bottom of the screen on a page with a
+          year of days on it. */}
+      {others && (
+        <Card>
+          <CardHeader
+            title={`Counted as other on ${dayLabel(others.holiday.holiday_date)}`}
+            subtitle={
+              others.rows === null
+                ? 'Loading…'
+                : `${others.rows.length} ` +
+                  `${others.rows.length === 1 ? 'employee has' : 'employees have'} that day ` +
+                  `recorded as something other than ${others.holiday.type_en}. ` +
+                  'Deleting the day removes these records too.'
+            }
+            actions={
+              <Button variant="ghost" size="sm" onClick={() => setOthers(null)}>
+                Close
+              </Button>
+            }
+          />
+          {others.rows === null ? (
+            <Spinner />
+          ) : (
+            <div className="max-h-[40vh] overflow-auto">
+              <table className="sticky-head w-full border-collapse">
+                <thead>
+                  <tr>
+                    <Th className="min-w-[90px]">Code</Th>
+                    <Th>Name</Th>
+                    <Th>Recorded as</Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {others.rows.map((person) => (
+                    <tr key={person.code}>
+                      <Td className="tabular whitespace-nowrap">{person.code}</Td>
+                      <Td className="font-medium text-ink">{person.name}</Td>
+                      <Td>
+                        {person.type_en}{' '}
+                        <span className="arabic text-ink-3">{person.type_ar}</span>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
       <Card>
         <CardHeader
-          title="Recorded holidays"
+          title="Recorded days"
           subtitle="Newest first. The count is how many employees hold that day as that type right now."
         />
         {loading ? (
           <Spinner />
         ) : holidays.length === 0 ? (
-          <EmptyState title="No company holidays have been declared yet" />
+          <EmptyState title="No company days have been declared yet" />
         ) : (
           <div className="max-h-[60vh] overflow-auto">
             <table className="sticky-head w-full border-collapse">
@@ -355,12 +433,14 @@ export default function Holidays() {
                           so the number is on the row and not only in
                           the confirmation. */}
                       {Number(h.other_records) > 0 && (
-                        <span
-                          className="ml-1 text-xs font-normal text-ink-4"
-                          title={`${h.other_records} employees have that day recorded as something other than ${h.type_en}`}
+                        <button
+                          type="button"
+                          onClick={() => showOthers(h)}
+                          className="ml-1 rounded text-xs font-normal text-ink-3 underline decoration-dotted underline-offset-2 hover:text-ink"
+                          title={`Show the ${h.other_records} who have that day recorded as something other than ${h.type_en}`}
                         >
                           +{h.other_records} other
-                        </span>
+                        </button>
                       )}
                     </Td>
                     <Td className="whitespace-nowrap text-right">

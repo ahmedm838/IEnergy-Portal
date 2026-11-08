@@ -22,7 +22,10 @@ const NAV = [
   { to: '/monthly-report', label: 'Period report', adminOnly: true },
   { to: '/hours-report', label: 'Hours report', adminOnly: true },
   { to: '/adjustments', label: 'Adjustments', adminOnly: true },
-  { to: '/holidays', label: 'Holidays', adminOnly: true },
+  /* Called Days, not Holidays: the type is chosen per day, so this
+     declares a Paid Day or an Overtime Day for everybody just as
+     readily as a public holiday. The path stays /holidays. */
+  { to: '/holidays', label: 'Days', adminOnly: true },
   { to: '/employees', label: 'Employees', adminOnly: true },
 ]
 
