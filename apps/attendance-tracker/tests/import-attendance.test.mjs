@@ -20,11 +20,13 @@ const {
 
 /* ---- the code-to-machine mapping ---- */
 
-test('an employee code becomes the machine number', () => {
-  assert.equal(acNumberFor('240001'), 1)
-  assert.equal(acNumberFor('260028'), 28)
-  assert.equal(acNumberFor('240010'), 10)
-  assert.equal(acNumberFor(240100), 100)
+test('the whole six-digit code is the machine number', () => {
+  // Matched exactly. It used to drop the first two digits, so 240001
+  // meant AC-No. 1; that mapping is gone and must not creep back.
+  assert.equal(acNumberFor('240001'), 240001)
+  assert.equal(acNumberFor('260028'), 260028)
+  assert.equal(acNumberFor('240010'), 240010)
+  assert.equal(acNumberFor(240100), 240100)
 })
 
 test('a code of another shape matches nobody rather than guessing', () => {
@@ -89,10 +91,10 @@ test('blank and impossible times give nothing', () => {
 
 const HEADER = ['Emp No.', 'AC-No.', 'Name', 'Date', 'Clock In', 'Clock Out']
 const sheet = (...rows) => [['Attendance report'], [], HEADER, ...rows]
-const RANGE = { acNo: 1, from: '2026-07-01', to: '2026-07-31' }
+const RANGE = { acNo: 240001, from: '2026-07-01', to: '2026-07-31' }
 
 test('a day with both times is filled in', () => {
-  const out = buildImport(sheet(['3', '1', 'A', '05-07-2026', '09:44', '16:18']), RANGE)
+  const out = buildImport(sheet(['3', '240001', 'A', '05-07-2026', '09:44', '16:18']), RANGE)
   assert.deepEqual(out.days, { '2026-07-05': { clock_in: '09:44', clock_out: '16:18' } })
   assert.deepEqual(out.issues, [])
 })
@@ -100,8 +102,8 @@ test('a day with both times is filled in', () => {
 test('a day missing one of the two is an issue, not half a day', () => {
   const out = buildImport(
     sheet(
-      ['3', '1', 'A', '06-07-2026', '10:01', ''],
-      ['3', '1', 'A', '07-07-2026', '', '16:22'],
+      ['3', '240001', 'A', '06-07-2026', '10:01', ''],
+      ['3', '240001', 'A', '07-07-2026', '', '16:22'],
     ),
     RANGE,
   )
@@ -115,10 +117,10 @@ test('a day missing one of the two is an issue, not half a day', () => {
 test('more than one punch is an issue, in one cell or in two rows', () => {
   const out = buildImport(
     sheet(
-      ['3', '1', 'A', '08-07-2026', '08:01 12:30', '17:00'],
+      ['3', '240001', 'A', '08-07-2026', '08:01 12:30', '17:00'],
       // Some exports write a row per punch instead of a row per day.
-      ['3', '1', 'A', '09-07-2026', '08:00', '12:00'],
-      ['3', '1', 'A', '09-07-2026', '13:00', '17:00'],
+      ['3', '240001', 'A', '09-07-2026', '08:00', '12:00'],
+      ['3', '240001', 'A', '09-07-2026', '13:00', '17:00'],
     ),
     RANGE,
   )
@@ -134,8 +136,8 @@ test('a day with no punches at all is not an issue, but is reported', () => {
   // as likely to be a machine that was off as a person who was away.
   const out = buildImport(
     sheet(
-      ['3', '1', 'A', '02-07-2026', '', ''],
-      ['3', '1', 'A', '01-07-2026', '', ''],
+      ['3', '240001', 'A', '02-07-2026', '', ''],
+      ['3', '240001', 'A', '01-07-2026', '', ''],
     ),
     RANGE,
   )
@@ -148,9 +150,9 @@ test('a day with no punches at all is not an issue, but is reported', () => {
 test('other people and other dates are left out', () => {
   const out = buildImport(
     sheet(
-      ['3', '2', 'B', '05-07-2026', '08:00', '16:00'],
-      ['3', '1', 'A', '05-08-2026', '08:00', '16:00'],
-      ['3', '1', 'A', '05-07-2026', '08:00', '16:00'],
+      ['3', '240002', 'B', '05-07-2026', '08:00', '16:00'],
+      ['3', '240001', 'A', '05-08-2026', '08:00', '16:00'],
+      ['3', '240001', 'A', '05-07-2026', '08:00', '16:00'],
     ),
     RANGE,
   )
@@ -161,7 +163,7 @@ test('other people and other dates are left out', () => {
 test('the columns are found by name, wherever they sit', () => {
   const rows = [
     ['Date', 'Clock Out', 'AC-No.', 'Clock In'],
-    ['05-07-2026', '16:18', '1', '09:44'],
+    ['05-07-2026', '16:18', '240001', '09:44'],
   ]
   const out = buildImport(rows, RANGE)
   assert.deepEqual(out.days, { '2026-07-05': { clock_in: '09:44', clock_out: '16:18' } })
@@ -177,7 +179,7 @@ test('a file that is not an attendance export says so', () => {
 })
 
 test('a sheet with no times says so rather than reporting nothing found', () => {
-  const out = buildImport([['AC-No.', 'Date'], ['1', '05-07-2026']], RANGE)
+  const out = buildImport([['AC-No.', 'Date'], ['240001', '05-07-2026']], RANGE)
   assert.match(out.error, /Clock In or Clock Out/)
 })
 
@@ -190,7 +192,7 @@ test('a heading cell named __proto__ cannot poison the result', () => {
   // The rows are arrays for this reason; the test holds the line.
   const out = buildImport(
     [['AC-No.', 'Date', 'Clock In', 'Clock Out', '__proto__'],
-     ['1', '05-07-2026', '09:00', '17:00', 'polluted']],
+     ['240001', '05-07-2026', '09:00', '17:00', 'polluted']],
     RANGE,
   )
   assert.equal({}.polluted, undefined)
@@ -373,4 +375,48 @@ test('every row carries the three columns the table shows', () => {
       assert.ok(row[key], `${key} is empty on ${JSON.stringify(row)}`)
     }
   }
+})
+
+/* ---- the code is matched whole, not by its last four digits ---- */
+
+test('a machine still exporting 1, 2, 3 matches nobody', () => {
+  // This is the case the old rule handled and the new one refuses: 1 is
+  // not 240001. It must not quietly fall back, because 240001 and
+  // 260001 would both match a row of 1 and they are different people.
+  const out = buildImport(sheet(['3', '1', 'A', '05-07-2026', '09:00', '17:00']), RANGE)
+  assert.equal(out.matched, 0)
+  assert.deepEqual(out.days, {})
+})
+
+test('a code sharing the last four digits is a different person', () => {
+  // 260001 ends 0001 just as 240001 does. Under the old rule both were
+  // AC-No. 1 and either file filled in either person's month.
+  const out = buildImport(sheet(['3', '260001', 'B', '05-07-2026', '09:00', '17:00']), RANGE)
+  assert.equal(out.matched, 0)
+  assert.deepEqual(out.days, {})
+})
+
+test('when nothing matched, the AC-No. values in the file come back', () => {
+  // The usual reason for no match is a machine exporting its own
+  // numbering, and saying what is in the column names it at a glance.
+  const out = buildImport(
+    sheet(
+      ['3', '1', 'A', '05-07-2026', '09:00', '17:00'],
+      ['3', '28', 'B', '05-07-2026', '09:00', '17:00'],
+      ['3', '3', 'C', '05-07-2026', '09:00', '17:00'],
+    ),
+    RANGE,
+  )
+  assert.equal(out.matched, 0)
+  // Sorted as numbers, not as text: 3 before 28.
+  assert.deepEqual(out.acNumbersInFile, ['1', '3', '28'])
+  assert.equal(out.acNumbersTotal, 3)
+})
+
+test('the reported AC-No. list is capped so a message stays readable', () => {
+  const many = Array.from({ length: 50 }, (_, i) =>
+    ['3', String(100000 + i), 'X', '05-07-2026', '09:00', '17:00'])
+  const out = buildImport(sheet(...many), RANGE)
+  assert.equal(out.acNumbersInFile.length, 30)
+  assert.equal(out.acNumbersTotal, 50)
 })

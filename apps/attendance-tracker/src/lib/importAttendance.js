@@ -33,10 +33,17 @@ const normalise = (text) => String(text ?? '').toLowerCase().replace(/[\s._-]/g,
 /**
  * The AC-No. an employee code corresponds to.
  *
- * The machine numbers people from 1; the tracker's codes are six digits
- * whose first two are a prefix (240001 and 260028 are both on the same
- * machine, as 1 and 28). So the first two digits come off and the rest
- * is read as a number, which also drops the leading zeros.
+ * The whole six-digit code, matched exactly. The machine is configured
+ * to carry the real employee code in its AC-No. column, so 240001 is
+ * AC-No. 240001.
+ *
+ * It used to drop the first two digits -- 240001 matched AC-No. 1 --
+ * because the machine numbered people from 1 and the prefix was the
+ * year. That mapping is gone, and deliberately not kept as a fallback:
+ * trying the short form when the long one finds nothing would match
+ * 240001 against a row meant for 260001, and the two are different
+ * people. A file that does not match now says so, and the file is the
+ * thing to fix.
  *
  * Null for anything that is not six digits, rather than a guess: a code
  * of another shape means this mapping was not what was meant, and
@@ -45,7 +52,7 @@ const normalise = (text) => String(text ?? '').toLowerCase().replace(/[\s._-]/g,
 export function acNumberFor(code) {
   const digits = String(code ?? '').trim()
   if (!/^\d{6}$/.test(digits)) return null
-  return Number(digits.slice(2))
+  return Number(digits)
 }
 
 /**
@@ -206,11 +213,18 @@ export function buildImport(rows, { acNo, from, to }) {
   // the several punches they are rather than overwriting each other.
   const perDay = new Map()
   let matched = 0
+  /* Every AC-No. the file does carry. Only useful when nothing matched,
+     and then it is the whole answer: a machine still exporting its own
+     1..30 numbering instead of employee codes is the likely reason, and
+     showing what is in the column says that at a glance. */
+  const seen = new Set()
 
   for (let i = headerIndex + 1; i < rows.length; i += 1) {
     const row = rows[i] ?? []
-    const ac = Number(String(row[columns.ac] ?? '').trim())
-    if (!Number.isFinite(ac) || ac !== acNo) continue
+    const raw = String(row[columns.ac] ?? '').trim()
+    const ac = Number(raw)
+    if (raw) seen.add(raw)
+    if (!Number.isFinite(ac) || !raw || ac !== acNo) continue
 
     const iso = parseSheetDate(row[columns.date])
     if (!iso || iso < from || iso > to) continue
@@ -253,7 +267,11 @@ export function buildImport(rows, { acNo, from, to }) {
     days[iso] = { clock_in: ins[0], clock_out: outs[0] }
   }
 
-  return { days, issues, noPunchDays, matched }
+  // Sorted and capped: the caller puts these in a message, and thirty
+  // numbers is already enough to recognise the pattern.
+  const acNumbersInFile = [...seen].sort((a, b) => Number(a) - Number(b)).slice(0, 30)
+
+  return { days, issues, noPunchDays, matched, acNumbersInFile, acNumbersTotal: seen.size }
 }
 
 /**

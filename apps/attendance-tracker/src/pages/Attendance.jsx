@@ -289,10 +289,20 @@ export default function Attendance() {
         return
       }
       if (!result.matched) {
+        /* Say what the file does contain. The AC-No. column has to hold
+           the whole six-digit employee code now, and the usual reason
+           for no match is a machine still exporting its own 1, 2, 3…
+           numbering -- which this makes obvious instead of leaving
+           somebody to open the spreadsheet and guess. */
+        const found = result.acNumbersInFile ?? []
+        const sample = found.length
+          ? ` The AC-No. column in this file holds: ${found.join(', ')}` +
+            `${result.acNumbersTotal > found.length ? ' …' : ''}.` +
+            ' It has to hold the whole six-digit employee code.'
+          : ''
         setError(
           `No rows in this file are for AC-No. ${acNo} (code ${selectedEmployee.code}) ` +
-            `between ${range.from} and ${range.to}. Check that the export covers this ` +
-            'person and this date range.',
+            `between ${range.from} and ${range.to}.${sample}`,
         )
         return
       }

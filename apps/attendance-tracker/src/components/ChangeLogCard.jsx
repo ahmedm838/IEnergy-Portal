@@ -12,6 +12,37 @@ function defaultRange() {
 }
 
 /**
+ * Every change in the period, in pages.
+ *
+ * PostgREST caps how many rows one request may return, and the cap is
+ * the server's setting rather than anything this asks for -- so a
+ * request with no range gets the first page and no indication that
+ * there was a second. A log is the one report where a silent cut is
+ * worst: it would read as "that is everything that happened", and the
+ * changes it left out are exactly the ones somebody came looking for.
+ *
+ * One upload of a month's attendance writes up to 31 lines per
+ * employee, so a company-wide month passes a thousand easily.
+ *
+ * Paged until a short page comes back, which is the only reliable
+ * signal that the end has been reached: a full page might be the last
+ * one or might not, and asking again costs one request to find out.
+ */
+async function fetchAllChanges(range) {
+  const pageSize = 1000
+  const all = []
+  for (let from = 0; ; from += pageSize) {
+    const page = await run(
+      supabase
+        .rpc('report_audit_log', { p_from: range.from, p_to: range.to })
+        .range(from, from + pageSize - 1),
+    )
+    all.push(...(page ?? []))
+    if (!page || page.length < pageSize) return all
+  }
+}
+
+/**
  * Export the change log.
  *
  * The log records who changed what, when, and what it was before --
@@ -39,9 +70,7 @@ export default function ChangeLogCard() {
     }
     setBusy(true)
     try {
-      const rows = await run(
-        supabase.rpc('report_audit_log', { p_from: range.from, p_to: range.to }),
-      )
+      const rows = await fetchAllChanges(range)
       if (!rows?.length) {
         // Not an error: an empty period is a real answer, and the log
         // only holds changes made since it was switched on.
