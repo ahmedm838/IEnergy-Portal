@@ -4,8 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="description" content="iEnergy company policy" />
-  <title>iEnergy | Company Policy</title>
+  <title id="docTitle">iEnergy | Company Policy</title>
   <link rel="icon" type="image/png" href="../favicon.png?v=2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=15" />
   <style>
@@ -72,6 +75,66 @@
       text-align:left; padding:9px 12px; border:1px solid var(--line); vertical-align:top;
     }
     .pol-table th { background:rgba(var(--ink-rgb), 0.04); font-weight:700; }
+
+    /* Language Switch Button */
+    .lang-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      gap: 6px;
+      white-space: nowrap;
+      padding: 6px 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--text-80);
+      font: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      line-height: 16px;
+      cursor: pointer;
+      box-shadow: 0 1px 2px var(--shadow);
+      transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+    }
+    .lang-btn:hover {
+      background: var(--fill-3);
+      color: var(--text);
+      border-color: var(--line);
+    }
+    .lang-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .lang-globe {
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    /* RTL Arabic styling */
+    #contentAr {
+      font-family: 'Noto Sans Arabic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: right;
+    }
+    #contentAr .pol-toc-column {
+      padding-right: 0;
+      padding-left: 0;
+    }
+    #contentAr .toc-minor a {
+      padding-right: 22px;
+      padding-left: 8px;
+    }
+    #contentAr .toc-num, #contentAr .pol-num {
+      margin-right: 0;
+      margin-left: 6px;
+    }
+    #contentAr .pol-list {
+      padding-right: 22px;
+      padding-left: 0;
+    }
+    #contentAr .pol-table th, #contentAr .pol-table td {
+      text-align: right;
+    }
   </style>
   <script src="../theme.js?v=4"></script>
   <!-- Fetch a page when the pointer settles on its link, so the click
@@ -113,289 +176,599 @@
       <div class="page-bar-inner">
         <div class="page-bar-brand">
           <img class="page-bar-logo" src="../logo-mark.png?v=2" alt="" />
-          <span class="page-bar-name">Company Policy</span>
+          <span class="page-bar-name" id="pageBarName">Company Policy</span>
         </div>
         <div class="page-bar-right">
           <span class="page-bar-who" id="whoami"></span>
           <span class="role-badge" id="roleBadge" hidden></span>
           <span id="themeSlot"></span>
-          <a class="main-page-btn" href="../">Main page</a>
+          <button id="langToggleBtn" class="lang-btn" type="button" title="Switch language / تغيير اللغة" aria-label="Switch language">
+            <span class="lang-globe" aria-hidden="true">🌐</span>
+            <span id="langBtnText">العربية</span>
+          </button>
+          <a class="main-page-btn" id="mainPageBtn" href="../">Main page</a>
           <button id="logoutBtn" class="btn logout-btn" type="button">Sign out</button>
         </div>
       </div>
     </header>
 
     <div class="container">
-    <div class="top">
-      <div>
-        <div class="pill">Policy</div>
-        <h1 style="margin:10px 0 6px;">Company Policy</h1>
-        <p class="tagline">Attendance, working hours, employee benefits, special leave and employee loans. HR-POL-001, version 1.0, effective 01.01.2026.</p>
+
+      <!-- English Content Block -->
+      <div id="contentEn">
+        <div class="top">
+          <div>
+            <div class="pill">Policy</div>
+            <h1 style="margin:10px 0 6px;">Company Policy</h1>
+            <p class="tagline">Attendance, working hours, employee benefits, special leave and employee loans. HR-POL-001, version 1.0, effective 01.01.2026.</p>
+          </div>
+        </div>
+
+        <section class="section" id="tocEn">
+          <h2>Contents</h2>
+          <p class="section-sub">Jump to any part of the policy.</p>
+          <div class="pol-toc">
+          <ol class="pol-toc-column" aria-label="Policy sections 1 and 2">
+          <li class="toc-major"><a href="#s-1"><span class="toc-num">1.</span> ATTENDANCE &amp; WORKING HOURS POLICY</a></li>
+          <li class="toc-minor"><a href="#s-1-1"><span class="toc-num">1.1</span> Purpose</a></li>
+          <li class="toc-minor"><a href="#s-1-2"><span class="toc-num">1.2</span> Scope</a></li>
+          <li class="toc-minor"><a href="#s-1-3"><span class="toc-num">1.3</span> Standard Working Hours</a></li>
+          <li class="toc-minor"><a href="#s-1-4"><span class="toc-num">1.4</span> Mandatory Core Attendance Hours</a></li>
+          <li class="toc-minor"><a href="#s-1-5"><span class="toc-num">1.5</span> Monthly Working Hours Shortage</a></li>
+          <li class="toc-minor"><a href="#s-1-6"><span class="toc-num">1.6</span> Overtime and Off-Site Assignments</a></li>
+          <li class="toc-minor"><a href="#s-1-7"><span class="toc-num">1.7</span> Absence and No-Show Policy</a></li>
+          <li class="toc-minor"><a href="#s-1-8"><span class="toc-num">1.8</span> Attendance Monitoring</a></li>
+          <li class="toc-major"><a href="#s-2"><span class="toc-num">2.</span> EMPLOYEE LIFE EVENT AWARDS POLICY</a></li>
+          <li class="toc-minor"><a href="#s-2-1"><span class="toc-num">2.1</span> Purpose</a></li>
+          <li class="toc-minor"><a href="#s-2-2"><span class="toc-num">2.2</span> Award Entitlements</a></li>
+          <li class="toc-minor"><a href="#s-2-3"><span class="toc-num">2.3</span> Marriage Award</a></li>
+          <li class="toc-minor"><a href="#s-2-4"><span class="toc-num">2.4</span> Childbirth Award</a></li>
+          <li class="toc-minor"><a href="#s-2-5"><span class="toc-num">2.5</span> Bereavement Support Award</a></li>
+          <li class="toc-minor"><a href="#s-2-6"><span class="toc-num">2.6</span> General Award Conditions</a></li>
+          </ol>
+          <ol class="pol-toc-column" aria-label="Policy sections 3 and 4">
+          <li class="toc-major"><a href="#s-3"><span class="toc-num">3.</span> SPECIAL PAID LEAVE POLICY</a></li>
+          <li class="toc-minor"><a href="#s-3-1"><span class="toc-num">3.1</span> Purpose</a></li>
+          <li class="toc-minor"><a href="#s-3-2"><span class="toc-num">3.2</span> Special Leave Entitlements</a></li>
+          <li class="toc-minor"><a href="#s-3-3"><span class="toc-num">3.3</span> Marriage Leave</a></li>
+          <li class="toc-minor"><a href="#s-3-4"><span class="toc-num">3.4</span> Childbirth Leave</a></li>
+          <li class="toc-minor"><a href="#s-3-5"><span class="toc-num">3.5</span> Bereavement Leave</a></li>
+          <li class="toc-minor"><a href="#s-3-6"><span class="toc-num">3.6</span> Special Leave Administration</a></li>
+          <li class="toc-major"><a href="#s-4"><span class="toc-num">4.</span> EMPLOYEE LOANS POLICY</a></li>
+          <li class="toc-minor"><a href="#s-4-1"><span class="toc-num">4.1</span> Purpose</a></li>
+          <li class="toc-minor"><a href="#s-4-2"><span class="toc-num">4.2</span> Eligibility</a></li>
+          <li class="toc-minor"><a href="#s-4-3"><span class="toc-num">4.3</span> Loan Amount and Repayment</a></li>
+          <li class="toc-minor"><a href="#s-4-4"><span class="toc-num">4.4</span> Colleague Guarantee</a></li>
+          <li class="toc-minor"><a href="#s-4-5"><span class="toc-num">4.5</span> Approval</a></li>
+          </ol>
+          </div>
+        </section>
+
+        <section class="section pol-doc" id="policyEn">
+          <p>IENERGY METERS MANUFACTURING</p>
+          <p>COMPANY EMPLOYEE POLICY</p>
+          <p>Attendance, Working Hours, Employee Benefits, Special Leave &amp; Employee Loans</p>
+          <div class="pol-table-wrap"><table class="pol-table">
+          <thead><tr><th>Document Information</th><th>Details</th></tr></thead>
+          <tbody><tr><td>Policy Number</td><td>HR-POL-001</td></tr><tr><td>Version</td><td>1.0</td></tr><tr><td>Effective Date</td><td>01.01.2026</td></tr><tr><td>Policy Owner</td><td>Human Resources Department</td></tr><tr><td>Approved By</td><td>Chief Executive Officer</td></tr></tbody>
+          </table></div>
+          <h2 id="s-1" class="pol-h2"><span class="pol-num">1.</span> ATTENDANCE &amp; WORKING HOURS POLICY</h2>
+          <h3 id="s-1-1" class="pol-h3"><span class="pol-num">1.1</span> Purpose</h3>
+          <p>This policy establishes the company's requirements concerning working hours, attendance, absences, overtime, and leave administration to ensure operational efficiency, employee accountability, and fairness.</p>
+          <h3 id="s-1-2" class="pol-h3"><span class="pol-num">1.2</span> Scope</h3>
+          <p>This attendance policy applies to all white-collar employees unless otherwise specified in their employment agreements or approved departmental policies.</p>
+          <h3 id="s-1-3" class="pol-h3"><span class="pol-num">1.3</span> Standard Working Hours</h3>
+          <ul class="pol-list">
+          <li>The standard working requirement is 40 hours per week, based on five working days.</li>
+          <li>Employees may follow flexible working schedules according to departmental requirements and subject to management approval.</li>
+          <li>Flexible working arrangements do not exempt employees from mandatory core attendance hours.</li>
+          <li>Employees are responsible for completing their required weekly working hours.</li>
+          <li>All working hours must be accurately recorded through the company's approved attendance tracking system.</li>
+          </ul>
+          <h3 id="s-1-4" class="pol-h3"><span class="pol-num">1.4</span> Mandatory Core Attendance Hours</h3>
+          <ul class="pol-list">
+          <li>All employees must be present during the mandatory core hours of 10:00 AM to 2:00 PM on each scheduled working day.</li>
+          <li>Arriving after 10:00 AM or leaving before 2:00 PM requires authorization.</li>
+          <li>Exceptions must be supported by an approved day-off or time-off request submitted by email to the direct manager, with HR copied.</li>
+          <li>Requests should preferably be submitted in advance unless an emergency prevents prior notification.</li>
+          </ul>
+          <h3 id="s-1-5" class="pol-h3"><span class="pol-num">1.5</span> Monthly Working Hours Shortage</h3>
+          <ul class="pol-list">
+          <li>Employees are permitted a maximum monthly working hours shortage of 8 hours without an attendance-shortage deduction.</li>
+          <li>If the total monthly shortage exceeds 8 hours, the entire shortage will be considered for deduction, not merely the hours exceeding the permitted allowance.</li>
+          <li>Deductions will be calculated in complete blocks of 8 shortage hours, equivalent to one working day.</li>
+          <li>Any remaining shortage hours that do not constitute a complete 8-hour block will not result in an additional day deduction.</li>
+          <li>The calculated deduction will first be applied against the employee's available annual leave balance, subject to applicable law.</li>
+          <li>Once the employee's annual leave balance is fully consumed, any further deductible days will be deducted from the employee's monthly salary, in accordance with applicable labor laws.</li>
+          <li>The monthly shortage allowance is not cumulative and cannot be transferred to subsequent months.</li>
+          <li>The monthly shortage allowance does not exempt employees from mandatory core attendance requirements.</li>
+          </ul>
+          <p>Calculation Rule:</p>
+          <p>If total monthly shortage is 8 hours or less, no deduction applies.</p>
+          <p>If total monthly shortage exceeds 8 hours, the deduction is calculated by rounding down the total shortage hours to complete multiples of 8, with a minimum deduction of one day.</p>
+          <p>Example: An employee with 20 shortage hours and an available annual leave balance of 1 day will have 1 day deducted from annual leave and 1 day deducted from salary.</p>
+          <h3 id="s-1-6" class="pol-h3"><span class="pol-num">1.6</span> Overtime and Off-Site Assignments</h3>
+          <ul class="pol-list">
+          <li>All overtime work and off-site assignments must receive prior written approval from the employee's direct manager.</li>
+          <li>Approval must be communicated by email, with HR copied where required.</li>
+          <li>Unauthorized additional working hours will not automatically qualify for compensatory leave, subject to statutory requirements.</li>
+          <li>Approved excess working hours may be converted into compensatory leave and added to the employee's leave balance, provided the arrangement complies with applicable labor laws.</li>
+          <li>Compensatory leave credits will be calculated in complete blocks of 8 approved hours, equivalent to one working day.</li>
+          <li>Approved excess hours that are not an exact multiple of 8 will be rounded down to the nearest complete 8-hour block for internal compensatory leave purposes.</li>
+          <li>Statutory overtime compensation rights remain applicable regardless of the internal leave-credit mechanism.</li>
+          <li>HR shall maintain records of approved overtime, off-site assignments, and resulting leave credits.</li>
+          </ul>
+          <h3 id="s-1-7" class="pol-h3"><span class="pol-num">1.7</span> Absence and No-Show Policy</h3>
+          <ul class="pol-list">
+          <li>Employees unable to attend work must notify their direct manager and submit a day-off request by email, with HR copied.</li>
+          <li>Where advance notice is not possible, the employee must submit the request within 48 hours of the missed working day.</li>
+          <li>Failure to submit the required request within 48 hours will result in the missed day being provisionally recorded as an unauthorized absence, subject to review of legitimate emergencies and legally protected circumstances.</li>
+          <li>Unauthorized absences will be handled under the company's disciplinary procedures and applicable labor laws.</li>
+          <li>Repeated unauthorized absences may result in progressive disciplinary action, following the required procedures.</li>
+          </ul>
+          <h3 id="s-1-8" class="pol-h3"><span class="pol-num">1.8</span> Attendance Monitoring</h3>
+          <ul class="pol-list">
+          <li>HR is responsible for maintaining accurate attendance and leave records.</li>
+          <li>Employees must regularly review their attendance records through the company portal.</li>
+          <li>Any discrepancies must be reported promptly to HR.</li>
+          <li>Direct managers are responsible for reviewing and approving attendance exceptions within their departments.</li>
+          </ul>
+          <h2 id="s-2" class="pol-h2"><span class="pol-num">2.</span> EMPLOYEE LIFE EVENT AWARDS POLICY</h2>
+          <h3 id="s-2-1" class="pol-h3"><span class="pol-num">2.1</span> Purpose</h3>
+          <p>IENERGY METERS MANUFACTURING recognizes significant personal milestones and provides financial support to employees during important family events.</p>
+          <h3 id="s-2-2" class="pol-h3"><span class="pol-num">2.2</span> Award Entitlements</h3>
+          <div class="pol-table-wrap"><table class="pol-table">
+          <thead><tr><th>Occasion</th><th>Award Amount</th></tr></thead>
+          <tbody><tr><td>Employee Marriage</td><td>EGP 2,000</td></tr><tr><td>Birth of a Child</td><td>EGP 3,000</td></tr><tr><td>Death of a First-Degree Relative or Spouse</td><td>EGP 4,000</td></tr></tbody>
+          </table></div>
+          <h3 id="s-2-3" class="pol-h3"><span class="pol-num">2.3</span> Marriage Award</h3>
+          <ul class="pol-list">
+          <li>Employees who legally marry during their employment are eligible for a marriage award of EGP 2,000.</li>
+          <li>The marriage award may be granted a maximum of two times during the employee's employment with the company.</li>
+          <li>An official marriage certificate must be submitted to HR.</li>
+          <li>The award will be paid with the next monthly salary following submission and verification of the required documents.</li>
+          </ul>
+          <h3 id="s-2-4" class="pol-h3"><span class="pol-num">2.4</span> Childbirth Award</h3>
+          <ul class="pol-list">
+          <li>Employees becoming a father or mother are eligible for EGP 3,000 per qualifying birth event.</li>
+          <li>The award applies equally to eligible male and female employees.</li>
+          <li>An official birth certificate or birth notification must be submitted to HR.</li>
+          <li>Where both parents are employed by the company, each eligible employee may receive the award.</li>
+          <li>The award will be paid with the next monthly salary following submission and verification of the required documents.</li>
+          </ul>
+          <h3 id="s-2-5" class="pol-h3"><span class="pol-num">2.5</span> Bereavement Support Award</h3>
+          <ul class="pol-list">
+          <li>Employees experiencing the death of a qualifying first-degree relative or spouse are entitled to financial support of EGP 4,000 per qualifying event.</li>
+          <li>Qualifying relatives include parents, children, and spouses.</li>
+          <li>An official death certificate or other acceptable documentation must be submitted to HR.</li>
+          <li>The award will be paid with the next monthly salary following submission and verification of the required documents.</li>
+          </ul>
+          <h3 id="s-2-6" class="pol-h3"><span class="pol-num">2.6</span> General Award Conditions</h3>
+          <ul class="pol-list">
+          <li>All awards are available to eligible active employees following HR verification.</li>
+          <li>All approved financial awards shall be paid together with the next monthly salary after submission and verification of the required supporting documents.</li>
+          <li>No separate advance payment shall be made unless specifically approved by the CEO.</li>
+          <li>Life-event awards are separate from employees' contractual base salaries.</li>
+          <li>Applicable tax and payroll treatment shall follow Egyptian law.</li>
+          <li>Award amounts may be reviewed periodically by management.</li>
+          </ul>
+          <h2 id="s-3" class="pol-h2"><span class="pol-num">3.</span> SPECIAL PAID LEAVE POLICY</h2>
+          <h3 id="s-3-1" class="pol-h3"><span class="pol-num">3.1</span> Purpose</h3>
+          <p>The company provides additional paid leave for important personal and family occasions as part of its employee welfare program.</p>
+          <p>These benefits are intended to supplement statutory leave entitlements, not reduce or replace them.</p>
+          <h3 id="s-3-2" class="pol-h3"><span class="pol-num">3.2</span> Special Leave Entitlements</h3>
+          <div class="pol-table-wrap"><table class="pol-table">
+          <thead><tr><th>Leave Type</th><th>Entitlement</th></tr></thead>
+          <tbody><tr><td>Marriage Leave</td><td>6 paid working days</td></tr><tr><td>Childbirth Leave — Fathers</td><td>3 paid working days per birth event (company benefit)</td></tr><tr><td>Childbirth Leave — Mothers</td><td>4 paid months, subject to applicable labor law</td></tr><tr><td>Bereavement Leave</td><td>3 paid working days</td></tr></tbody>
+          </table></div>
+          <h3 id="s-3-3" class="pol-h3"><span class="pol-num">3.3</span> Marriage Leave</h3>
+          <ul class="pol-list">
+          <li>Employees are entitled to 6 paid working days upon their marriage.</li>
+          <li>Marriage leave may be granted a maximum of two times during the employee's employment with the company, consistent with the marriage award eligibility limit.</li>
+          <li>The leave must be requested through the company's approved leave procedure.</li>
+          <li>Employees should submit the request in advance, with supporting documentation provided to HR.</li>
+          <li>Marriage leave is separate from the employee's annual leave balance.</li>
+          <li>Marriage leave cannot be converted into cash.</li>
+          <li>Unused marriage leave cannot be carried forward.</li>
+          </ul>
+          <h3 id="s-3-4" class="pol-h3"><span class="pol-num">3.4</span> Childbirth Leave</h3>
+          <ul class="pol-list">
+          <li>Fathers are entitled to 3 paid working days upon the birth of their child, per birth event, as a company benefit.</li>
+          <li>The father's 3 days may be taken consecutively or separately during the month in which the child is born, with scheduling coordinated with the direct manager and without limiting statutory birth-day leave.</li>
+          <li>Mothers are entitled to 4 months of paid maternity leave under Article 54 of Egyptian Labor Law No. 14 of 2025. This includes leave before and after childbirth, with at least 45 days after delivery, and is available up to three times during employment.</li>
+          <li>Mothers must provide HR with a medical certificate stating the expected delivery date.</li>
+          <li>Childbirth leave requests must be submitted through the company's approved leave procedure. The direct manager coordinates coverage, and HR verifies eligibility; administrative approval must not restrict statutory maternity leave.</li>
+          <li>Childbirth leave does not reduce the employee's annual leave balance.</li>
+          <li>Unused company-granted leave for fathers expires at the end of the child's birth month and cannot be carried forward or converted into cash. This expiry does not apply to statutory maternity leave or limit any statutory entitlement.</li>
+          </ul>
+          <h3 id="s-3-5" class="pol-h3"><span class="pol-num">3.5</span> Bereavement Leave</h3>
+          <ul class="pol-list">
+          <li>Employees are entitled to 3 paid working days following the death of a qualifying family member.</li>
+          <li>Qualifying family members include parents, children, and spouses.</li>
+          <li>The employee must inform the direct manager and HR as soon as reasonably possible.</li>
+          <li>Supporting documentation may be submitted after the employee returns to work.</li>
+          <li>Bereavement leave is separate from annual leave and does not reduce the employee's annual leave balance.</li>
+          <li>This company benefit shall not reduce any greater leave entitlement required by applicable law.</li>
+          </ul>
+          <h3 id="s-3-6" class="pol-h3"><span class="pol-num">3.6</span> Special Leave Administration</h3>
+          <ul class="pol-list">
+          <li>Special leave requests shall be recorded through the company's approved leave management system.</li>
+          <li>The direct manager is responsible for coordinating operational coverage.</li>
+          <li>HR is responsible for verifying eligibility and maintaining leave records.</li>
+          <li>Special leave cannot be converted into financial compensation unless expressly required by law.</li>
+          </ul>
+          <h2 id="s-4" class="pol-h2"><span class="pol-num">4.</span> EMPLOYEE LOANS POLICY</h2>
+          <h3 id="s-4-1" class="pol-h3"><span class="pol-num">4.1</span> Purpose</h3>
+          <p>This policy provides short-term financial support to employees through company loans and establishes clear eligibility, approval, repayment and guarantee requirements to ensure consistent administration and responsible lending.</p>
+          <h3 id="s-4-2" class="pol-h3"><span class="pol-num">4.2</span> Eligibility</h3>
+          <ul class="pol-list">
+          <li>Employees may apply for a loan only after successfully completing their probation period.</li>
+          </ul>
+          <h3 id="s-4-3" class="pol-h3"><span class="pol-num">4.3</span> Loan Amount and Repayment</h3>
+          <ul class="pol-list">
+          <li>The maximum loan amount is two months of the employee's net salary.</li>
+          <li>A loan may be approved a maximum of two times per calendar year.</li>
+          <li>The loan must be repaid in full through monthly installments within 6 months of disbursement or by 31 December of the calendar year in which it is disbursed, whichever comes first.</li>
+          <li>Installments are deducted directly from the employee's monthly salary according to the signed repayment schedule.</li>
+          <li>In the event of employee resignation or layoff, the full remaining loan amount shall be deducted from the final settlement.</li>
+          <li>The repayment schedule must ensure that no outstanding loan balance is carried into the next calendar year.</li>
+          <li>Loans are interest-free. Loan agreements and salary deductions must comply with applicable law.</li>
+          </ul>
+          <h3 id="s-4-4" class="pol-h3"><span class="pol-num">4.4</span> Colleague Guarantee</h3>
+          <ul class="pol-list">
+          <li>Before disbursement, another colleague must sign the loan agreement as guarantor, accepting responsibility for the outstanding balance if the borrowing employee fails or becomes unable to repay, including following termination of employment.</li>
+          <li>The guarantor's repayment responsibility and the circumstances in which it applies must be stated in the signed agreement. Any recovery from the guarantor must follow that agreement and applicable law.</li>
+          </ul>
+          <h3 id="s-4-5" class="pol-h3"><span class="pol-num">4.5</span> Approval</h3>
+          <ul class="pol-list">
+          <li>Every loan request must be approved by the employee's direct manager before the loan is disbursed.</li>
+          <li>The employee must sign a loan agreement stating the approved amount, repayment schedule and authorization for salary deductions.</li>
+          </ul>
+          <p>IENERGY METERS MANUFACTURING</p>
+          <p>Effective Date: 01.01.2026</p>
+          <p>Version: 1.0</p>
+        </section>
       </div>
-    </div>
 
-    <section class="section">
-      <h2>Contents</h2>
-      <p class="section-sub">Jump to any part of the policy.</p>
-      <div class="pol-toc">
-      <ol class="pol-toc-column" aria-label="Policy sections 1 and 2">
-      <li class="toc-major"><a href="#s-1"><span class="toc-num">1.</span> ATTENDANCE & WORKING HOURS POLICY</a></li>
-      <li class="toc-minor"><a href="#s-1-1"><span class="toc-num">1.1</span> Purpose</a></li>
-      <li class="toc-minor"><a href="#s-1-2"><span class="toc-num">1.2</span> Scope</a></li>
-      <li class="toc-minor"><a href="#s-1-3"><span class="toc-num">1.3</span> Standard Working Hours</a></li>
-      <li class="toc-minor"><a href="#s-1-4"><span class="toc-num">1.4</span> Mandatory Core Attendance Hours</a></li>
-      <li class="toc-minor"><a href="#s-1-5"><span class="toc-num">1.5</span> Monthly Working Hours Shortage</a></li>
-      <li class="toc-minor"><a href="#s-1-6"><span class="toc-num">1.6</span> Overtime and Off-Site Assignments</a></li>
-      <li class="toc-minor"><a href="#s-1-7"><span class="toc-num">1.7</span> Absence and No-Show Policy</a></li>
-      <li class="toc-minor"><a href="#s-1-8"><span class="toc-num">1.8</span> Attendance Monitoring</a></li>
-      <li class="toc-major"><a href="#s-2"><span class="toc-num">2.</span> EMPLOYEE LIFE EVENT AWARDS POLICY</a></li>
-      <li class="toc-minor"><a href="#s-2-1"><span class="toc-num">2.1</span> Purpose</a></li>
-      <li class="toc-minor"><a href="#s-2-2"><span class="toc-num">2.2</span> Award Entitlements</a></li>
-      <li class="toc-minor"><a href="#s-2-3"><span class="toc-num">2.3</span> Marriage Award</a></li>
-      <li class="toc-minor"><a href="#s-2-4"><span class="toc-num">2.4</span> Childbirth Award</a></li>
-      <li class="toc-minor"><a href="#s-2-5"><span class="toc-num">2.5</span> Bereavement Support Award</a></li>
-      <li class="toc-minor"><a href="#s-2-6"><span class="toc-num">2.6</span> General Award Conditions</a></li>
-      </ol>
-      <ol class="pol-toc-column" aria-label="Policy sections 3 and 4">
-      <li class="toc-major"><a href="#s-3"><span class="toc-num">3.</span> SPECIAL PAID LEAVE POLICY</a></li>
-      <li class="toc-minor"><a href="#s-3-1"><span class="toc-num">3.1</span> Purpose</a></li>
-      <li class="toc-minor"><a href="#s-3-2"><span class="toc-num">3.2</span> Special Leave Entitlements</a></li>
-      <li class="toc-minor"><a href="#s-3-3"><span class="toc-num">3.3</span> Marriage Leave</a></li>
-      <li class="toc-minor"><a href="#s-3-4"><span class="toc-num">3.4</span> Childbirth Leave</a></li>
-      <li class="toc-minor"><a href="#s-3-5"><span class="toc-num">3.5</span> Bereavement Leave</a></li>
-      <li class="toc-minor"><a href="#s-3-6"><span class="toc-num">3.6</span> Special Leave Administration</a></li>
-      <li class="toc-major"><a href="#s-4"><span class="toc-num">4.</span> EMPLOYEE LOANS POLICY</a></li>
-      <li class="toc-minor"><a href="#s-4-1"><span class="toc-num">4.1</span> Purpose</a></li>
-      <li class="toc-minor"><a href="#s-4-2"><span class="toc-num">4.2</span> Eligibility</a></li>
-      <li class="toc-minor"><a href="#s-4-3"><span class="toc-num">4.3</span> Loan Amount and Repayment</a></li>
-      <li class="toc-minor"><a href="#s-4-4"><span class="toc-num">4.4</span> Colleague Guarantee</a></li>
-      <li class="toc-minor"><a href="#s-4-5"><span class="toc-num">4.5</span> Approval</a></li>
-      </ol>
+      <!-- Arabic Content Block -->
+      <div id="contentAr" hidden dir="rtl" lang="ar">
+        <div class="top">
+          <div>
+            <div class="pill">سياسة</div>
+            <h1 style="margin:10px 0 6px;">سياسة الشركة</h1>
+            <p class="tagline">مواعيد وساعات العمل، ومزايا الموظفين، والإجازات الخاصة، وسلف الموظفين. HR-POL-001، الإصدار 1.0، تسري اعتباراً من 01.01.2026.</p>
+          </div>
+        </div>
+
+        <section class="section" id="tocAr">
+          <h2>المحتويات</h2>
+          <p class="section-sub">الانتقال السريع إلى أي قسم من اللائحة.</p>
+          <div class="pol-toc">
+          <ol class="pol-toc-column" aria-label="أقسام اللائحة 1 و 2">
+          <li class="toc-major"><a href="#ar-s-1"><span class="toc-num">.1</span> سياسة مواعيد وساعات العمل</a></li>
+          <li class="toc-minor"><a href="#ar-s-1-1"><span class="toc-num">1.1</span> الهدف</a></li>
+          <li class="toc-minor"><a href="#ar-s-1-2"><span class="toc-num">1.2</span> نطاق التطبيق</a></li>
+          <li class="toc-minor"><a href="#ar-s-1-3"><span class="toc-num">1.3</span> ساعات العمل المقررة</a></li>
+          <li class="toc-minor"><a href="#ar-s-1-4"><span class="toc-num">1.4</span> ساعات الحضور الأساسية الإلزامية</a></li>
+          <li class="toc-minor"><a href="#ar-s-1-5"><span class="toc-num">1.5</span> عجز ساعات العمل الشهري</a></li>
+          <li class="toc-minor"><a href="#ar-s-1-6"><span class="toc-num">1.6</span> العمل الإضافي والمأموريات الخارجية</a></li>
+          <li class="toc-minor"><a href="#ar-s-1-7"><span class="toc-num">1.7</span> سياسة الغياب وعدم الحضور</a></li>
+          <li class="toc-minor"><a href="#ar-s-1-8"><span class="toc-num">1.8</span> متابعة الحضور والانصراف</a></li>
+          <li class="toc-major"><a href="#ar-s-2"><span class="toc-num">.2</span> سياسة منح ومكافآت المناسبات الاجتماعية</a></li>
+          <li class="toc-minor"><a href="#ar-s-2-1"><span class="toc-num">2.1</span> الهدف</a></li>
+          <li class="toc-minor"><a href="#ar-s-2-2"><span class="toc-num">2.2</span> مستحقات المنح</a></li>
+          <li class="toc-minor"><a href="#ar-s-2-3"><span class="toc-num">2.3</span> منحة الزواج</a></li>
+          <li class="toc-minor"><a href="#ar-s-2-4"><span class="toc-num">2.4</span> منحة المولود</a></li>
+          <li class="toc-minor"><a href="#ar-s-2-5"><span class="toc-num">2.5</span> منحة دعم الوفاة</a></li>
+          <li class="toc-minor"><a href="#ar-s-2-6"><span class="toc-num">2.6</span> الشروط العامة للمنح</a></li>
+          </ol>
+          <ol class="pol-toc-column" aria-label="أقسام اللائحة 3 و 4">
+          <li class="toc-major"><a href="#ar-s-3"><span class="toc-num">.3</span> سياسة الإجازات الخاصة مدفوعة الأجر</a></li>
+          <li class="toc-minor"><a href="#ar-s-3-1"><span class="toc-num">3.1</span> الهدف</a></li>
+          <li class="toc-minor"><a href="#ar-s-3-2"><span class="toc-num">3.2</span> مستحقات الإجازات الخاصة</a></li>
+          <li class="toc-minor"><a href="#ar-s-3-3"><span class="toc-num">3.3</span> إجازة الزواج</a></li>
+          <li class="toc-minor"><a href="#ar-s-3-4"><span class="toc-num">3.4</span> إجازة رعاية المولود والوضع</a></li>
+          <li class="toc-minor"><a href="#ar-s-3-5"><span class="toc-num">3.5</span> إجازة الوفاة</a></li>
+          <li class="toc-minor"><a href="#ar-s-3-6"><span class="toc-num">3.6</span> إدارة الإجازات الخاصة</a></li>
+          <li class="toc-major"><a href="#ar-s-4"><span class="toc-num">.4</span> سياسة سلف الموظفين</a></li>
+          <li class="toc-minor"><a href="#ar-s-4-1"><span class="toc-num">4.1</span> الهدف</a></li>
+          <li class="toc-minor"><a href="#ar-s-4-2"><span class="toc-num">4.2</span> شروط الاستحقاق</a></li>
+          <li class="toc-minor"><a href="#ar-s-4-3"><span class="toc-num">4.3</span> قيمة السلفة وطريقة السداد</a></li>
+          <li class="toc-minor"><a href="#ar-s-4-4"><span class="toc-num">4.4</span> ضمان الزميل</a></li>
+          <li class="toc-minor"><a href="#ar-s-4-5"><span class="toc-num">4.5</span> الموافقة والاعتماد</a></li>
+          </ol>
+          </div>
+        </section>
+
+        <section class="section pol-doc" id="policyAr">
+          <p>شركة آي إنرجي لتصنيع العدادات</p>
+          <p>لائحة تنظيم العمل وسياسات الموظفين</p>
+          <p>مواعيد وساعات العمل، ومزايا الموظفين، والإجازات الخاصة، وسلف الموظفين</p>
+          <div class="pol-table-wrap"><table class="pol-table">
+          <thead><tr><th>بيانات الوثيقة</th><th>التفاصيل</th></tr></thead>
+          <tbody><tr><td>رقم اللائحة</td><td>HR-POL-001</td></tr><tr><td>رقم الإصدار</td><td>1.0</td></tr><tr><td>تاريخ السريان</td><td>01.01.2026</td></tr><tr><td>الجهة المسؤولة</td><td>إدارة الموارد البشرية</td></tr><tr><td>الاعتماد</td><td>الرئيس التنفيذي</td></tr></tbody>
+          </table></div>
+
+          <h2 id="ar-s-1" class="pol-h2"><span class="pol-num">.1</span> سياسة مواعيد وساعات العمل</h2>
+          <h3 id="ar-s-1-1" class="pol-h3"><span class="pol-num">1.1</span> الهدف</h3>
+          <p>تحدد هذه السياسة ضوابط وتعليمات الشركة الخاصة بساعات العمل والحضور والغياب والعمل الإضافي وإدارة الإجازات لضمان كفاءة سير العمل، والمسؤولية الوظيفية، والعدالة بين جميع الموظفين.</p>
+
+          <h3 id="ar-s-1-2" class="pol-h3"><span class="pol-num">1.2</span> نطاق التطبيق</h3>
+          <p>تسري سياسة الحضور هذه على جميع الموظفين الإداريين بالشركة، ما لم يُنص على خلاف ذلك في عقود عملهم أو في السياسات المعتمدة الخاصة بإداراتهم.</p>
+
+          <h3 id="ar-s-1-3" class="pol-h3"><span class="pol-num">1.3</span> ساعات العمل المقررة</h3>
+          <ul class="pol-list">
+          <li>ساعات العمل المقررة هي 40 ساعة أسبوعياً، موزعة على خمسة أيام عمل.</li>
+          <li>يجوز للموظفين اتباع جداول عمل مرنة وفقاً لمتطلبات العمل بكل إدارة وبشرط الحصول على موافقة الإدارة.</li>
+          <li>نظام ساعات العمل المرنة لا يعفي الموظفين من الالتزام بساعات الحضور الأساسية الإلزامية.</li>
+          <li>يتحمل كل موظف مسؤولية استكمال ساعات عمله الأسبوعية المطلوبة بالكامل.</li>
+          <li>يجب تسجيل جميع ساعات العمل بدقة من خلال نظام تسجيل الحضور المعتمد بالشركة.</li>
+          </ul>
+
+          <h3 id="ar-s-1-4" class="pol-h3"><span class="pol-num">1.4</span> ساعات الحضور الأساسية الإلزامية</h3>
+          <ul class="pol-list">
+          <li>يجب على جميع الموظفين التواجد في مقر العمل خلال ساعات الحضور الأساسية الإلزامية من الساعة 10:00 صباحاً وحتى الساعة 2:00 ظهراً في كل يوم عمل مقرر.</li>
+          <li>يتطلب الحضور بعد الساعة 10:00 صباحاً أو الانصراف قبل الساعة 2:00 ظهراً الحصول على تصريح/إذن مسبق.</li>
+          <li>يجب أن تكون أي استثناءات مدعومة بطلب إذن أو إجازة معتمد ومقدم عبر البريد الإلكتروني للمدير المباشر مع وضع الموارد البشرية في نسخة من المراسلة.</li>
+          <li>يُفضل تقديم الطلبات مسبقاً ما لم تحل حالة طارئة دون الإخطار المسبق.</li>
+          </ul>
+
+          <h3 id="ar-s-1-5" class="pol-h3"><span class="pol-num">1.5</span> عجز ساعات العمل الشهري</h3>
+          <ul class="pol-list">
+          <li>يُسمح للموظف بحد أقصى لعجز ساعات العمل الشهري قدره 8 ساعات دون تطبيق أي خصم بسبب نقص ساعات الحضور.</li>
+          <li>إذا تجاوز إجمالي العجز الشهري 8 ساعات، يتم أخذ إجمالي ساعات العجز كاملة في الاعتبار عند احتساب الخصم، وليس فقط الساعات الزائدة عن حد السماح.</li>
+          <li>يُحسب الخصم على أساس وحدات كاملة من 8 ساعات عجز، وتُعادل كل وحدة يوم عمل واحد.</li>
+          <li>أي ساعات عجز متبقية لا تكتمل إلى وحدة كاملة (8 ساعات) لا ينتج عنها خصم يوم إضافي.</li>
+          <li>يُطبق الخصم المحسوب أولاً بخصمه من رصيد الإجازات السنوية المتاح للموظف، وفقاً لأحكام القانون المعمول به.</li>
+          <li>بمجرد استنفاد رصيد الإجازات السنوية للموظف بالكامل، يتم خصم أي أيام مستحقة الخصم من الراتب الشهري للموظف وفقاً لقوانين العمل المعمول بها.</li>
+          <li>حد السماح الشهري لعجز الساعات غير تراكمي ولا يجوز ترحيله إلى الأشهر التالية.</li>
+          <li>حد السماح الشهري لا يعفي الموظفين من الالتزام بساعات الحضور الأساسية الإلزامية.</li>
+          </ul>
+          <p>قاعدة الحساب:</p>
+          <p>إذا كان إجمالي العجز الشهري 8 ساعات أو أقل، لا يُطبق أي خصم.</p>
+          <p>إذا تجاوز إجمالي العجز الشهري 8 ساعات، يُحسب الخصم بتقريب إجمالي ساعات العجز نزولاً إلى مضاعفات الرقم 8 الكاملة، بحد أدنى خصم يوم واحد.</p>
+          <p>مثال: موظف لديه 20 ساعة عجز ورصيد إجازات سنوية متاح قدره يوم واحد، يتم خصم يوم واحد من رصيد الإجازات السنوية ويوم واحد من الراتب.</p>
+
+          <h3 id="ar-s-1-6" class="pol-h3"><span class="pol-num">1.6</span> العمل الإضافي والمأموريات الخارجية</h3>
+          <ul class="pol-list">
+          <li>يجب الحصول على موافقة كتابية مسبقة من المدير المباشر قبل أداء أي عمل إضافي أو مأمورية خارجية.</li>
+          <li>يجب إرسال الموافقة عبر البريد الإلكتروني، مع وضع الموارد البشرية في نسخة من المراسلة عند الاقتضاء.</li>
+          <li>ساعات العمل الإضافية غير المصرح بها مسبقاً لا تُحتسب تلقائياً للحصول على إجازة تعويضية، مع مراعاة الأحكام القانونية المقررة.</li>
+          <li>يجوز تحويل ساعات العمل الإضافية المعتمدة إلى إجازات تعويضية تُضاف لرصيد إجازات الموظف، شريطة توافق ذلك مع قوانين العمل المعمول بها.</li>
+          <li>تُحسب أرصدة الإجازات التعويضية على أساس وحدات كاملة من 8 ساعات معتمدة، وتُعادل كل وحدة يوم عمل واحد.</li>
+          <li>الساعات الإضافية المعتمدة التي لا تشكل مضاعفاً كاملاً للرقم 8 يتم تقريبها نزولاً لأقرب وحدة كاملة من 8 ساعات لأغراض منح الإجازة التعويضية الداخلية.</li>
+          <li>تظل حقوق التعويض عن العمل الإضافي المنصوص عليها قانوناً سارية دون إخلال بآلية الإجازات التعويضية الداخلية.</li>
+          <li>تتولى إدارة الموارد البشرية حفظ سجلات ساعات العمل الإضافي المعتمدة والمأموريات الخارجية وأرصدة الإجازات الناتجة عنها.</li>
+          </ul>
+
+          <h3 id="ar-s-1-7" class="pol-h3"><span class="pol-num">1.7</span> سياسة الغياب وعدم الحضور</h3>
+          <ul class="pol-list">
+          <li>يتعين على الموظف الذي يتعذر عليه الحضور إلى العمل إخطار مديره المباشر وتقديم طلب إجازة عبر البريد الإلكتروني مع وضع الموارد البشرية في نسخة من المراسلة.</li>
+          <li>في حال تعذر الإخطار المسبق، يجب على الموظف تقديم الطلب خلال 48 ساعة من يوم العمل المتغيب عنه.</li>
+          <li>يؤدي عدم تقديم الطلب المطلوب خلال 48 ساعة إلى قيد اليوم مبدئياً كغياب غير مصرح به، مع مراعاة مراجعة الحالات الطارئة المشروعة والظروف المحمية قانوناً.</li>
+          <li>يتم التعامل مع حالات الغياب غير المصرح به وفقاً للائحة الجزاءات التأديبية بالشركة وقوانين العمل المعمول بها.</li>
+          <li>قد يؤدي تكرار الغياب غير المصرح به إلى اتخاذ إجراءات تأديبية تصاعدية وفقاً للإجراءات المقررة.</li>
+          </ul>
+
+          <h3 id="ar-s-1-8" class="pol-h3"><span class="pol-num">1.8</span> متابعة الحضور والانصراف</h3>
+          <ul class="pol-list">
+          <li>تتحمل إدارة الموارد البشرية مسؤولية الاحتفاظ بسجلات دقيقة لحضور وانصراف وإجازات الموظفين.</li>
+          <li>يجب على الموظفين مراجعة سجلات حضورهم بصفة دورية من خلال بوابة الشركة الإلكترونية.</li>
+          <li>يجب الإبلاغ فوراً عن أي فروق أو أخطاء لإدارة الموارد البشرية.</li>
+          <li>يتحمل المديرون المباشرون مسؤولية مراجعة واعتماد استثناءات الحضور والانصراف الخاصة بموظفي إداراتهم.</li>
+          </ul>
+
+          <h2 id="ar-s-2" class="pol-h2"><span class="pol-num">.2</span> سياسة منح ومكافآت المناسبات الاجتماعية للموظفين</h2>
+          <h3 id="ar-s-2-1" class="pol-h3"><span class="pol-num">2.1</span> الهدف</h3>
+          <p>تقديراً من شركة آي إنرجي لتصنيع العدادات للمناسبات الشخصية الهامة وتقديم الدعم المالي للموظفين في المناسبات الأسرية الكبرى.</p>
+
+          <h3 id="ar-s-2-2" class="pol-h3"><span class="pol-num">2.2</span> مستحقات المنح</h3>
+          <div class="pol-table-wrap"><table class="pol-table">
+          <thead><tr><th>المناسبة</th><th>قيمة المنحة</th></tr></thead>
+          <tbody><tr><td>زواج الموظف</td><td>2,000 جنيه مصري</td></tr><tr><td>ولادة مولود</td><td>3,000 جنيه مصري</td></tr><tr><td>وفاة أحد أقارب الدرجة الأولى أو الزوج/الزوجة</td><td>4,000 جنيه مصري</td></tr></tbody>
+          </table></div>
+
+          <h3 id="ar-s-2-3" class="pol-h3"><span class="pol-num">2.3</span> منحة الزواج</h3>
+          <ul class="pol-list">
+          <li>يستحق الموظف الذي يعقد قرانه قانونياً خلال فترة عمله بالشركة منحة زواج قدرها 2,000 جنيه مصري.</li>
+          <li>يجوز صرف منحة الزواج لمرتين كحد أقصى طوال فترة خدمة الموظف بالشركة.</li>
+          <li>يجب تقديم قسيمة زواج رسمية إلى إدارة الموارد البشرية.</li>
+          <li>تُصرف المنحة مع أول راتب شهري تالٍ لتقديم المستندات المطلوبة والتحقق منها.</li>
+          </ul>
+
+          <h3 id="ar-s-2-4" class="pol-h3"><span class="pol-num">2.4</span> منحة المولود</h3>
+          <ul class="pol-list">
+          <li>يستحق الموظف أو الموظفة منحة قدرها 3,000 جنيه مصري عن كل واقعة ولادة مستوفية للشروط.</li>
+          <li>تُصرف المنحة بالتساوي لجميع الموظفين والموظفات المستحقين.</li>
+          <li>يجب تقديم شهادة ميلاد رسمية أو إخطار ولادة إلى إدارة الموارد البشرية.</li>
+          <li>في حال كان كلا الوالدين يعملان بالشركة، يحق لكل موظف مستحق الحصول على المنحة.</li>
+          <li>تُصرف المنحة مع الراتب الشهري التالي لتقديم المستندات والتحقق منها.</li>
+          </ul>
+
+          <h3 id="ar-s-2-5" class="pol-h3"><span class="pol-num">2.5</span> منحة دعم الوفاة</h3>
+          <ul class="pol-list">
+          <li>يستحق الموظف الذي يتعرض لوفاة أحد أقارب الدرجة الأولى أو الزوج/الزوجة دعماً مالياً قدره 4,000 جنيه مصري عن كل حالة وفاة مؤهلة.</li>
+          <li>يشمل الأقارب المؤهلون: الوالدين، والأبناء، والزوج أو الزوجة.</li>
+          <li>يجب تقديم شهادة وفاة رسمية أو مستند معتمد ومقبول إلى إدارة الموارد البشرية.</li>
+          <li>تُصرف المنحة مع أول راتب شهري تالٍ لتقديم المستندات المطلوبة والتحقق منها.</li>
+          </ul>
+
+          <h3 id="ar-s-2-6" class="pol-h3"><span class="pol-num">2.6</span> الشروط العامة للمنح</h3>
+          <ul class="pol-list">
+          <li>جميع المنح متاحة للموظفين القائمين بالعمل المستحقين بعد تحقق إدارة الموارد البشرية.</li>
+          <li>تُصرف جميع المنح المالية المعتمدة مع الراتب الشهري التالي بعد تقديم المستندات المؤيدة المطلوبة والتحقق منها.</li>
+          <li>لا يتم صرف أي مبالغ مقدماً أو بشكل منفصل إلا بموافقة خاصة من الرئيس التنفيذي.</li>
+          <li>تُعد منح المناسبات الاجتماعية مستقلة تماماً عن الراتب الأساسي التعاقدي للموظف.</li>
+          <li>تخضع المعاملة الضريبية واستقطاعات الرواتب لأحكام القانون المصري.</li>
+          <li>يجوز لإدارة الشركة مراجعة وتعديل قيم المنح بصفة دورية.</li>
+          </ul>
+
+          <h2 id="ar-s-3" class="pol-h2"><span class="pol-num">.3</span> سياسة الإجازات الخاصة مدفوعة الأجر</h2>
+          <h3 id="ar-s-3-1" class="pol-h3"><span class="pol-num">3.1</span> الهدف</h3>
+          <p>توفر الشركة إجازات إضافية مدفوعة الأجر في المناسبات الشخصية والأسرية الهامة كجزء من برنامج الرعاية الاجتماعية للموظفين. وتُعد هذه المزايا مكملة للإجازات القانونية المقررة وليست خصماً منها أو بديلاً عنها.</p>
+
+          <h3 id="ar-s-3-2" class="pol-h3"><span class="pol-num">3.2</span> مستحقات الإجازات الخاصة</h3>
+          <div class="pol-table-wrap"><table class="pol-table">
+          <thead><tr><th>نوع الإجازة</th><th>المدة المستحقة</th></tr></thead>
+          <tbody><tr><td>إجازة الزواج</td><td>6 أيام عمل مدفوعة الأجر</td></tr><tr><td>إجازة رعاية المولود — للآباء</td><td>3 أيام عمل مدفوعة الأجر عن كل واقعة ولادة (ميزة من الشركة)</td></tr><tr><td>إجازة الوضع — للأمهات</td><td>4 أشهر مدفوعة الأجر، وفقاً لقانون العمل المعمول به</td></tr><tr><td>إجازة الوفاة</td><td>3 أيام عمل مدفوعة الأجر</td></tr></tbody>
+          </table></div>
+
+          <h3 id="ar-s-3-3" class="pol-h3"><span class="pol-num">3.3</span> إجازة الزواج</h3>
+          <ul class="pol-list">
+          <li>يستحق الموظف إجازة مدفوعة الأجر مدتها 6 أيام عمل بمناسبة زواجه.</li>
+          <li>تُمنح إجازة الزواج لمرتين كحد أقصى طوال فترة خدمة الموظف بالشركة، بما يتوافق مع الحد الأقصى لمنحة الزواج.</li>
+          <li>يجب تقديم طلب الإجازة عبر إجراءات الإجازات المعتمدة بالشركة.</li>
+          <li>يتعين على الموظف تقديم الطلب مسبقاً، مع تقديم المستندات المؤيدة لإدارة الموارد البشرية.</li>
+          <li>إجازة الزواج منفصلة تماماً عن رصيد الإجازات السنوية للموظف.</li>
+          <li>لا يجوز تحويل إجازة الزواج إلى مقابل نقدي.</li>
+          <li>لا يجوز ترحيل إجازة الزواج غير المستخدمة.</li>
+          </ul>
+
+          <h3 id="ar-s-3-4" class="pol-h3"><span class="pol-num">3.4</span> إجازة رعاية المولود والوضع</h3>
+          <ul class="pol-list">
+          <li>يستحق الآباء إجازة مدتها 3 أيام عمل مدفوعة الأجر عند قدوم مولود جديد، عن كل واقعة ولادة، كميزة ممنوحة من الشركة.</li>
+          <li>يجوز للأب الحصول على الأيام الثلاثة متصلة أو منفصلة خلال شهر ولادة الطفل، بالتنسيق مع المدير المباشر ودون تقييد لإجازة يوم الميلاد المقررة قانوناً.</li>
+          <li>تستحق الأمهات إجازة وضع مدفوعة الأجر مدتها 4 أشهر وفقاً للمادة 54 من قانون العمل المصري رقم 14 لسنة 2025. وتشمل هذه الإجازة المدة السابقة واللاحقة على الوضع على ألا تقل مدة ما بعد الوضع عن 45 يوماً، وتُتاح حتى ثلاث مرات طوال فترة الخدمة.</li>
+          <li>يجب على الأم تزويد إدارة الموارد البشرية بشهادة طبية تفيد التاريخ المتوقع للوضع.</li>
+          <li>يجب تقديم طلبات إجازة الوضع/المولود عبر إجراءات الإجازات المعتمدة بالشركة؛ ويتولى المدير المباشر تنسيق التغطية وتتحقق الموارد البشرية من الأهلية، مع مراعاة عدم تقييد إجازة الوضع القانونية بأي موافقة إدارية.</li>
+          <li>لا تُخصم إجازة الوضع أو رعاية المولود من رصيد الإجازات السنوية للموظف.</li>
+          <li>تنتهي صلاحية إجازة الأب الممنوحة من الشركة بنهاية شهر ولادة الطفل ولا يجوز ترحيلها أو تحويلها إلى مقابل نقدي؛ ولا يسري هذا الانتهاء على إجازة الوضع المقررة قانوناً للأمهات ولا يقيد أي حق قانوني مقرّر.</li>
+          </ul>
+
+          <h3 id="ar-s-3-5" class="pol-h3"><span class="pol-num">3.5</span> إجازة الوفاة</h3>
+          <ul class="pol-list">
+          <li>يستحق الموظف إجازة مدفوعة الأجر مدتها 3 أيام عمل عند وفاة أحد أفراد الأسرة المؤهلين.</li>
+          <li>يشمل أفراد الأسرة المؤهلون: الوالدين، والأبناء، والزوج أو الزوجة.</li>
+          <li>يجب على الموظف إبلاغ المدير المباشر وإدارة الموارد البشرية في أقرب وقت ممكن.</li>
+          <li>يجوز تقديم المستندات المؤيدة بعد عودة الموظف إلى العمل.</li>
+          <li>إجازة الوفاة منفصلة عن الإجازة السنوية ولا تُخصم من رصيدها.</li>
+          <li>لا يترتب على هذه الميزة الممنوحة من الشركة أي انتقاص من أي إجازة أطول ينص عليها القانون.</li>
+          </ul>
+
+          <h3 id="ar-s-3-6" class="pol-h3"><span class="pol-num">3.6</span> إدارة الإجازات الخاصة</h3>
+          <ul class="pol-list">
+          <li>تُسجل طلبات الإجازات الخاصة عبر نظام إدارة الإجازات المعتمد بالشركة.</li>
+          <li>يتحمل المدير المباشر مسؤولية تنسيق استمرارية وتغطية العمل أثناء فترة الإجازة.</li>
+          <li>تتولى إدارة الموارد البشرية التحقق من شروط الاستحقاق والاحتفاظ بسجلات الإجازات.</li>
+          <li>لا يجوز تحويل الإجازات الخاصة إلى تعويض مالي ما لم ينص القانون صراحة على خلاف ذلك.</li>
+          </ul>
+
+          <h2 id="ar-s-4" class="pol-h2"><span class="pol-num">.4</span> سياسة سلف الموظفين</h2>
+          <h3 id="ar-s-4-1" class="pol-h3"><span class="pol-num">4.1</span> الهدف</h3>
+          <p>توفر هذه السياسة دعماً مالياً قصير الأجل للموظفين من خلال سلف تقدمها الشركة، وتضع شروطاً واضحة للأهلية والاعتماد والسداد والضمانات لضمان انتظام الإجراءات والمسؤولية المالية.</p>
+
+          <h3 id="ar-s-4-2" class="pol-h3"><span class="pol-num">4.2</span> شروط الاستحقاق</h3>
+          <ul class="pol-list">
+          <li>يجوز للموظف التقدم بطلب للحصول على سلفة فقط بعد اجتياز فترة الاختبار بنجاح.</li>
+          </ul>
+
+          <h3 id="ar-s-4-3" class="pol-h3"><span class="pol-num">4.3</span> قيمة السلفة وطريقة السداد</h3>
+          <ul class="pol-list">
+          <li>الحد الأقصى لقيمة السلفة هو صافي راتب شهرين للموظف.</li>
+          <li>تُعتمد السلفة لمرتين كحد أقصى خلال العام الميلادي الواحد.</li>
+          <li>يجب سداد السلفة بالكامل على أقساط شهرية خلال فترة لا تتجاوز 6 أشهر من تاريخ الصرف أو بحلول 31 ديسمبر من ذات العام الميلادي الذي تم الصرف فيه، أيهما أقرب.</li>
+          <li>تُستقطع الأقساط مباشرة من الراتب الشهري للموظف وفقاً لجدول السداد الموقع عليه.</li>
+          <li>في حالة استقالة الموظف أو إنهاء خدمته (أو تسريحه)، يتم خصم كامل المبلغ المتبقي من السلفة من مستحقات تصفية الحساب النهائية.</li>
+          <li>يجب أن يضمن جدول السداد عدم ترحيل أي رصيد متبقٍ من السلفة إلى العام الميلادي التالي.</li>
+          <li>السلف بدون فوائد، وتخضع اتفاقيات السلف واستقطاعات الرواتب لأحكام القوانين المعمول بها.</li>
+          </ul>
+
+          <h3 id="ar-s-4-4" class="pol-h3"><span class="pol-num">4.4</span> ضمان الزميل</h3>
+          <ul class="pol-list">
+          <li>قبل صرف السلفة، يجب أن يوقع زميل آخر في الشركة على اتفاقية السلفة كضامن، متحملاً المسؤولية عن سداد الرصيد المتبقي في حال تعثر الموظف المقترض أو عجزه عن السداد، بما في ذلك في حالات إنهاء الخدمة.</li>
+          <li>يجب توضيح مسؤولية الضامن وحالات رجوع الشركة عليه في الاتفاقية الموقعة، مع الالتزام بأحكام الاتفاقية والقوانين المعمول بها عند استرداد أي مبالغ.</li>
+          </ul>
+
+          <h3 id="ar-s-4-5" class="pol-h3"><span class="pol-num">4.5</span> الموافقة والاعتماد</h3>
+          <ul class="pol-list">
+          <li>يجب اعتماد كل طلب سلفة من المدير المباشر للموظف قبل صرفها.</li>
+          <li>يجب على الموظف توقيع اتفاقية سلفة تحدد المبلغ المعتمد، وجدول السداد، وتفويض رسمي بالخصم من الراتب.</li>
+          </ul>
+
+          <p>شركة آي إنرجي لتصنيع العدادات</p>
+          <p>تاريخ السريان: 01.01.2026</p>
+          <p>رقم الإصدار: 1.0</p>
+        </section>
       </div>
-    </section>
 
-    <section class="section pol-doc" id="policy">
-      <p>IENERGY METERS MANUFACTURING</p>
-      <p>COMPANY EMPLOYEE POLICY</p>
-      <p>Attendance, Working Hours, Employee Benefits, Special Leave &amp; Employee Loans</p>
-      <div class="pol-table-wrap"><table class="pol-table">
-      <thead><tr><th>Document Information</th><th>Details</th></tr></thead>
-      <tbody><tr><td>Policy Number</td><td>HR-POL-001</td></tr><tr><td>Version</td><td>1.0</td></tr><tr><td>Effective Date</td><td>01.01.2026</td></tr><tr><td>Policy Owner</td><td>Human Resources Department</td></tr><tr><td>Approved By</td><td>Chief Executive Officer</td></tr></tbody>
-      </table></div>
-      <h2 id="s-1" class="pol-h2"><span class="pol-num">1.</span> ATTENDANCE &amp; WORKING HOURS POLICY</h2>
-      <h3 id="s-1-1" class="pol-h3"><span class="pol-num">1.1</span> Purpose</h3>
-      <p>This policy establishes the company's requirements concerning working hours, attendance, absences, overtime, and leave administration to ensure operational efficiency, employee accountability, and fairness.</p>
-      <h3 id="s-1-2" class="pol-h3"><span class="pol-num">1.2</span> Scope</h3>
-      <p>This attendance policy applies to all white-collar employees unless otherwise specified in their employment agreements or approved departmental policies.</p>
-      <h3 id="s-1-3" class="pol-h3"><span class="pol-num">1.3</span> Standard Working Hours</h3>
-      <ul class="pol-list">
-      <li>The standard working requirement is 40 hours per week, based on five working days.</li>
-      <li>Employees may follow flexible working schedules according to departmental requirements and subject to management approval.</li>
-      <li>Flexible working arrangements do not exempt employees from mandatory core attendance hours.</li>
-      <li>Employees are responsible for completing their required weekly working hours.</li>
-      <li>All working hours must be accurately recorded through the company's approved attendance tracking system.</li>
-      </ul>
-      <h3 id="s-1-4" class="pol-h3"><span class="pol-num">1.4</span> Mandatory Core Attendance Hours</h3>
-      <ul class="pol-list">
-      <li>All employees must be present during the mandatory core hours of 10:00 AM to 2:00 PM on each scheduled working day.</li>
-      <li>Arriving after 10:00 AM or leaving before 2:00 PM requires authorization.</li>
-      <li>Exceptions must be supported by an approved day-off or time-off request submitted by email to the direct manager, with HR copied.</li>
-      <li>Requests should preferably be submitted in advance unless an emergency prevents prior notification.</li>
-      </ul>
-      <h3 id="s-1-5" class="pol-h3"><span class="pol-num">1.5</span> Monthly Working Hours Shortage</h3>
-      <ul class="pol-list">
-      <li>Employees are permitted a maximum monthly working hours shortage of 8 hours without an attendance-shortage deduction.</li>
-      <li>If the total monthly shortage exceeds 8 hours, the entire shortage will be considered for deduction, not merely the hours exceeding the permitted allowance.</li>
-      <li>Deductions will be calculated in complete blocks of 8 shortage hours, equivalent to one working day.</li>
-      <li>Any remaining shortage hours that do not constitute a complete 8-hour block will not result in an additional day deduction.</li>
-      <li>The calculated deduction will first be applied against the employee's available annual leave balance, subject to applicable law.</li>
-      <li>Once the employee's annual leave balance is fully consumed, any further deductible days will be deducted from the employee's monthly salary, in accordance with applicable labor laws.</li>
-      <li>The monthly shortage allowance is not cumulative and cannot be transferred to subsequent months.</li>
-      <li>The monthly shortage allowance does not exempt employees from mandatory core attendance requirements.</li>
-      </ul>
-      <p>Calculation Rule:</p>
-      <p>If total monthly shortage is 8 hours or less, no deduction applies.</p>
-      <p>If total monthly shortage exceeds 8 hours, the deduction is calculated by rounding down the total shortage hours to complete multiples of 8, with a minimum deduction of one day.</p>
-      <p>Example: An employee with 20 shortage hours and an available annual leave balance of 1 day will have 1 day deducted from annual leave and 1 day deducted from salary.</p>
-      <h3 id="s-1-6" class="pol-h3"><span class="pol-num">1.6</span> Overtime and Off-Site Assignments</h3>
-      <ul class="pol-list">
-      <li>All overtime work and off-site assignments must receive prior written approval from the employee's direct manager.</li>
-      <li>Approval must be communicated by email, with HR copied where required.</li>
-      <li>Unauthorized additional working hours will not automatically qualify for compensatory leave, subject to statutory requirements.</li>
-      <li>Approved excess working hours may be converted into compensatory leave and added to the employee's leave balance, provided the arrangement complies with applicable labor laws.</li>
-      <li>Compensatory leave credits will be calculated in complete blocks of 8 approved hours, equivalent to one working day.</li>
-      <li>Approved excess hours that are not an exact multiple of 8 will be rounded down to the nearest complete 8-hour block for internal compensatory leave purposes.</li>
-      <li>Statutory overtime compensation rights remain applicable regardless of the internal leave-credit mechanism.</li>
-      <li>HR shall maintain records of approved overtime, off-site assignments, and resulting leave credits.</li>
-      </ul>
-      <h3 id="s-1-7" class="pol-h3"><span class="pol-num">1.7</span> Absence and No-Show Policy</h3>
-      <ul class="pol-list">
-      <li>Employees unable to attend work must notify their direct manager and submit a day-off request by email, with HR copied.</li>
-      <li>Where advance notice is not possible, the employee must submit the request within 48 hours of the missed working day.</li>
-      <li>Failure to submit the required request within 48 hours will result in the missed day being provisionally recorded as an unauthorized absence, subject to review of legitimate emergencies and legally protected circumstances.</li>
-      <li>Unauthorized absences will be handled under the company's disciplinary procedures and applicable labor laws.</li>
-      <li>Repeated unauthorized absences may result in progressive disciplinary action, following the required procedures.</li>
-      </ul>
-      <h3 id="s-1-8" class="pol-h3"><span class="pol-num">1.8</span> Attendance Monitoring</h3>
-      <ul class="pol-list">
-      <li>HR is responsible for maintaining accurate attendance and leave records.</li>
-      <li>Employees must regularly review their attendance records through the company portal.</li>
-      <li>Any discrepancies must be reported promptly to HR.</li>
-      <li>Direct managers are responsible for reviewing and approving attendance exceptions within their departments.</li>
-      </ul>
-      <h2 id="s-2" class="pol-h2"><span class="pol-num">2.</span> EMPLOYEE LIFE EVENT AWARDS POLICY</h2>
-      <h3 id="s-2-1" class="pol-h3"><span class="pol-num">2.1</span> Purpose</h3>
-      <p>IENERGY METERS MANUFACTURING recognizes significant personal milestones and provides financial support to employees during important family events.</p>
-      <h3 id="s-2-2" class="pol-h3"><span class="pol-num">2.2</span> Award Entitlements</h3>
-      <div class="pol-table-wrap"><table class="pol-table">
-      <thead><tr><th>Occasion</th><th>Award Amount</th></tr></thead>
-      <tbody><tr><td>Employee Marriage</td><td>EGP 2,000</td></tr><tr><td>Birth of a Child</td><td>EGP 3,000</td></tr><tr><td>Death of a First-Degree Relative or Spouse</td><td>EGP 4,000</td></tr></tbody>
-      </table></div>
-      <h3 id="s-2-3" class="pol-h3"><span class="pol-num">2.3</span> Marriage Award</h3>
-      <ul class="pol-list">
-      <li>Employees who legally marry during their employment are eligible for a marriage award of EGP 2,000.</li>
-      <li>The marriage award may be granted a maximum of two times during the employee's employment with the company.</li>
-      <li>An official marriage certificate must be submitted to HR.</li>
-      <li>The award will be paid with the next monthly salary following submission and verification of the required documents.</li>
-      </ul>
-      <h3 id="s-2-4" class="pol-h3"><span class="pol-num">2.4</span> Childbirth Award</h3>
-      <ul class="pol-list">
-      <li>Employees becoming a father or mother are eligible for EGP 3,000 per qualifying birth event.</li>
-      <li>The award applies equally to eligible male and female employees.</li>
-      <li>An official birth certificate or birth notification must be submitted to HR.</li>
-      <li>Where both parents are employed by the company, each eligible employee may receive the award.</li>
-      <li>The award will be paid with the next monthly salary following submission and verification of the required documents.</li>
-      </ul>
-      <h3 id="s-2-5" class="pol-h3"><span class="pol-num">2.5</span> Bereavement Support Award</h3>
-      <ul class="pol-list">
-      <li>Employees experiencing the death of a qualifying first-degree relative or spouse are entitled to financial support of EGP 4,000 per qualifying event.</li>
-      <li>Qualifying relatives include parents, children, and spouses.</li>
-      <li>An official death certificate or other acceptable documentation must be submitted to HR.</li>
-      <li>The award will be paid with the next monthly salary following submission and verification of the required documents.</li>
-      </ul>
-      <h3 id="s-2-6" class="pol-h3"><span class="pol-num">2.6</span> General Award Conditions</h3>
-      <ul class="pol-list">
-      <li>All awards are available to eligible active employees following HR verification.</li>
-      <li>All approved financial awards shall be paid together with the next monthly salary after submission and verification of the required supporting documents.</li>
-      <li>No separate advance payment shall be made unless specifically approved by the CEO.</li>
-      <li>Life-event awards are separate from employees' contractual base salaries.</li>
-      <li>Applicable tax and payroll treatment shall follow Egyptian law.</li>
-      <li>Award amounts may be reviewed periodically by management.</li>
-      </ul>
-      <h2 id="s-3" class="pol-h2"><span class="pol-num">3.</span> SPECIAL PAID LEAVE POLICY</h2>
-      <h3 id="s-3-1" class="pol-h3"><span class="pol-num">3.1</span> Purpose</h3>
-      <p>The company provides additional paid leave for important personal and family occasions as part of its employee welfare program.</p>
-      <p>These benefits are intended to supplement statutory leave entitlements, not reduce or replace them.</p>
-      <h3 id="s-3-2" class="pol-h3"><span class="pol-num">3.2</span> Special Leave Entitlements</h3>
-      <div class="pol-table-wrap"><table class="pol-table">
-      <thead><tr><th>Leave Type</th><th>Entitlement</th></tr></thead>
-      <tbody><tr><td>Marriage Leave</td><td>6 paid working days</td></tr><tr><td>Childbirth Leave — Fathers</td><td>3 paid working days per birth event (company benefit)</td></tr><tr><td>Childbirth Leave — Mothers</td><td>4 paid months, subject to applicable labor law</td></tr><tr><td>Bereavement Leave</td><td>3 paid working days</td></tr></tbody>
-      </table></div>
-      <h3 id="s-3-3" class="pol-h3"><span class="pol-num">3.3</span> Marriage Leave</h3>
-      <ul class="pol-list">
-      <li>Employees are entitled to 6 paid working days upon their marriage.</li>
-      <li>Marriage leave may be granted a maximum of two times during the employee's employment with the company, consistent with the marriage award eligibility limit.</li>
-      <li>The leave must be requested through the company's approved leave procedure.</li>
-      <li>Employees should submit the request in advance, with supporting documentation provided to HR.</li>
-      <li>Marriage leave is separate from the employee's annual leave balance.</li>
-      <li>Marriage leave cannot be converted into cash.</li>
-      <li>Unused marriage leave cannot be carried forward.</li>
-      </ul>
-      <h3 id="s-3-4" class="pol-h3"><span class="pol-num">3.4</span> Childbirth Leave</h3>
-      <ul class="pol-list">
-      <li>Fathers are entitled to 3 paid working days upon the birth of their child, per birth event, as a company benefit.</li>
-      <li>The father's 3 days may be taken consecutively or separately during the month in which the child is born, with scheduling coordinated with the direct manager and without limiting statutory birth-day leave.</li>
-      <li>Mothers are entitled to 4 months of paid maternity leave under Article 54 of Egyptian Labor Law No. 14 of 2025. This includes leave before and after childbirth, with at least 45 days after delivery, and is available up to three times during employment.</li>
-      <li>Mothers must provide HR with a medical certificate stating the expected delivery date.</li>
-      <li>Childbirth leave requests must be submitted through the company's approved leave procedure. The direct manager coordinates coverage, and HR verifies eligibility; administrative approval must not restrict statutory maternity leave.</li>
-      <li>Childbirth leave does not reduce the employee's annual leave balance.</li>
-      <li>Unused company-granted leave for fathers expires at the end of the child's birth month and cannot be carried forward or converted into cash. This expiry does not apply to statutory maternity leave or limit any statutory entitlement.</li>
-      </ul>
-      <h3 id="s-3-5" class="pol-h3"><span class="pol-num">3.5</span> Bereavement Leave</h3>
-      <ul class="pol-list">
-      <li>Employees are entitled to 3 paid working days following the death of a qualifying family member.</li>
-      <li>Qualifying family members include parents, children, and spouses.</li>
-      <li>The employee must inform the direct manager and HR as soon as reasonably possible.</li>
-      <li>Supporting documentation may be submitted after the employee returns to work.</li>
-      <li>Bereavement leave is separate from annual leave and does not reduce the employee's annual leave balance.</li>
-      <li>This company benefit shall not reduce any greater leave entitlement required by applicable law.</li>
-      </ul>
-      <h3 id="s-3-6" class="pol-h3"><span class="pol-num">3.6</span> Special Leave Administration</h3>
-      <ul class="pol-list">
-      <li>Special leave requests shall be recorded through the company's approved leave management system.</li>
-      <li>The direct manager is responsible for coordinating operational coverage.</li>
-      <li>HR is responsible for verifying eligibility and maintaining leave records.</li>
-      <li>Special leave cannot be converted into financial compensation unless expressly required by law.</li>
-      </ul>
-      <h2 id="s-4" class="pol-h2"><span class="pol-num">4.</span> EMPLOYEE LOANS POLICY</h2>
-      <h3 id="s-4-1" class="pol-h3"><span class="pol-num">4.1</span> Purpose</h3>
-      <p>This policy provides short-term financial support to employees through company loans and establishes clear eligibility, approval, repayment and guarantee requirements to ensure consistent administration and responsible lending.</p>
-      <h3 id="s-4-2" class="pol-h3"><span class="pol-num">4.2</span> Eligibility</h3>
-      <ul class="pol-list">
-      <li>Employees may apply for a loan only after successfully completing their probation period.</li>
-      </ul>
-      <h3 id="s-4-3" class="pol-h3"><span class="pol-num">4.3</span> Loan Amount and Repayment</h3>
-      <ul class="pol-list">
-      <li>The maximum loan amount is two months of the employee's net salary.</li>
-      <li>A loan may be approved a maximum of two times per calendar year.</li>
-      <li>The loan must be repaid in full through monthly installments within 6 months of disbursement or by 31 December of the calendar year in which it is disbursed, whichever comes first.</li>
-      <li>Installments are deducted directly from the employee's monthly salary according to the signed repayment schedule.</li>
-      <li>In the event of employee resignation or layoff, the full remaining loan amount shall be deducted from the final settlement.</li>
-      <li>The repayment schedule must ensure that no outstanding loan balance is carried into the next calendar year.</li>
-      <li>Loans are interest-free. Loan agreements and salary deductions must comply with applicable law.</li>
-      </ul>
-      <h3 id="s-4-4" class="pol-h3"><span class="pol-num">4.4</span> Colleague Guarantee</h3>
-      <ul class="pol-list">
-      <li>Before disbursement, another colleague must sign the loan agreement as guarantor, accepting responsibility for the outstanding balance if the borrowing employee fails or becomes unable to repay, including following termination of employment.</li>
-      <li>The guarantor's repayment responsibility and the circumstances in which it applies must be stated in the signed agreement. Any recovery from the guarantor must follow that agreement and applicable law.</li>
-      </ul>
-      <h3 id="s-4-5" class="pol-h3"><span class="pol-num">4.5</span> Approval</h3>
-      <ul class="pol-list">
-      <li>Every loan request must be approved by the employee's direct manager before the loan is disbursed.</li>
-      <li>The employee must sign a loan agreement stating the approved amount, repayment schedule and authorization for salary deductions.</li>
-      </ul>
-      <p>IENERGY METERS MANUFACTURING</p>
-      <p>Effective Date: 01.01.2026</p>
-      <p>Version: 1.0</p>
-    </section>
-
-
-    <footer class="footer">
-      <small>© <span id="year"></span> iEnergy. Internal use.</small>
-    </footer>
+      <footer class="footer">
+        <small id="footerText">© <span id="year"></span> iEnergy. Internal use.</small>
+      </footer>
     </div>
   </main>
 
   <script>
     document.getElementById('year').textContent = String(new Date().getFullYear());
 
-    /* The documents list is gone: the policy itself is on this page
-       now, so there is nothing to fetch and nothing to download. The
-       loader that used to read documents.json went with it rather than
-       being left to throw on elements that no longer exist. */
-
-    /* Copying the policy out, discouraged.
-     *
-     * user-select:none in the stylesheet stops the text being dragged
-     * over. It does not stop ctrl+A then ctrl+C, which selects through
-     * the whole document regardless, nor the right-click menu, so those
-     * are handled here as well.
-     *
-     * WHAT THIS IS NOT. It is not protection. The text is in the page
-     * and anybody who opens the developer tools or views the source has
-     * it, and no amount of script changes that -- the browser has to be
-     * given the text in order to show it. This raises the effort from
-     * "two keystrokes" to "know where to look", which is what stops a
-     * document being forwarded on a whim. Treating it as a lock would
-     * be the mistake.
-     *
-     * Printing is deliberately left working. A staff handbook nobody
-     * can print is a worse document, not a safer one. */
+    /* Language Switcher */
     (function () {
-      const policy = document.getElementById('policy');
-      const contents = document.querySelector('.pol-toc');
-      const guarded = (target) =>
-        (policy && policy.contains(target)) || (contents && contents.contains(target));
+      'use strict';
+      const LANG_KEY = 'ienergy_policy_lang';
+
+      function setLanguage(lang) {
+        const isAr = lang === 'ar';
+        const contentEn = document.getElementById('contentEn');
+        const contentAr = document.getElementById('contentAr');
+        const docTitle = document.getElementById('docTitle');
+        const pageBarName = document.getElementById('pageBarName');
+        const mainPageBtn = document.getElementById('mainPageBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const langBtnText = document.getElementById('langBtnText');
+        const footerText = document.getElementById('footerText');
+        const yr = new Date().getFullYear();
+
+        if (contentEn) contentEn.hidden = isAr;
+        if (contentAr) contentAr.hidden = !isAr;
+
+        document.documentElement.setAttribute('lang', isAr ? 'ar' : 'en');
+
+        if (langBtnText) langBtnText.textContent = isAr ? 'English' : 'العربية';
+        if (docTitle) docTitle.textContent = isAr ? 'iEnergy | سياسة الشركة' : 'iEnergy | Company Policy';
+        if (pageBarName) pageBarName.textContent = isAr ? 'سياسة الشركة' : 'Company Policy';
+        if (mainPageBtn) mainPageBtn.textContent = isAr ? 'الصفحة الرئيسية' : 'Main page';
+        if (logoutBtn) logoutBtn.textContent = isAr ? 'تسجيل الخروج' : 'Sign out';
+        if (footerText) {
+          footerText.innerHTML = isAr
+            ? '&copy; ' + yr + ' شركة آي إنرجي. للاستخدام الداخلي.'
+            : '&copy; ' + yr + ' iEnergy. Internal use.';
+        }
+
+        try {
+          localStorage.setItem(LANG_KEY, lang);
+        } catch (_) {}
+      }
+
+      const toggleBtn = document.getElementById('langToggleBtn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          let cur = 'en';
+          try { cur = localStorage.getItem(LANG_KEY) || 'en'; } catch (_) {}
+          setLanguage(cur === 'en' ? 'ar' : 'en');
+        });
+      }
+
+      let initial = 'en';
+      try {
+        const param = new URLSearchParams(window.location.search).get('lang');
+        if (param === 'ar' || param === 'en') {
+          initial = param;
+        } else {
+          initial = localStorage.getItem(LANG_KEY) || 'en';
+        }
+      } catch (_) {}
+      setLanguage(initial);
+    })();
+
+    /* Copying the policy out, discouraged. */
+    (function () {
+      const guarded = (target) => {
+        const pEn = document.getElementById('policyEn');
+        const pAr = document.getElementById('policyAr');
+        const cEn = document.getElementById('tocEn');
+        const cAr = document.getElementById('tocAr');
+        return (pEn && pEn.contains(target)) || (pAr && pAr.contains(target)) ||
+               (cEn && cEn.contains(target)) || (cAr && cAr.contains(target));
+      };
 
       for (const type of ['copy', 'cut', 'contextmenu', 'dragstart']) {
         document.addEventListener(type, (event) => {
@@ -403,11 +776,6 @@
         });
       }
 
-      /* ctrl+A inside the policy would select it even though the text
-         is not selectable by pointer, and the copy handler above only
-         blocks the copy once the selection exists. Refusing the select
-         keeps the page from flashing a selection it will not let go
-         of. The shortcut still works everywhere else on the page. */
       document.addEventListener('keydown', (event) => {
         const key = event.key.toLowerCase();
         if ((event.ctrlKey || event.metaKey) && (key === 'a' || key === 'c' || key === 'x')) {
@@ -435,7 +803,6 @@
         name.textContent = me.name || '';
         who.appendChild(name);
 
-
         const LABEL = {
           super_admin: 'Super admin', admin: 'Admin', user: 'User', no_access: 'No access',
         };
@@ -450,7 +817,8 @@
         const logoutBtn = $('logoutBtn');
         logoutBtn.addEventListener('click', () => {
           logoutBtn.disabled = true;
-          logoutBtn.textContent = 'Signing out…';
+          const isAr = document.documentElement.getAttribute('lang') === 'ar';
+          logoutBtn.textContent = isAr ? 'جارٍ تسجيل الخروج…' : 'Signing out…';
           IEnergyAuth.signOutAndLeave('../index.html');
         });
 
