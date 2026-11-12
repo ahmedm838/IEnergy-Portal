@@ -175,15 +175,6 @@ export const foldArabic = (s) => String(s ?? '')
 
 const has = (set, k) => Object.prototype.hasOwnProperty.call(set, k)
 
-/* The same calendar day a number of years earlier or later; a 29 Feb
-   that does not exist becomes 28 Feb. */
-function yearsOn(d, years) {
-  const y = d.getUTCFullYear() + years
-  const m = d.getUTCMonth()
-  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
-  return new Date(Date.UTC(y, m, Math.min(d.getUTCDate(), last)))
-}
-
 /* --- Contract renewal ------------------------------------------------ */
 
 /* The agreement date is today unless the user has set it (`set.today`,
@@ -217,15 +208,13 @@ export function renewalValues(emp, d) {
 
 /* --- Hiring contract ------------------------------------------------- */
 
-/* An Egyptian national ID card is valid for seven years, so the date it
-   was issued is seven years before the expiry date on file. The contract
+/* The ID issue date is typed by the user; it starts empty. The contract
    runs one year from the hiring date, less a day. */
 export function hiringDates(emp, set = {}, today = todayUTC()) {
   const hired = emp ? parseISO(emp.hired_on) : null
-  const idExpiry = emp ? parseISO(emp.id_expiry_date) : null
   return {
     today: has(set, 'today') ? set.today : today,
-    idIssued: idExpiry ? yearsOn(idExpiry, -7) : null,
+    idIssued: has(set, 'idIssued') ? set.idIssued : null,
     start: hired,
     end: hired ? oneYearFrom(hired) : null,
   }
@@ -266,7 +255,8 @@ export function hiringValues(emp, d, inputs = {}) {
    blanks      the numbers in brackets that are blanks; any other
                bracketed number in the text, a law number say, is text
    info        [blank, label] shown read-only beside the document
-   dateFields  [key, label, blanks] dates the user may change
+   dateFields  [key, label, blanks, 'optional'?] dates the user may set;
+               the optional ones may stay empty
    inputs      [key, label, kind, blanks, hint] values the user types
    required    [blank, label] that must be filled before the document
                can be issued, the label naming what is missing
@@ -284,14 +274,18 @@ const DOCUMENTS = [
     info: [
       [1, 'اليوم'],
       [4, 'الرقم القومي'],
-      [5, 'تاريخ إصدار البطاقة'],
       [7, 'المؤهل'],
       [8, 'الرقم التأميني'],
       [9, 'الوظيفة'],
       [12, 'بداية العقد'],
       [13, 'نهاية العقد'],
     ],
-    dateFields: [['today', 'تاريخ تحرير العقد', [1, 2]]],
+    dateFields: [
+      ['today', 'تاريخ تحرير العقد', [1, 2]],
+      // Typed by the user only; the employee record does not hold it. It
+      // may be left blank, to be written in by hand.
+      ['idIssued', 'تاريخ إصدار البطاقة', [5], 'optional'],
+    ],
     inputs: [
       ['salary', 'الأجر الشهري (بالأرقام الإنجليزية)', 'amount', [10, 11], 'مثال: 8500 أو 8500.50'],
       ['address', 'محل الإقامة', 'text', [6], 'غير مسجل في قاعدة البيانات؛ اكتبه هنا.'],
@@ -303,7 +297,7 @@ const DOCUMENTS = [
       [10, 'الأجر الشهري'],
     ],
     optional: [
-      [5, 'تاريخ انتهاء البطاقة'],
+      [5, 'تاريخ إصدار البطاقة'],
       [6, 'محل الإقامة'],
       [7, 'المؤهل'],
       [8, 'الرقم التأميني'],
@@ -590,6 +584,7 @@ async function drawDocument(def) {
     renderFooters: true,
   })
   lockBlanks(preview)
+  matchFieldSize(preview)
   rightToLeft(preview)
   frame(preview, border)
   numberPages(preview)
@@ -599,6 +594,22 @@ async function drawDocument(def) {
   }
   status.hidden = true
   fitPreview()
+}
+
+/* A filled blank takes the size of the text around it, so the document
+   reads as if typed in one go: the size of the nearest text before it in
+   the same paragraph, or after it when it starts the paragraph. (The
+   font is Times New Roman throughout; see the stylesheet.) */
+function matchFieldSize(root) {
+  for (const span of root.querySelectorAll('.hr-field')) {
+    const p = span.closest('p')
+    if (!p) continue
+    const texts = textNodes(p).filter((n) => n.nodeValue.trim() && !n.parentElement.closest('.hr-field'))
+    const before = texts.filter((n) => span.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_PRECEDING).pop()
+    const after = texts.find((n) => span.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING)
+    const near = before || after
+    if (near) span.style.fontSize = getComputedStyle(near.parentElement).fontSize
+  }
 }
 
 function fillFields(values) {
@@ -809,7 +820,7 @@ async function loadEmployees() {
   const supabase = await IEnergyAuth.getClient()
   const { data, error } = await supabase
     .from('employee_profiles')
-    .select('id, code, arabic_name, national_id, id_expiry_date, hired_on, contract_expiry, '
+    .select('id, code, arabic_name, national_id, hired_on, contract_expiry, '
       + 'si_no, si_title, title, qualification_degree_ar, education_field, is_active')
     .eq('is_active', true)
     .not('arabic_name', 'is', null)
@@ -1069,7 +1080,7 @@ function refresh() {
     const reset = input?.parentElement.querySelectorAll('.hr-date-btn')[1]
     if (reset) reset.hidden = !(key in state.dateSet)
   }
-  const emptyDates = def.dateFields.filter(([key]) => !dates[key]).map(([, label]) => label)
+  const emptyDates = def.dateFields.filter(([key, , , opt]) => !opt && !dates[key]).map(([, label]) => label)
 
   const box = $('autoFields')
   box.innerHTML = ''
@@ -1092,12 +1103,15 @@ function refresh() {
   const missing = emp ? empty(def.required).filter(fromRecord).map(([, l]) => l) : []
   const toType = empty(def.required).filter((x) => !fromRecord(x)).map(([, l]) => l)
   const blank = emp ? empty(def.optional).map(([, l]) => l) : []
+  const blankNote = emp && blank.length
+    ? (def.optional.some(([n]) => editable.has(n)) ? 'فارغ، وسيترك للكتابة باليد' : 'غير مسجل، وسيترك فارغًا في العقد')
+    : ''
   const warn = $('fieldWarning')
   const notes = []
   if (missing.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${missing.join('، ')}. أكملها أولاً ثم أعد الاختيار.`)
   if (emptyDates.length) notes.push(`أدخل ${emptyDates.join('، ')}.`)
   if (emp && toType.length) notes.push(`أدخل ${toType.join('، ')}.`)
-  if (blank.length) notes.push(`غير مسجل، وسيترك فارغًا في العقد: ${blank.join('، ')}.`)
+  if (blankNote) notes.push(`${blankNote}: ${blank.join('، ')}.`)
   warn.hidden = !notes.length
   warn.textContent = notes.join(' ')
 

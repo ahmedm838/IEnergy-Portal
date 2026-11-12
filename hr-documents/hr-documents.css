@@ -77,7 +77,12 @@
 .hr-auto-row span { color: rgba(var(--text-rgb), 0.7); }
 .hr-auto-row output { font-weight: 700; }
 
-/* The document itself: white paper whatever the theme. */
+/* The document itself: white paper whatever the theme. Every form is set
+   in Times New Roman -- the templates' "Times New Roman (Headings CS)" --
+   whatever font a run names, so filled data and the template's own text
+   look typed at the same time. */
+.hr-preview section.docx,
+.hr-preview section.docx * { font-family: 'Times New Roman', Times, serif !important; }
 .hr-preview-wrap { min-width: 0; overflow-x: auto; }
 .hr-preview .docx-wrapper { background: rgba(var(--ink-rgb), 0.06); padding: 16px; border-radius: 16px; }
 .hr-preview section.docx {
@@ -95,6 +100,8 @@
 
 /* While the page is drawn into the PDF, the fields lose their marking. */
 .hr-preview.is-capturing .hr-field { background: none; border: 0; padding: 0; }
+/* A blank left empty prints as plain dots, to be written in by hand. */
+.hr-preview.is-capturing .hr-field.is-empty { color: inherit; }
 .hr-preview.is-capturing section.docx { box-shadow: none; margin: 0; }
 /* The frame and page numbers are drawn on each PDF sheet instead. */
 .hr-preview.is-capturing .hr-page-frame { display: none; }
