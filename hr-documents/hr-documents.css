@@ -140,3 +140,8 @@
 .hr-ref-row { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: center; }
 .hr-ref-num { grid-row: span 2; font-weight: 700; color: rgba(var(--text-rgb), 0.7); padding-inline-end: 2px; }
 .hr-ref-input { padding: 8px 10px; font-size: 14px; }
+
+/* A line held to one line, as it is in the Word file (keepLines). Spaces
+   are kept as typed, as everywhere in the document. */
+.hr-preview p.hr-one-line,
+.hr-preview p.hr-one-line * { white-space: pre !important; }

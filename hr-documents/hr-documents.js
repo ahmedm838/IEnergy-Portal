@@ -600,6 +600,23 @@ export function useArabicRunProps(xml) {
   })
 }
 
+/* An empty paragraph in Word is a full line, as tall as its paragraph
+   mark's font. The renderer gives it the browser's default height
+   instead, which in a template that lines rows up with empty lines puts
+   everything after them out of place. Each empty paragraph is given one
+   invisible character (a zero-width space) in its paragraph mark's
+   formatting, so it is exactly one line of the right size. */
+export function holdEmptyLines(xml) {
+  return xml.replace(/<w:p\b(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/g, (p) => {
+    if (/<w:p\b[^>]*\/>/.test(p.slice(0, p.indexOf('>') + 1))) return p
+    const pPr = /<w:pPr>[\s\S]*?<\/w:pPr>/.exec(p)?.[0] || ''
+    const rest = p.replace(pPr, '')
+    if (/<w:(t|tab|br|drawing|pict|object|sym|fldSimple|instrText)\b/.test(rest)) return p
+    const mark = /<w:rPr>[\s\S]*?<\/w:rPr>/.exec(pPr.replace(/<w:sectPr[\s\S]*?<\/w:sectPr>/, ''))?.[0] || ''
+    return p.replace(/<\/w:p>$/, `<w:r>${mark}<w:t>\u200b</w:t></w:r></w:p>`)
+  })
+}
+
 const templateCache = new Map()
 async function loadTemplate(def) {
   const url = def.template
@@ -616,7 +633,7 @@ async function loadTemplate(def) {
       // Kashida justification is how Word justifies Arabic; the renderer
       // does not know it and would leave those paragraphs unaligned.
       xml = xml.replace(/(<w:jc w:val=")(?:low|medium|high)Kashida(")/g, '$1both$2')
-      zip.file('word/document.xml', markBlanks(useArabicRunProps(xml), def.blanks))
+      zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(xml)), def.blanks))
       for (const name of Object.keys(zip.files)) {
         if (/^word\/(styles|header\d*|footer\d*)\.xml$/.test(name)) {
           zip.file(name, useArabicRunProps(await zip.file(name).async('string')))
@@ -651,6 +668,17 @@ export function readTabStops(xml) {
   return out
 }
 
+/* The renderer draws a tab as a span holding one em space and nothing
+   else; mark them, so layoutTabs can find them. */
+function markTabs(root) {
+  for (const span of root.querySelectorAll('section.docx span')) {
+    if (span.childNodes.length === 1 && span.firstChild.nodeType === Node.TEXT_NODE
+        && span.firstChild.nodeValue === '\u2003' && !span.className) {
+      span.className = 'docx-tab-stop'
+    }
+  }
+}
+
 /* Word measures tab stops in a right-to-left paragraph from the right
    edge; the renderer measures them from the left, as for English, and
    only once, before the blanks are filled. So every tab in a right-to-
@@ -666,10 +694,17 @@ function layoutTabs(root) {
   const PT = 0.75 // CSS px to points
   paras.forEach((p, i) => {
     if (p.dir !== 'rtl') return
+    /* A tab is drawn as an empty box of the width it spans. The renderer
+       draws it as a non-breaking space stretched by word spacing, which
+       the browser will not end a line on: a tab after a blank pulled the
+       blank onto a line of its own, where in Word it stays put. */
     const tabs = [...p.querySelectorAll('.docx-tab-stop')]
     for (const t of tabs) {
-      t.innerHTML = '&nbsp;'
-      t.style.wordSpacing = '0pt'
+      t.innerHTML = ''
+      t.style.wordSpacing = ''
+      t.style.textDecoration = ''
+      t.style.display = 'inline-block'
+      t.style.width = '0'
     }
     const pb0 = p.getBoundingClientRect()
     const scale = pb0.width ? p.offsetWidth / pb0.width : 1 // undoes any zoom on the preview
@@ -688,13 +723,113 @@ function layoutTabs(root) {
       if (tabs[k + 1]) range.setEndBefore(tabs[k + 1])
       else range.setEndAfter(p.lastChild)
       const w = range.getBoundingClientRect().width * scale * PT // the text that follows
-      const own = tb.width * scale * PT
       let width = stop.pos - at
       if (stop.type === 'center') width -= w / 2
       else if (stop.type === 'end' || stop.type === 'right' || stop.type === 'decimal') width -= w
-      tab.style.wordSpacing = `${Math.max(3, width - own).toFixed(1)}pt`
+      // No further than the line has room for, with what follows: a tab
+      // that runs past the margin does not start a line of its own in
+      // Word, and must not here either.
+      const room = (pb.width * scale - parseFloat(getComputedStyle(p).paddingLeft) - parseFloat(getComputedStyle(p).paddingRight)) * PT - at - w - 1
+      width = Math.min(width, room)
+      tab.style.width = `${Math.max(0, width).toFixed(1)}pt`
     })
   })
+}
+
+/* ------------------------------------------------------------------ */
+/* Keeping the template's lines                                         */
+/* ------------------------------------------------------------------ */
+
+/* How many lines a paragraph takes on screen. */
+function lineCount(p) {
+  // Only text that shows counts: a tab or spaces at the end of a line
+  // hang off it in Word, and must not count as a line of their own.
+  const tops = []
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT)
+  while (walker.nextNode()) {
+    const node = walker.currentNode
+    if (!node.nodeValue.replace(/[\s\u00a0\u200b\u200f\u2066-\u2069]/g, '')) continue
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    for (const r of range.getClientRects()) if (r.width > 0.5) tops.push(r.top)
+  }
+  tops.sort((x, y) => x - y)
+  // Runs of different sizes on one line sit a pixel or two apart, so
+  // tops closer than 5px are the same line.
+  let lines = 0
+  let last = -Infinity
+  for (const t of tops) {
+    if (t - last > 5) lines++
+    last = t
+  }
+  return Math.max(1, lines)
+}
+
+/* A line that is one line in the template stays one line when filled,
+   so the page keeps the Word file's layout -- rows in two columns stay
+   level with each other, nothing below moves down. When a value makes
+   such a line too long, its text is narrowed to fit, as little as it
+   takes, instead of wrapping. Paragraphs that already run over several
+   lines reflow as Word reflows them. The count is taken once, when the
+   document is drawn, with the blanks still empty. */
+function rememberLines(root) {
+  for (const p of root.querySelectorAll('section.docx p')) {
+    if (p.querySelector('.hr-field')) p.dataset.lines = String(lineCount(p))
+  }
+  /* In a section set in columns, every short line is one line in Word --
+     the template lines its two columns up row by row -- so it is held to
+     one line here too, filled in or not, whatever the browser's font. */
+  for (const article of root.querySelectorAll('section.docx article')) {
+    if (!article.style.columnCount) continue
+    for (const p of article.querySelectorAll('p')) {
+      if (!p.closest('table') && p.textContent.trim().length < 80) p.dataset.lines = '1'
+    }
+  }
+}
+
+/* Word fills the columns of a section like that by balancing them: with
+   every paragraph one line, the first column takes the first half of the
+   paragraphs and the second the rest. The browser balances by its own
+   measure and can be a line out, which moves a row to the wrong column;
+   so the second column is made to start where Word starts it. */
+function splitColumns(root) {
+  for (const article of root.querySelectorAll('section.docx article')) {
+    const cols = +article.style.columnCount
+    if (cols !== 2) continue
+    const paras = [...article.children]
+    if (paras.some((el) => el.tagName !== 'P')) continue // a table or a list: leave it to the browser
+    const first = paras[Math.ceil(paras.length / 2)]
+    if (first) first.style.breakBefore = 'column'
+  }
+}
+
+function releaseLines(root) {
+  for (const p of root.querySelectorAll('section.docx p[data-lines]')) {
+    p.classList.remove('hr-one-line')
+    p.style.transform = ''
+    p.style.transformOrigin = ''
+  }
+}
+
+function keepLines(root) {
+  for (const p of root.querySelectorAll('section.docx p[data-lines="1"]')) {
+    if (!p.textContent.replace(/\u200b/g, '').trim()) continue
+    if (lineCount(p) <= 1) continue
+    // On the paragraph and every run in it: the renderer sets pre-wrap
+    // on each run, which a rule on the paragraph alone would not reach.
+    p.classList.add('hr-one-line')
+    // The width the text takes on one line. scrollWidth will not do: text
+    // running right to left spills over the left edge, which it ignores.
+    const pb = p.getBoundingClientRect()
+    const scale = pb.width ? p.clientWidth / pb.width : 1
+    const range = document.createRange()
+    range.selectNodeContents(p)
+    const need = range.getBoundingClientRect().width * scale
+    const room = p.clientWidth - parseFloat(getComputedStyle(p).paddingLeft) - parseFloat(getComputedStyle(p).paddingRight)
+    if (need <= room || !room) continue
+    p.style.transformOrigin = p.dir === 'rtl' ? 'right center' : 'left center'
+    p.style.transform = `scaleX(${(room / need).toFixed(4)})`
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -814,15 +949,22 @@ async function drawDocument(def) {
     // Start a new page where Word last did when the template was saved,
     // so a contract of several pages splits where it does in Word.
     ignoreLastRenderedPageBreak: false,
-    experimental: true,
+    // Off: its only effect is the renderer's own tab layout, which
+    // measures from the left and runs again half a second after drawing,
+    // over the right-to-left layout done here (layoutTabs).
+    experimental: false,
     renderHeaders: true,
     renderFooters: true,
   })
+  markTabs(preview)
   lockBlanks(preview)
   matchFieldSize(preview)
   rightToLeft(preview)
   frame(preview, border)
   numberPages(preview)
+  layoutTabs(preview)
+  rememberLines(preview)
+  splitColumns(preview)
   status.hidden = true
   fitPreview()
 }
@@ -1380,8 +1522,10 @@ function refresh() {
   const dates = currentDates()
   const inputs = currentInputs()
   const values = def.values(emp, dates, inputs)
+  releaseLines($('preview'))
   fillFields(values)
   layoutTabs($('preview'))
+  keepLines($('preview'))
   const editable = editableBlanks(def)
   if (def.refTable) {
     for (const [k, v] of Object.entries(inputs)) {
