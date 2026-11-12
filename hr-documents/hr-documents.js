@@ -46,12 +46,18 @@ export function oneYearFrom(start) {
   return new Date(Date.UTC(y, m, Math.min(less.getUTCDate(), last)))
 }
 
-/* dd/mm/yyyy. In the Arabic text the browser lays the three numbers out
-   right to left, the way the date reads in Arabic. */
+/* dd/mm/yyyy, laid out the way an Arabic reader reads it: from the right,
+   day first, so the year ends up on the left (٢٠٢٦/١١/١٢ reads 12 Nov
+   2026). Left alone, the browser keeps Arabic-Indic digits joined by "/"
+   together as one left-to-right number and puts the day on the left; a
+   right-to-left mark on each side of every slash makes the three parts
+   separate and ordered right to left, as Word shows a date in Arabic text.
+   The marks take no space and print nothing. */
+const RLM = '\u200F'
 export const dmy = (d) => d
   ? `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
   : ''
-export const arDate = (d) => (d ? toArabicDigits(dmy(d)) : '')
+export const arDate = (d) => (d ? toArabicDigits(dmy(d)).split('/').join(`${RLM}/${RLM}`) : '')
 export const arDay = (d) => (d ? AR_DAYS[d.getUTCDay()] : '')
 export const isoOf = (d) => (d ? d.toISOString().slice(0, 10) : '')
 
@@ -65,6 +71,91 @@ export function parseDMY(text) {
   if (!m) return undefined
   const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]))
   return d.getUTCDate() === +m[1] && d.getUTCMonth() === +m[2] - 1 ? d : undefined
+}
+
+/* ------------------------------------------------------------------ */
+/* Amounts                                                              */
+/* ------------------------------------------------------------------ */
+
+/* An amount typed in English digits (Arabic ones are accepted too), with
+   or without thousands commas, and at most two decimals: "8500",
+   "8,500", "8500.50". Empty gives null; anything else undefined. */
+export function parseAmount(text) {
+  const s = String(text ?? '').replace(/[٠-٩]/g, (d) => AR_DIGITS.indexOf(d)).replace(/[,\s]/g, '')
+  if (!s) return null
+  const m = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(s)
+  if (!m) return undefined
+  return { pounds: +m[1], piasters: m[2] ? +m[2].padEnd(2, '0') : 0 }
+}
+
+/* The amount in Arabic digits, grouped in thousands: ٨٬٥٠٠ or ٨٬٥٠٠٫٥٠. */
+export function amountDigits(a) {
+  if (!a) return ''
+  const n = a.pounds + a.piasters / 100
+  return new Intl.NumberFormat('ar-EG', {
+    minimumFractionDigits: a.piasters ? 2 : 0,
+    maximumFractionDigits: 2,
+    useGrouping: true,
+  }).format(n)
+}
+
+const ONES = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة']
+const TEENS = ['عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر',
+  'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر']
+const TENS = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون']
+const HUNDREDS = ['', 'مائة', 'مائتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة',
+  'سبعمائة', 'ثمانمائة', 'تسعمائة']
+/* One, two, three to ten, eleven and up: ألف، ألفان، ثلاثة آلاف، أحد عشر ألفًا. */
+const SCALES = [
+  [1e9, ['مليار', 'ملياران', 'مليارات', 'مليارًا']],
+  [1e6, ['مليون', 'مليونان', 'ملايين', 'مليونًا']],
+  [1e3, ['ألف', 'ألفان', 'آلاف', 'ألفًا']],
+]
+
+function belowThousand(n) {
+  const parts = []
+  const h = Math.floor(n / 100)
+  const r = n % 100
+  if (h) parts.push(HUNDREDS[h])
+  if (r >= 20) parts.push(r % 10 ? `${ONES[r % 10]} و${TENS[Math.floor(r / 10)]}` : TENS[r / 10])
+  else if (r >= 10) parts.push(TEENS[r - 10])
+  else if (r) parts.push(ONES[r])
+  return parts.join(' و')
+}
+
+/* A whole number in Arabic words: 8500 -> ثمانية آلاف وخمسمائة. */
+export function arabicWords(n) {
+  if (!n) return 'صفر'
+  const parts = []
+  for (const [size, [one, two, few, many]] of SCALES) {
+    const c = Math.floor(n / size)
+    n %= size
+    if (!c) continue
+    if (c === 1) parts.push(one)
+    else if (c === 2) parts.push(two)
+    else {
+      const r = c % 100
+      // Two hundred before a noun loses its nun: مائتا ألف, not مائتان ألف.
+      const count = belowThousand(c).replace(/مائتان$/, 'مائتا')
+      parts.push(`${count} ${r >= 3 && r <= 10 ? few : r >= 11 ? many : one}`)
+    }
+  }
+  if (n) parts.push(belowThousand(n))
+  return parts.join(' و')
+}
+
+/* The amount as a contract writes it after "فقط":
+   ثمانية آلاف وخمسمائة جنيه مصري لا غير. */
+export function amountWords(a) {
+  if (!a) return ''
+  let s = a.pounds ? `${arabicWords(a.pounds)} جنيه مصري` : ''
+  if (a.piasters) {
+    const p = a.piasters
+    const piasters = p === 1 ? 'قرش واحد' : p === 2 ? 'قرشان'
+      : `${arabicWords(p)} ${p <= 10 ? 'قروش' : 'قرشًا'}`
+    s += `${s ? ' و' : ''}${piasters}`
+  }
+  return `${s} لا غير`
 }
 
 /* For searching Arabic names: the spellings people type interchangeably
@@ -82,18 +173,30 @@ export const foldArabic = (s) => String(s ?? '')
 /* The documents                                                        */
 /* ------------------------------------------------------------------ */
 
-/* The contract renewal's dates. Each one comes from the employee record
-   and today's date unless the user has set it by hand (`set`, where null
-   means cleared). The end follows the start: one year on, less a day. */
+const has = (set, k) => Object.prototype.hasOwnProperty.call(set, k)
+
+/* The same calendar day a number of years earlier or later; a 29 Feb
+   that does not exist becomes 28 Feb. */
+function yearsOn(d, years) {
+  const y = d.getUTCFullYear() + years
+  const m = d.getUTCMonth()
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(y, m, Math.min(d.getUTCDate(), last)))
+}
+
+/* --- Contract renewal ------------------------------------------------ */
+
+/* The agreement date is today unless the user has set it (`set.today`,
+   null when cleared). The others come from the employee record; the end
+   is one year on from the start, less a day. */
 export function renewalDates(emp, set = {}, today = todayUTC()) {
-  const has = (k) => Object.prototype.hasOwnProperty.call(set, k)
   const lastExpiry = emp ? parseISO(emp.contract_expiry) : null
-  const start = has('start') ? set.start : (lastExpiry ? addDays(lastExpiry, 1) : null)
+  const start = lastExpiry ? addDays(lastExpiry, 1) : null
   return {
-    today: has('today') ? set.today : today,
-    hired: has('hired') ? set.hired : (emp ? parseISO(emp.hired_on) : null),
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
     start,
-    end: has('end') ? set.end : (start ? oneYearFrom(start) : null),
+    end: start ? oneYearFrom(start) : null,
   }
 }
 
@@ -112,28 +215,100 @@ export function renewalValues(emp, d) {
   }
 }
 
-/* Shown beside the document, read only. */
-const RENEWAL_INFO = [
-  [1, 'اليوم'],
-  [4, 'الرقم القومي'],
-  [5, 'تاريخ التعيين'],
-  [6, 'بداية التجديد'],
-  [7, 'نهاية التجديد'],
-]
+/* --- Hiring contract ------------------------------------------------- */
 
-/* The one date the user may change: the agreement date, "on day (1),
-   the (2)". It defaults to today. Every other date comes from the
-   employee record. */
-const RENEWAL_DATES = [
-  ['today', 'تاريخ الاتفاق', [1, 2]],
-]
+/* An Egyptian national ID card is valid for seven years, so the date it
+   was issued is seven years before the expiry date on file. The contract
+   runs one year from the hiring date, less a day. */
+export function hiringDates(emp, set = {}, today = todayUTC()) {
+  const hired = emp ? parseISO(emp.hired_on) : null
+  const idExpiry = emp ? parseISO(emp.id_expiry_date) : null
+  return {
+    today: has(set, 'today') ? set.today : today,
+    idIssued: idExpiry ? yearsOn(idExpiry, -7) : null,
+    start: hired,
+    end: hired ? oneYearFrom(hired) : null,
+  }
+}
 
+/* The qualification as the contract states it: the degree, then the
+   field when there is one -- بكالوريوس هندسة. */
+const qualification = (emp) =>
+  [emp?.qualification_degree_ar, emp?.education_field].filter(Boolean).join(' ')
+
+/* The hiring contract's blanks. (10) and (11) are the monthly wage, typed
+   by the user in English digits: (10) shows it in Arabic digits, (11) in
+   Arabic words. (6), the address, is typed too: the employee record has
+   no address. */
+export function hiringValues(emp, d, inputs = {}) {
+  const name = emp?.arabic_name || ''
+  const wage = inputs.salary || null
+  return {
+    1: arDay(d.today),
+    2: arDate(d.today),
+    3: name,
+    4: toArabicDigits(emp?.national_id || ''),
+    5: arDate(d.idIssued),
+    6: inputs.address || '',
+    7: qualification(emp),
+    8: toArabicDigits(emp?.si_no || ''),
+    9: emp?.si_title || emp?.title || '',
+    10: amountDigits(wage),
+    11: amountWords(wage),
+    12: arDate(d.start),
+    13: arDate(d.end),
+  }
+}
+
+/* --- The list -------------------------------------------------------- */
+
+/* For each document:
+   blanks      the numbers in brackets that are blanks; any other
+               bracketed number in the text, a law number say, is text
+   info        [blank, label] shown read-only beside the document
+   dateFields  [key, label, blanks] dates the user may change
+   inputs      [key, label, kind, blanks, hint] values the user types
+   required    [blank, label] that must be filled before the document
+               can be issued, the label naming what is missing
+   optional    [blank, label] that may stay empty, with a warning */
 const DOCUMENTS = [
   {
     id: 'hiring',
-    title: 'عقد التعيين',
+    title: 'عقد عمل',
     subtitle: 'Hiring contract',
-    template: null, // template not supplied yet
+    template: 'templates/hiring-contract.docx?v=1',
+    fileName: 'عقد عمل',
+    blanks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    dates: hiringDates,
+    values: hiringValues,
+    info: [
+      [1, 'اليوم'],
+      [4, 'الرقم القومي'],
+      [5, 'تاريخ إصدار البطاقة'],
+      [7, 'المؤهل'],
+      [8, 'الرقم التأميني'],
+      [9, 'الوظيفة'],
+      [12, 'بداية العقد'],
+      [13, 'نهاية العقد'],
+    ],
+    dateFields: [['today', 'تاريخ تحرير العقد', [1, 2]]],
+    inputs: [
+      ['salary', 'الأجر الشهري (بالأرقام الإنجليزية)', 'amount', [10, 11], 'مثال: 8500 أو 8500.50'],
+      ['address', 'محل الإقامة', 'text', [6], 'غير مسجل في قاعدة البيانات؛ اكتبه هنا.'],
+    ],
+    required: [
+      [3, 'الاسم بالعربية'],
+      [4, 'الرقم القومي'],
+      [12, 'تاريخ التعيين'],
+      [10, 'الأجر الشهري'],
+    ],
+    optional: [
+      [5, 'تاريخ انتهاء البطاقة'],
+      [6, 'محل الإقامة'],
+      [7, 'المؤهل'],
+      [8, 'الرقم التأميني'],
+      [9, 'الوظيفة'],
+    ],
   },
   {
     id: 'renewal',
@@ -141,17 +316,27 @@ const DOCUMENTS = [
     subtitle: 'Contract renewal',
     template: 'templates/contract-renewal.docx?v=2',
     fileName: 'تجديد عقد',
+    blanks: [1, 2, 3, 4, 5, 6, 7, 8],
     dates: renewalDates,
     values: renewalValues,
-    info: RENEWAL_INFO,
-    dateFields: RENEWAL_DATES,
-    // What has to be on the employee record before the document can be issued.
-    required: [
-      ['arabic_name', 'الاسم بالعربية'],
-      ['national_id', 'الرقم القومي'],
-      ['hired_on', 'تاريخ التعيين'],
-      ['contract_expiry', 'تاريخ انتهاء العقد'],
+    info: [
+      [1, 'اليوم'],
+      [4, 'الرقم القومي'],
+      [5, 'تاريخ التعيين'],
+      [6, 'بداية التجديد'],
+      [7, 'نهاية التجديد'],
     ],
+    // The one date the user may change: the agreement date, "on day (1),
+    // the (2)". Every other date comes from the employee record.
+    dateFields: [['today', 'تاريخ الاتفاق', [1, 2]]],
+    inputs: [],
+    required: [
+      [3, 'الاسم بالعربية'],
+      [4, 'الرقم القومي'],
+      [5, 'تاريخ التعيين'],
+      [6, 'تاريخ انتهاء العقد'],
+    ],
+    optional: [],
   },
 ]
 
@@ -172,13 +357,14 @@ const MARK_RE = /⟦(\d{1,2})⟧/g
 /* Rewrite every blank in document.xml as a single ⟦n⟧ inside one run,
    keeping that run's formatting, so it can be found again once the
    document is drawn. */
-export function markBlanks(xml) {
+export function markBlanks(xml, blanks) {
+  const allowed = new Set(blanks.map(String))
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   for (const p of Array.from(doc.getElementsByTagNameNS(W_NS, 'p'))) {
     const nodes = Array.from(p.getElementsByTagNameNS(W_NS, 't'))
     if (!nodes.length) continue
     const text = nodes.map((t) => t.textContent).join('')
-    const matches = Array.from(text.matchAll(BLANK))
+    const matches = Array.from(text.matchAll(BLANK)).filter((m) => allowed.has(String(+m[1])))
     // Last first, so earlier offsets stay valid.
     for (const m of matches.reverse()) {
       const from = m.index
@@ -193,7 +379,7 @@ export function markBlanks(xml) {
         if (b <= from || a >= to) continue
         const keepBefore = s.slice(0, Math.max(0, from - a))
         const keepAfter = s.slice(Math.max(0, to - a))
-        t.textContent = first ? keepBefore + MARK(m[1]) + keepAfter : keepBefore + keepAfter
+        t.textContent = first ? keepBefore + MARK(+m[1]) + keepAfter : keepBefore + keepAfter
         t.setAttributeNS(XML_NS, 'xml:space', 'preserve')
         first = false
       }
@@ -202,16 +388,68 @@ export function markBlanks(xml) {
   return new XMLSerializer().serializeToString(doc)
 }
 
+/* The page border the template sets, in pixels: line width, and how far
+   in from the page edge. Null when there is none. */
+export function pageBorder(xml) {
+  const b = /<w:pgBorders\b([^>]*)>([\s\S]*?)<\/w:pgBorders>/.exec(xml)
+  if (!b) return null
+  const top = /<w:top\b[^>]*>/.exec(b[2])
+  if (!top || /w:val="(none|nil)"/.test(top[0])) return null
+  const num = (re, dflt) => { const m = re.exec(top[0]); return m ? +m[1] : dflt }
+  const px = (pt) => (pt * 4) / 3
+  const space = num(/w:space="(\d+)"/, 24)
+  const fromText = /w:offsetFrom="text"/.test(b[1])
+  return {
+    width: Math.max(1, Math.round(px(num(/w:sz="(\d+)"/, 4) / 8))),
+    // Measured from the page edge, or from the text, which starts 0.5in
+    // (48px) in on both templates.
+    inset: fromText ? Math.max(0, 48 - px(space)) : px(space),
+  }
+}
+
+/* Arabic text takes its size, bold and italic from Word's complex-script
+   settings (szCs, bCs, iCs); the Latin ones (sz, b, i) apply to Latin
+   text only. The renderer reads only the Latin ones, so a title set at
+   16pt bold for Arabic would show at whatever the Latin size is -- 7pt,
+   in the hiring contract. These documents are Arabic, so the complex-
+   script settings are written over the Latin ones, everywhere. */
+export function useArabicRunProps(xml) {
+  return xml.replace(/<w:rPr>([\s\S]*?)<\/w:rPr>/g, (all, body) => {
+    const pick = (tag) => {
+      const m = new RegExp(`<w:${tag}(\\s[^>]*)?/>`).exec(body)
+      return m ? (m[1] || '') : null
+    }
+    const b = pick('bCs')
+    const i = pick('iCs')
+    const sz = pick('szCs')
+    let out = body.replace(/<w:(?:b|i|sz)(?:\s[^>]*)?\/>/g, '')
+    if (b !== null) out += `<w:b${b}/>`
+    if (i !== null) out += `<w:i${i}/>`
+    if (sz !== null) out += `<w:sz${sz}/>`
+    return `<w:rPr>${out}</w:rPr>`
+  })
+}
+
 const templateCache = new Map()
-async function loadTemplate(url) {
+async function loadTemplate(def) {
+  const url = def.template
   if (!templateCache.has(url)) {
     templateCache.set(url, (async () => {
       const res = await fetch(url, { cache: 'no-cache' })
       if (!res.ok) throw new Error(`Template not found (${res.status})`)
       const zip = await JSZip.loadAsync(await res.arrayBuffer())
-      const xml = await zip.file('word/document.xml').async('string')
-      zip.file('word/document.xml', markBlanks(xml))
-      return zip.generateAsync({ type: 'blob' })
+      let xml = await zip.file('word/document.xml').async('string')
+      const border = pageBorder(xml)
+      // Kashida justification is how Word justifies Arabic; the renderer
+      // does not know it and would leave those paragraphs unaligned.
+      xml = xml.replace(/(<w:jc w:val=")(?:low|medium|high)Kashida(")/g, '$1both$2')
+      zip.file('word/document.xml', markBlanks(useArabicRunProps(xml), def.blanks))
+      for (const name of Object.keys(zip.files)) {
+        if (/^word\/(styles|header\d*|footer\d*)\.xml$/.test(name)) {
+          zip.file(name, useArabicRunProps(await zip.file(name).async('string')))
+        }
+      }
+      return { blob: await zip.generateAsync({ type: 'blob' }), border }
     })())
   }
   return templateCache.get(url)
@@ -221,9 +459,16 @@ async function loadTemplate(url) {
 /* Drawing the document                                                 */
 /* ------------------------------------------------------------------ */
 
+/* The document's text, and only that: the renderer puts its stylesheet
+   in the same element, and rewriting the digits in it ("12pt" into
+   "١٢pt", ".docx_style1" into ".docx_style١") would quietly drop every
+   style -- bold titles, sizes, spacing. */
 function textNodes(root) {
   const out = []
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => (n.parentElement && n.parentElement.closest('section.docx') && !n.parentElement.closest('style, script')
+      ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+  })
   while (walker.nextNode()) out.push(walker.currentNode)
   return out
 }
@@ -270,18 +515,33 @@ function rightToLeft(root) {
   }
 }
 
-/* A thin line around each page, 24pt in from the edge, as the template's
-   page border sets it. The Word renderer reads page borders but does not
-   draw them, so the line is drawn here; it is part of the page, so it is
-   in the PDF too. */
-function frame(root) {
+/* A line around each page, as thick and as far in as the template's page
+   border sets it. The Word renderer reads page borders but does not draw
+   them, so the line is drawn here; it is part of the page, so it is in
+   the PDF too. */
+function frame(root, border) {
+  if (!border) return
   for (const page of root.querySelectorAll('section.docx')) {
     const line = document.createElement('div')
     line.className = 'hr-page-frame'
     line.contentEditable = 'false'
     line.setAttribute('aria-hidden', 'true')
+    line.style.inset = `${border.inset}px`
+    line.style.borderWidth = `${border.width}px`
     page.prepend(line)
   }
+}
+
+/* The template's footer carries the page number as Word last saved it,
+   the same on every page; each page gets its own here. */
+function numberPages(root) {
+  root.querySelectorAll('section.docx').forEach((page, i) => {
+    const footer = page.querySelector('footer')
+    if (!footer) return
+    for (const node of textNodes(footer)) {
+      if (/^\s*[0-9٠-٩]+\s*$/.test(node.nodeValue)) node.nodeValue = toArabicDigits(i + 1)
+    }
+  })
 }
 
 /* The text around the fields is editable; the fields are not. A
@@ -314,20 +574,25 @@ async function drawDocument(def) {
   preview.innerHTML = ''
   status.hidden = false
   status.textContent = 'Loading document…'
-  const blob = await loadTemplate(def.template)
+  const { blob, border } = await loadTemplate(def)
+  state.border = border
   await renderAsync(blob, preview, null, {
     className: 'docx',
     inWrapper: true,
     ignoreWidth: false,
     ignoreHeight: false,
     breakPages: true,
+    // Start a new page where Word last did when the template was saved,
+    // so a contract of several pages splits where it does in Word.
+    ignoreLastRenderedPageBreak: false,
     experimental: true,
     renderHeaders: true,
     renderFooters: true,
   })
   lockBlanks(preview)
   rightToLeft(preview)
-  frame(preview)
+  frame(preview, border)
+  numberPages(preview)
   for (const page of preview.querySelectorAll('section.docx')) {
     page.contentEditable = 'true'
     page.spellcheck = false
@@ -348,18 +613,12 @@ function fillFields(values) {
 /* PDF                                                                  */
 /* ------------------------------------------------------------------ */
 
-function isBlank(ctx, w, h) {
-  if (h < 4) return true
-  const data = ctx.getImageData(0, 0, w, h).data
-  for (let i = 0; i < data.length; i += 4 * 7) {
-    if (data[i] < 200 || data[i + 1] < 200 || data[i + 2] < 200) return false
-  }
-  return true
-}
-
 /* The page is A4 at full size; it is shrunk to fit the column it sits
    in, and drawn at full size again for the PDF. */
 function fitPreview() {
+  // Not while a PDF is being made: the pages are measured at full size,
+  // and a resize in the middle would shrink the ones not yet measured.
+  if (state.capturing) return
   const preview = $('preview')
   const page = preview.querySelector('section.docx')
   const wrap = preview.parentElement
@@ -371,19 +630,77 @@ function fitPreview() {
 }
 new ResizeObserver(() => fitPreview()).observe(document.documentElement)
 
+/* Where a page may be cut: under each paragraph and each table row, in
+   CSS pixels from the top of the page. A paragraph is never cut through
+   unless it is taller than a whole sheet. */
+function cutPoints(page) {
+  const top = page.getBoundingClientRect().top
+  const out = new Set()
+  const blocks = [...page.querySelectorAll('p, tr')].filter((el) => !(el.tagName === 'P' && el.closest('tr')))
+  blocks.forEach((el, i) => {
+    const r = el.getBoundingClientRect()
+    if (!r.height) return
+    // A title stays with what follows it: no cut straight under a short
+    // centred line when more text comes after it.
+    const rest = blocks.slice(i + 1).some((n) => n.textContent.trim())
+    const title = el.tagName === 'P' && rest && getComputedStyle(el).textAlign === 'center'
+      && el.textContent.trim().length < 60 && r.height < 48
+    if (!title) out.add(Math.ceil(r.bottom - top))
+  })
+  return [...out].sort((a, b) => a - b)
+}
+
+/* One A4 sheet: the slice of page image given, then the frame and the
+   page number, drawn on the sheet itself so they sit in the same place
+   on every sheet however the page was cut. */
+function sheet(width, draw, border, number, scale) {
+  const c = document.createElement('canvas')
+  c.width = width
+  c.height = Math.round(width * (297 / 210))
+  const ctx = c.getContext('2d')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, c.width, c.height)
+  draw(ctx)
+  if (border) {
+    const w = border.width * scale
+    const inset = border.inset * scale + w / 2
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = w
+    ctx.strokeRect(inset, inset, c.width - 2 * inset, c.height - 2 * inset)
+  }
+  if (number) {
+    ctx.fillStyle = '#000000'
+    ctx.font = `bold ${Math.round(11 * scale)}px Arial, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(toArabicDigits(number), c.width / 2, c.height - 14 * scale)
+  }
+  return c
+}
+
 async function buildPdf() {
   const preview = $('preview')
   const pages = Array.from(preview.querySelectorAll('section.docx'))
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true })
-  const W = 210
-  const H = 297
-  const zoom = preview.style.zoom
+  state.capturing = true
   preview.style.zoom = ''
-  preview.classList.add('is-capturing')
   if (document.activeElement && preview.contains(document.activeElement)) document.activeElement.blur()
+  // The template numbers its pages in the footer; the numbers are drawn
+  // per sheet, since the sheets need not match the pages one for one.
+  const numbered = pages.some((p) => /\d|[٠-٩]/.test(p.querySelector('footer')?.textContent || ''))
+  const border = state.border
+  preview.classList.add('is-capturing')
+  const sheets = []
   try {
-    let firstPage = true
     for (const page of pages) {
+      const cssWidth = page.offsetWidth
+      const cssHeight = page.offsetHeight
+      const cssSheet = cssWidth * (297 / 210)
+      const cs = getComputedStyle(page)
+      const padTop = parseFloat(cs.paddingTop) || 48
+      const padBottom = parseFloat(cs.paddingBottom) || 48
+      const cuts = cutPoints(page)
+      const contentEnd = cuts.length ? cuts[cuts.length - 1] : cssHeight
       /* The page is copied into an SVG image with its styles and drawn
          by the browser itself, so Arabic is shaped and laid out exactly
          as it is on screen. Drawing it text run by text run, as
@@ -395,37 +712,46 @@ async function buildPdf() {
         cacheBust: false,
         style: { margin: '0', boxShadow: 'none' },
       })
-      const sliceHeight = Math.floor(canvas.width * (H / W))
-      /* A page a little taller than A4 -- usually a font that is wider
-         than the one Word used -- is shrunk onto one sheet rather than
-         spilling a line or two onto a second. */
-      if (canvas.height <= sliceHeight * 1.2) {
-        const w = W * Math.min(1, sliceHeight / canvas.height)
-        if (!firstPage) pdf.addPage()
-        firstPage = false
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', (W - w) / 2, 0, w, (canvas.height / canvas.width) * w)
+      const k = canvas.width / cssWidth
+
+      /* A page that fits, or nearly -- a font a little wider than the one
+         Word used -- goes on one sheet, shrunk a touch if need be. */
+      if (contentEnd + padBottom <= cssSheet * 1.06) {
+        const fit = Math.min(1, cssSheet / (contentEnd + padBottom))
+        sheets.push((n) => sheet(canvas.width, (ctx) => {
+          const w = canvas.width * fit
+          const h = (contentEnd + padBottom) * k * fit
+          ctx.drawImage(canvas, 0, 0, canvas.width, (contentEnd + padBottom) * k, (canvas.width - w) / 2, 0, w, h)
+        }, border, n, k))
         continue
       }
-      // Anything longer is cut into A4 slices; a slice with nothing on
-      // it is left out.
-      for (let y = 0; y < canvas.height; y += sliceHeight) {
-        const h = Math.min(sliceHeight, canvas.height - y)
-        const slice = document.createElement('canvas')
-        slice.width = canvas.width
-        slice.height = sliceHeight
-        const ctx = slice.getContext('2d', { willReadFrequently: true })
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, slice.width, slice.height)
-        ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h)
-        if (!firstPage && isBlank(ctx, slice.width, h)) continue
-        if (!firstPage) pdf.addPage()
-        firstPage = false
-        pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, W, H)
+
+      /* Anything longer goes over several sheets, cut under the last
+         paragraph that fits on each, with the page's margins kept at the
+         top and bottom of every sheet. */
+      let start = 0
+      while (start < contentEnd - 1) {
+        const first = start === 0
+        const room = (first ? cssSheet - padBottom : start + cssSheet - padTop - padBottom)
+        let cut = cuts.filter((y) => y > start + 1 && y <= room).pop()
+        if (cut === undefined) cut = Math.min(room, contentEnd)
+        const from = start
+        sheets.push((n) => sheet(canvas.width, (ctx) => {
+          const y = first ? 0 : padTop * k
+          ctx.drawImage(canvas, 0, from * k, canvas.width, (cut - from) * k, 0, y, canvas.width, (cut - from) * k)
+        }, border, n, k))
+        start = cut
       }
     }
+    sheets.forEach((make, i) => {
+      if (i) pdf.addPage()
+      const c = make(numbered ? i + 1 : 0)
+      pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297)
+    })
   } finally {
     preview.classList.remove('is-capturing')
-    preview.style.zoom = zoom
+    state.capturing = false
+    fitPreview()
   }
   return pdf.output('blob')
 }
@@ -474,15 +800,17 @@ async function printPdf() {
 /* Employees                                                            */
 /* ------------------------------------------------------------------ */
 
-/* dateSet: dates the user has set by hand, by key; kept while the
-   document is open, so changing the employee keeps the chosen date. */
-const state = { def: null, employee: null, employees: [], dateSet: {}, busy: false }
+/* dateSet: dates the user has set by hand, by key. inputs: what the user
+   has typed (the wage, the address), by key. Both are kept while the
+   document is open, so changing the employee keeps them. */
+const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, border: null, capturing: false, busy: false }
 
 async function loadEmployees() {
   const supabase = await IEnergyAuth.getClient()
   const { data, error } = await supabase
     .from('employee_profiles')
-    .select('id, code, arabic_name, national_id, hired_on, contract_expiry, is_active')
+    .select('id, code, arabic_name, national_id, id_expiry_date, hired_on, contract_expiry, '
+      + 'si_no, si_title, title, qualification_degree_ar, education_field, is_active')
     .eq('is_active', true)
     .not('arabic_name', 'is', null)
     .order('arabic_name')
@@ -653,15 +981,69 @@ function buildDateInputs(def) {
   }
 }
 
+/* One box per value the user types. An amount is typed in English
+   digits and shown in the document in Arabic digits and Arabic words. */
+function buildInputs(def) {
+  const box = $('dateFields')
+  for (const [key, label, kind, , hint] of def.inputs) {
+    const row = document.createElement('div')
+    row.className = 'hr-date-row'
+    const l = document.createElement('label')
+    l.className = 'hr-label'
+    l.htmlFor = `input-${key}`
+    l.textContent = label
+    const input = document.createElement('input')
+    input.id = `input-${key}`
+    input.className = 'hr-input'
+    input.type = 'text'
+    input.autocomplete = 'off'
+    if (kind === 'amount') {
+      input.dir = 'ltr'
+      input.inputMode = 'decimal'
+      input.placeholder = '0'
+      input.addEventListener('input', () => {
+        const a = parseAmount(input.value)
+        input.classList.toggle('is-invalid', a === undefined)
+        if (a !== undefined) {
+          state.inputs[key] = a
+          refresh()
+        }
+      })
+      input.addEventListener('blur', () => input.classList.remove('is-invalid'))
+    } else {
+      input.addEventListener('input', () => {
+        state.inputs[key] = input.value.trim()
+        refresh()
+      })
+    }
+    row.append(l, input)
+    if (hint) {
+      const h = document.createElement('p')
+      h.className = 'hr-hint'
+      h.textContent = hint
+      row.appendChild(h)
+    }
+    box.appendChild(row)
+  }
+}
+
 function currentDates() {
   return state.def.dates(state.employee, state.dateSet)
 }
 
-/* Clicking a date in the document goes to the box that sets it. */
+/* The blanks the user can change, each with the box that changes it. */
+function editableBlanks(def) {
+  const out = new Map()
+  for (const [key, , fields] of def.dateFields) for (const f of fields) out.set(f, `date-${key}`)
+  for (const [key, , , fields] of def.inputs) for (const f of fields) out.set(f, `input-${key}`)
+  return out
+}
+
+/* Clicking such a blank in the document goes to its box. */
 function focusDateFor(field) {
-  const hit = state.def?.dateFields.find(([, , fields]) => fields.includes(+field))
-  if (!hit) return false
-  const input = $(`date-${hit[0]}`)
+  const id = state.def && editableBlanks(state.def).get(+field)
+  if (!id) return false
+  const input = $(id)
   input.focus()
   input.select()
   return true
@@ -674,8 +1056,12 @@ function refresh() {
   if (!def) return
   const emp = state.employee
   const dates = currentDates()
-  const values = def.values(emp, dates)
+  const values = def.values(emp, dates, state.inputs)
   fillFields(values)
+  const editable = editableBlanks(def)
+  for (const span of $('preview').querySelectorAll('.hr-field')) {
+    span.classList.toggle('is-editable', editable.has(+span.dataset.field))
+  }
 
   for (const [key] of def.dateFields) {
     const input = $(`date-${key}`)
@@ -698,15 +1084,24 @@ function refresh() {
     box.appendChild(row)
   }
 
-  const missing = emp ? def.required.filter(([k]) => !emp[k]).map(([, label]) => label) : []
+  // What is missing: from the employee record, which has to be put right
+  // there, or from the boxes here. Required blanks stop the document from
+  // being issued; optional ones are left blank, to be written in by hand.
+  const empty = (list) => list.filter(([n]) => !values[n])
+  const fromRecord = ([n]) => !editable.has(n)
+  const missing = emp ? empty(def.required).filter(fromRecord).map(([, l]) => l) : []
+  const toType = empty(def.required).filter((x) => !fromRecord(x)).map(([, l]) => l)
+  const blank = emp ? empty(def.optional).map(([, l]) => l) : []
   const warn = $('fieldWarning')
   const notes = []
   if (missing.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${missing.join('، ')}. أكملها أولاً ثم أعد الاختيار.`)
   if (emptyDates.length) notes.push(`أدخل ${emptyDates.join('، ')}.`)
+  if (emp && toType.length) notes.push(`أدخل ${toType.join('، ')}.`)
+  if (blank.length) notes.push(`غير مسجل، وسيترك فارغًا في العقد: ${blank.join('، ')}.`)
   warn.hidden = !notes.length
   warn.textContent = notes.join(' ')
 
-  const ready = !!emp && !missing.length && !emptyDates.length && !state.busy
+  const ready = !!emp && !missing.length && !emptyDates.length && !toType.length && !state.busy
   $('savePdfBtn').disabled = !ready
   $('printBtn').disabled = !ready
 }
@@ -749,9 +1144,11 @@ async function openDocument(def) {
   state.def = def
   state.employee = null
   state.dateSet = {}
+  state.inputs = {}
   $('employeeSearch').value = ''
   $('editorTitle').textContent = def.title
   buildDateInputs(def)
+  buildInputs(def)
   $('listView').hidden = true
   $('editorView').hidden = false
   history.replaceState(null, '', `#${def.id}`)
@@ -768,6 +1165,7 @@ function closeDocument() {
   state.def = null
   state.employee = null
   state.dateSet = {}
+  state.inputs = {}
   $('editorView').hidden = true
   $('listView').hidden = false
   $('preview').innerHTML = ''

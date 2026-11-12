@@ -96,6 +96,9 @@
 /* While the page is drawn into the PDF, the fields lose their marking. */
 .hr-preview.is-capturing .hr-field { background: none; border: 0; padding: 0; }
 .hr-preview.is-capturing section.docx { box-shadow: none; margin: 0; }
+/* The frame and page numbers are drawn on each PDF sheet instead. */
+.hr-preview.is-capturing .hr-page-frame { display: none; }
+.hr-preview.is-capturing section.docx footer { visibility: hidden; }
 
 .hr-print-frame {
   position: fixed; width: 1px; height: 1px; left: -9999px; top: 0;
@@ -114,10 +117,12 @@
   position: absolute; inset-inline-end: 0; bottom: 0; width: 1px; height: 1px;
   opacity: 0; pointer-events: none; border: 0; padding: 0;
 }
-/* A date in the document that can be changed shows it takes a click. */
-.hr-field[data-field="1"], .hr-field[data-field="2"] { cursor: pointer; }
+/* A blank the user can change shows it takes a click. */
+.hr-field.is-editable { cursor: pointer; }
+.hr-input.is-invalid { border-color: var(--danger-text, #b42318); }
 
-/* The page frame: one thin black line, 24pt (32px) in from the edge. */
+/* The page frame: a black line where the template's page border is; its
+   width and distance from the edge are set from the template. */
 .hr-preview section.docx { position: relative; }
 .hr-page-frame {
   position: absolute; inset: 32px; border: 1px solid #000;
