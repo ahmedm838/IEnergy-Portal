@@ -191,6 +191,37 @@ export const foldArabic = (s) => String(s ?? '')
 
 const has = (set, k) => Object.prototype.hasOwnProperty.call(set, k)
 
+/* --- Shared ---------------------------------------------------------- */
+
+const isFemale = (emp) => emp?.gender === 'Female'
+
+/* The job title as the forms state it: the official social-insurance
+   title, in Arabic; the English title when there is none. */
+const jobTitle = (emp) => emp?.si_title || emp?.title || ''
+
+/* The department in Arabic when it has an Arabic name, else as stored. */
+const department = (emp) => emp?.department_ar || emp?.department_en || ''
+
+/* A mobile number as one run of Arabic digits: 010-1234-5678 becomes
+   ٠١٠١٢٣٤٥٦٧٨. With the hyphens kept, Arabic text would lay the three
+   groups out right to left and scramble the number. */
+const phone = (s) => toArabicDigits(String(s || '').replace(/\D/g, ''))
+
+/* The qualification as the contract states it: the degree, then the
+   field when there is one -- بكالوريوس هندسة. */
+const qualification = (emp) =>
+  [emp?.qualification_degree_ar, emp?.education_field].filter(Boolean).join(' ')
+
+/* The record's English values in the forms' Arabic, in the employee's
+   gender where Arabic has one. */
+const AR = {
+  gender: { Male: ['ذكر', 'ذكر'], Female: ['أنثى', 'أنثى'] },
+  religion: { Muslim: ['مسلم', 'مسلمة'], Christian: ['مسيحي', 'مسيحية'] },
+  marital: { Single: ['أعزب', 'عزباء'], Married: ['متزوج', 'متزوجة'], Divorced: ['مطلق', 'مطلقة'] },
+  military: { Served: ['أدى الخدمة', 'أدى الخدمة'], Postponed: ['مؤجل', 'مؤجل'], Exempted: ['معفى', 'معفى'] },
+}
+const inArabic = (list, value, emp) => (AR[list][value] || [])[isFemale(emp) ? 1 : 0] || ''
+
 /* --- Contract renewal ------------------------------------------------ */
 
 /* The agreement date is today unless the user has set it (`set.today`,
@@ -224,7 +255,7 @@ export function renewalValues(emp, d) {
 
 /* --- Hiring contract ------------------------------------------------- */
 
-/* The ID issue date is typed by the user; it starts empty. The contract
+/* The ID issue month is typed by the user; it starts empty. The contract
    runs one year from the hiring date, less a day. */
 export function hiringDates(emp, set = {}, today = todayUTC()) {
   const hired = emp ? parseISO(emp.hired_on) : null
@@ -235,11 +266,6 @@ export function hiringDates(emp, set = {}, today = todayUTC()) {
     end: hired ? oneYearFrom(hired) : null,
   }
 }
-
-/* The qualification as the contract states it: the degree, then the
-   field when there is one -- بكالوريوس هندسة. */
-const qualification = (emp) =>
-  [emp?.qualification_degree_ar, emp?.education_field].filter(Boolean).join(' ')
 
 /* The hiring contract's blanks. (10) and (11) are the monthly wage, typed
    by the user in English digits: (10) shows it in Arabic digits, (11) in
@@ -256,7 +282,7 @@ export function hiringValues(emp, d, inputs = {}) {
     6: emp?.address || '',
     7: qualification(emp),
     8: toArabicDigits(emp?.si_no || ''),
-    9: emp?.si_title || emp?.title || '',
+    9: jobTitle(emp),
     10: amountDigits(wage),
     11: amountWords(wage),
     12: arDate(d.start),
@@ -264,19 +290,94 @@ export function hiringValues(emp, d, inputs = {}) {
   }
 }
 
+/* --- Work start acknowledgement (إقرار استلام عمل) --------------------- */
+
+/* The acknowledgement is dated today unless the user sets it; the work
+   start date is the hiring date. */
+export function workStartDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+  }
+}
+
+export function workStartValues(emp, d) {
+  const name = emp?.arabic_name || ''
+  return {
+    1: name,
+    2: toArabicDigits(emp?.national_id || ''),
+    3: phone(emp?.personal_mobile),
+    4: emp?.address || '',
+    5: jobTitle(emp),
+    6: department(emp),
+    7: arDate(d.hired),
+    8: name,
+    9: arDate(d.today),
+  }
+}
+
+/* --- Social status declaration (إقرار الحالة الاجتماعية) ---------------- */
+
+/* Dated today unless the user sets it. The military certificate date and
+   the ID issue month are typed: the record holds neither. */
+export function socialStatusDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    birth: emp ? parseISO(emp.birth_date) : null,
+    military: has(set, 'military') ? set.military : null,
+    idIssued: has(set, 'idIssued') ? set.idIssued : null,
+  }
+}
+
+/* Gender, birth date and birth governorate are read out of the national
+   ID by the database. Military service does not apply to women: both of
+   its blanks say so, and the certificate date is not asked for. */
+export function socialStatusValues(emp, d, inputs = {}) {
+  const name = emp?.arabic_name || ''
+  const female = isFemale(emp)
+  const na = emp ? 'لا ينطبق' : ''
+  return {
+    1: arDate(d.today),
+    2: name,
+    3: toArabicDigits(emp?.si_no || ''),
+    4: jobTitle(emp),
+    5: department(emp),
+    6: phone(emp?.personal_mobile),
+    7: inArabic('gender', emp?.gender, emp),
+    8: emp?.national_id ? (female ? 'مصرية' : 'مصري') : '',
+    9: inArabic('religion', emp?.religion, emp),
+    10: emp?.governorate || '',
+    11: inputs.district || '',
+    12: arDate(d.birth),
+    13: emp?.qualification_degree_ar || '',
+    14: inputs.gradYear ? toArabicDigits(inputs.gradYear) : '',
+    15: inputs.university || '',
+    16: emp?.education_field || '',
+    17: female ? na : inArabic('military', emp?.military_service, emp),
+    18: female ? na : arDate(d.military),
+    19: emp?.address || '',
+    20: toArabicDigits(emp?.national_id || ''),
+    21: inputs.idGovernorate || '',
+    22: arMonth(d.idIssued),
+    23: inArabic('marital', emp?.marital_status, emp),
+    24: name,
+    25: arDate(d.today),
+  }
+}
+
 /* --- The list -------------------------------------------------------- */
 
 /* For each document:
-   blanks      the numbers in brackets that are blanks; any other
-               bracketed number in the text, a law number say, is text
+   fields      every blank, by the number in brackets in the template,
+               with what it is. Any other bracketed number in the text,
+               a law number say, is text. Every blank must be filled
+               before the document can be saved or printed.
    info        [blank, label] shown read-only beside the document
-   dateFields  [key, label, blanks, { optional, month }?] dates the user
-               may set; optional ones may stay empty, month ones are
-               month and year only
-   inputs      [key, label, kind, blanks, hint] values the user types
-   required    [blank, label] that must be filled before the document
-               can be issued, the label naming what is missing
-   optional    [blank, label] that may stay empty, with a warning */
+   dateFields  [key, label, blanks, { month }?] dates the user sets;
+               month ones are month and year only
+   inputs      [key, label, kind, blanks, hint] values the user types;
+               kind is text, amount (English digits, shown in Arabic
+               digits and words) or year */
 const DOCUMENTS = [
   {
     id: 'hiring',
@@ -284,7 +385,12 @@ const DOCUMENTS = [
     subtitle: 'Hiring contract',
     template: 'templates/hiring-contract.docx?v=1',
     fileName: 'عقد عمل',
-    blanks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    fields: {
+      1: 'اليوم', 2: 'تاريخ تحرير العقد', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
+      5: 'شهر وسنة إصدار البطاقة', 6: 'العنوان', 7: 'المؤهل', 8: 'الرقم التأميني',
+      9: 'الوظيفة', 10: 'الأجر الشهري', 11: 'الأجر الشهري', 12: 'تاريخ التعيين',
+      13: 'تاريخ التعيين',
+    },
     dates: hiringDates,
     values: hiringValues,
     info: [
@@ -299,26 +405,11 @@ const DOCUMENTS = [
     ],
     dateFields: [
       ['today', 'تاريخ تحرير العقد', [1, 2]],
-      // Typed by the user only; the employee record does not hold it.
-      // Month and year: the card gives no day. It may be left blank, to
-      // be written in by hand.
-      ['idIssued', 'شهر وسنة إصدار البطاقة', [5], { optional: true, month: true }],
+      // Month and year: the card gives no day.
+      ['idIssued', 'شهر وسنة إصدار البطاقة', [5], { month: true }],
     ],
     inputs: [
       ['salary', 'الأجر الشهري (بالأرقام الإنجليزية)', 'amount', [10, 11], 'مثال: 8500 أو 8500.50'],
-    ],
-    required: [
-      [3, 'الاسم بالعربية'],
-      [4, 'الرقم القومي'],
-      [12, 'تاريخ التعيين'],
-      [10, 'الأجر الشهري'],
-    ],
-    optional: [
-      [5, 'شهر وسنة إصدار البطاقة'],
-      [6, 'محل الإقامة'],
-      [7, 'المؤهل'],
-      [8, 'الرقم التأميني'],
-      [9, 'الوظيفة'],
     ],
   },
   {
@@ -327,7 +418,10 @@ const DOCUMENTS = [
     subtitle: 'Contract renewal',
     template: 'templates/contract-renewal.docx?v=2',
     fileName: 'تجديد عقد',
-    blanks: [1, 2, 3, 4, 5, 6, 7, 8],
+    fields: {
+      1: 'اليوم', 2: 'تاريخ الاتفاق', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
+      5: 'تاريخ التعيين', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد', 8: 'الاسم بالعربية',
+    },
     dates: renewalDates,
     values: renewalValues,
     info: [
@@ -337,19 +431,79 @@ const DOCUMENTS = [
       [6, 'بداية التجديد'],
       [7, 'نهاية التجديد'],
     ],
-    // The one date the user may change: the agreement date, "on day (1),
-    // the (2)". Every other date comes from the employee record.
     dateFields: [['today', 'تاريخ الاتفاق', [1, 2]]],
     inputs: [],
-    required: [
-      [3, 'الاسم بالعربية'],
-      [4, 'الرقم القومي'],
-      [5, 'تاريخ التعيين'],
-      [6, 'تاريخ انتهاء العقد'],
+  },
+  {
+    id: 'work-start',
+    title: 'إقرار استلام عمل',
+    subtitle: 'Work start acknowledgement',
+    template: 'templates/work-start.docx?v=1',
+    fileName: 'إقرار استلام عمل',
+    fields: {
+      1: 'الاسم بالعربية', 2: 'الرقم القومي', 3: 'الموبايل الشخصي', 4: 'العنوان',
+      5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'تاريخ الإقرار',
+    },
+    dates: workStartDates,
+    values: workStartValues,
+    info: [
+      [2, 'الرقم القومي'],
+      [3, 'الموبايل'],
+      [4, 'العنوان'],
+      [5, 'الوظيفة'],
+      [6, 'الإدارة'],
+      [7, 'تاريخ استلام العمل'],
     ],
-    optional: [],
+    dateFields: [['today', 'تاريخ الإقرار', [9]]],
+    inputs: [],
+  },
+  {
+    id: 'social-status',
+    title: 'إقرار الحالة الاجتماعية',
+    subtitle: 'Social status declaration',
+    template: 'templates/social-status.docx?v=1',
+    fileName: 'إقرار الحالة الاجتماعية',
+    fields: {
+      1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
+      6: 'الموبايل الشخصي', 7: 'النوع (من الرقم القومي)', 8: 'الجنسية (من الرقم القومي)', 9: 'الديانة',
+      10: 'محافظة الميلاد (من الرقم القومي)', 11: 'قسم / مركز الميلاد',
+      12: 'تاريخ الميلاد (من الرقم القومي)', 13: 'المؤهل', 14: 'سنة التخرج', 15: 'جهة التخرج',
+      16: 'التخصص', 17: 'الموقف من التجنيد', 18: 'تاريخ شهادة التجنيد', 19: 'العنوان',
+      20: 'الرقم القومي', 21: 'محافظة إصدار البطاقة', 22: 'شهر وسنة إصدار البطاقة',
+      23: 'الحالة الاجتماعية', 24: 'الاسم بالعربية', 25: 'تاريخ الإقرار',
+    },
+    dates: socialStatusDates,
+    values: socialStatusValues,
+    info: [
+      [3, 'الرقم التأميني'],
+      [4, 'الوظيفة'],
+      [5, 'الإدارة'],
+      [6, 'الموبايل'],
+      [7, 'النوع'],
+      [9, 'الديانة'],
+      [10, 'محافظة الميلاد'],
+      [12, 'تاريخ الميلاد'],
+      [13, 'المؤهل'],
+      [16, 'التخصص'],
+      [17, 'الموقف من التجنيد'],
+      [19, 'العنوان'],
+      [20, 'الرقم القومي'],
+      [23, 'الحالة الاجتماعية'],
+    ],
+    dateFields: [
+      ['today', 'تاريخ الإقرار', [1, 25]],
+      ['military', 'تاريخ شهادة التجنيد', [18]],
+      ['idIssued', 'شهر وسنة إصدار البطاقة', [22], { month: true }],
+    ],
+    inputs: [
+      ['district', 'قسم / مركز الميلاد', 'text', [11]],
+      ['gradYear', 'سنة التخرج (بالأرقام الإنجليزية)', 'year', [14], 'مثال: 2015'],
+      ['university', 'جهة التخرج', 'text', [15]],
+      ['idGovernorate', 'محافظة إصدار البطاقة', 'text', [21]],
+    ],
   },
 ]
+for (const def of DOCUMENTS) def.blanks = Object.keys(def.fields).map(Number)
 
 /* ------------------------------------------------------------------ */
 /* Template preparation                                                 */
@@ -451,6 +605,9 @@ async function loadTemplate(def) {
       const zip = await JSZip.loadAsync(await res.arrayBuffer())
       let xml = await zip.file('word/document.xml').async('string')
       const border = pageBorder(xml)
+      const tabStops = readTabStops(xml)
+      const settings = zip.file('word/settings.xml') ? await zip.file('word/settings.xml').async('string') : ''
+      const defaultTab = +(/<w:defaultTabStop w:val="(\d+)"/.exec(settings)?.[1] || 720) / 20
       // Kashida justification is how Word justifies Arabic; the renderer
       // does not know it and would leave those paragraphs unaligned.
       xml = xml.replace(/(<w:jc w:val=")(?:low|medium|high)Kashida(")/g, '$1both$2')
@@ -460,10 +617,79 @@ async function loadTemplate(def) {
           zip.file(name, useArabicRunProps(await zip.file(name).async('string')))
         }
       }
-      return { blob: await zip.generateAsync({ type: 'blob' }), border }
+      return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab }
     })())
   }
   return templateCache.get(url)
+}
+
+/* ------------------------------------------------------------------ */
+/* Tabs in right-to-left paragraphs                                     */
+/* ------------------------------------------------------------------ */
+
+/* The tab stops of every paragraph in the body that has a tab in its
+   text, in document order, in points: [{ pos, type }]. Read from the
+   template, since the renderer keeps them to itself. */
+export function readTabStops(xml) {
+  const out = []
+  const body = xml.slice(xml.indexOf('<w:body'))
+  for (const m of body.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)) {
+    const p = m[0]
+    const pPr = /<w:pPr>[\s\S]*?<\/w:pPr>/.exec(p)?.[0] || ''
+    if (!p.replace(pPr, '').includes('<w:tab/>')) continue
+    const stops = [...pPr.matchAll(/<w:tab w:val="(\w+)"[^>]*w:pos="(-?\d+)"/g)]
+      .filter((t) => t[1] !== 'clear')
+      .map((t) => ({ type: t[1], pos: +t[2] / 20 }))
+      .sort((a, b) => a.pos - b.pos)
+    out.push(stops)
+  }
+  return out
+}
+
+/* Word measures tab stops in a right-to-left paragraph from the right
+   edge; the renderer measures them from the left, as for English, and
+   only once, before the blanks are filled. So every tab in a right-to-
+   left paragraph is laid out again here, from the right, each time the
+   values change: a "center" stop centres the text that follows it on the
+   stop, an "end" stop ends it there, any other starts it there. Past the
+   last stop, stops fall every defaultTab points. */
+function layoutTabs(root) {
+  const stopsList = state.tabStops
+  if (!stopsList) return
+  const paras = [...root.querySelectorAll('section.docx article p')].filter((p) => p.querySelector('.docx-tab-stop'))
+  if (paras.length !== stopsList.length) return // not the paragraphs we read; leave them be
+  const PT = 0.75 // CSS px to points
+  paras.forEach((p, i) => {
+    if (p.dir !== 'rtl') return
+    const tabs = [...p.querySelectorAll('.docx-tab-stop')]
+    for (const t of tabs) {
+      t.innerHTML = '&nbsp;'
+      t.style.wordSpacing = '0pt'
+    }
+    const pb0 = p.getBoundingClientRect()
+    const scale = pb0.width ? p.offsetWidth / pb0.width : 1 // undoes any zoom on the preview
+    const stops = [...stopsList[i]]
+    const last = stops.length ? stops[stops.length - 1].pos : 0
+    for (let pos = last + state.defaultTab; pos < 1000; pos += state.defaultTab) stops.push({ type: 'start', pos })
+    tabs.forEach((tab, k) => {
+      const pb = p.getBoundingClientRect()
+      const right = pb.right - parseFloat(getComputedStyle(p).paddingRight) / scale
+      const tb = tab.getBoundingClientRect()
+      const at = (right - tb.right) * scale * PT // where the tab starts, from the right
+      const stop = stops.find((s) => s.pos > at + 0.5)
+      if (!stop) return
+      const range = document.createRange()
+      range.setStartAfter(tab)
+      if (tabs[k + 1]) range.setEndBefore(tabs[k + 1])
+      else range.setEndAfter(p.lastChild)
+      const w = range.getBoundingClientRect().width * scale * PT // the text that follows
+      const own = tb.width * scale * PT
+      let width = stop.pos - at
+      if (stop.type === 'center') width -= w / 2
+      else if (stop.type === 'end' || stop.type === 'right' || stop.type === 'decimal') width -= w
+      tab.style.wordSpacing = `${Math.max(3, width - own).toFixed(1)}pt`
+    })
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -561,8 +787,10 @@ async function drawDocument(def) {
   preview.innerHTML = ''
   status.hidden = false
   status.textContent = 'Loading document…'
-  const { blob, border } = await loadTemplate(def)
+  const { blob, border, tabStops, defaultTab } = await loadTemplate(def)
   state.border = border
+  state.tabStops = tabStops
+  state.defaultTab = defaultTab
   await renderAsync(blob, preview, null, {
     className: 'docx',
     inWrapper: true,
@@ -778,10 +1006,22 @@ async function printPdf() {
 /* dateSet: dates the user has set by hand, by key. inputs: what the user
    has typed (the wage, the address), by key. Both are kept while the
    document is open, so changing the employee keeps them. */
-const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, border: null, capturing: false, busy: false }
+const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, border: null, tabStops: null, defaultTab: 36, capturing: false, busy: false }
 
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
-  'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'is_active']
+  'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'is_active',
+  'department_id', 'personal_mobile', 'gender', 'birth_date', 'governorate', 'religion',
+  'marital_status', 'military_service']
+
+/* Department names by id, in Arabic where the department has one
+   (departments.name_ar, from migration 20261112160001) and as stored
+   otherwise. A database without that column yet gives the stored names. */
+async function loadDepartments(supabase) {
+  let { data, error } = await supabase.from('departments').select('id, name, name_ar')
+  if (error && error.code === '42703') ({ data, error } = await supabase.from('departments').select('id, name'))
+  if (error) return new Map()
+  return new Map((data || []).map((d) => [d.id, { en: d.name, ar: d.name_ar || '' }]))
+}
 
 async function loadEmployees() {
   const supabase = await IEnergyAuth.getClient()
@@ -799,7 +1039,13 @@ async function loadEmployees() {
     ({ data, error } = await query(EMPLOYEE_COLUMNS.filter((c) => c !== 'address')))
   }
   if (error) throw error
-  state.employees = (data || []).map((e) => ({ ...e, _key: foldArabic(e.arabic_name) }))
+  const departments = await loadDepartments(supabase)
+  state.employees = (data || []).map((e) => ({
+    ...e,
+    department_ar: departments.get(e.department_id)?.ar || '',
+    department_en: departments.get(e.department_id)?.en || '',
+    _key: foldArabic(e.arabic_name),
+  }))
   return state.employees
 }
 
@@ -982,7 +1228,21 @@ function buildInputs(def) {
     input.className = 'hr-input'
     input.type = 'text'
     input.autocomplete = 'off'
-    if (kind === 'amount') {
+    if (kind === 'year') {
+      // Four English digits; shown in Arabic digits in the document.
+      input.dir = 'ltr'
+      input.inputMode = 'numeric'
+      input.maxLength = 4
+      input.placeholder = 'yyyy'
+      input.addEventListener('input', () => {
+        const v = input.value.replace(/[٠-٩]/g, (d) => AR_DIGITS.indexOf(d)).trim()
+        const ok = /^(19|20)\d{2}$/.test(v)
+        input.classList.toggle('is-invalid', !!v && !ok)
+        state.inputs[key] = ok ? v : ''
+        refresh()
+      })
+      input.addEventListener('blur', () => input.classList.remove('is-invalid'))
+    } else if (kind === 'amount') {
       input.dir = 'ltr'
       input.inputMode = 'decimal'
       input.placeholder = '0'
@@ -1043,6 +1303,7 @@ function refresh() {
   const dates = currentDates()
   const values = def.values(emp, dates, state.inputs)
   fillFields(values)
+  layoutTabs($('preview'))
   const editable = editableBlanks(def)
   for (const span of $('preview').querySelectorAll('.hr-field')) {
     span.classList.toggle('is-editable', editable.has(+span.dataset.field))
@@ -1054,8 +1315,6 @@ function refresh() {
     const reset = input?.parentElement.querySelectorAll('.hr-date-btn')[1]
     if (reset) reset.hidden = !(key in state.dateSet)
   }
-  const emptyDates = def.dateFields.filter(([key, , , opts]) => !opts?.optional && !dates[key]).map(([, label]) => label)
-
   const box = $('autoFields')
   box.innerHTML = ''
   for (const [n, label] of def.info) {
@@ -1069,26 +1328,22 @@ function refresh() {
     box.appendChild(row)
   }
 
-  // What is missing: from the employee record, which has to be put right
-  // there, or from the boxes here. Required blanks stop the document from
-  // being issued; optional ones are left blank, to be written in by hand.
-  const empty = (list) => list.filter(([n]) => !values[n])
-  const fromRecord = ([n]) => !editable.has(n)
-  const missing = emp ? empty(def.required).filter(fromRecord).map(([, l]) => l) : []
-  const toType = empty(def.required).filter((x) => !fromRecord(x)).map(([, l]) => l)
-  const blankRecord = emp ? empty(def.optional).filter(fromRecord).map(([, l]) => l) : []
-  const blankTyped = emp ? empty(def.optional).filter((x) => !fromRecord(x)).map(([, l]) => l) : []
+  /* The rule for every form: nothing is saved or printed with a blank
+     left empty. What is missing is named -- from the employee record,
+     to be put right there, or from the boxes here, to be filled in. */
+  const empty = def.blanks.filter((n) => !values[n])
+  const names = (list) => [...new Set(list.map((n) => def.fields[n]))].join('، ')
+  const fromRecord = empty.filter((n) => !editable.has(n))
+  const toFill = empty.filter((n) => editable.has(n))
   const warn = $('fieldWarning')
   const notes = []
-  if (missing.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${missing.join('، ')}. أكملها أولاً ثم أعد الاختيار.`)
-  if (emptyDates.length) notes.push(`أدخل ${emptyDates.join('، ')}.`)
-  if (emp && toType.length) notes.push(`أدخل ${toType.join('، ')}.`)
-  if (blankRecord.length) notes.push(`غير مسجل في قاعدة بيانات الموظفين، وسيترك فارغًا في العقد: ${blankRecord.join('، ')}.`)
-  if (blankTyped.length) notes.push(`فارغ، وسيترك للكتابة باليد: ${blankTyped.join('، ')}.`)
+  if (emp && fromRecord.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${names(fromRecord)}. أكملها أولاً ثم أعد الاختيار.`)
+  if (emp && toFill.length) notes.push(`أدخل ${names(toFill)}.`)
+  if (notes.length) notes.push('لا يمكن الحفظ أو الطباعة قبل استكمال كل البيانات.')
   warn.hidden = !notes.length
   warn.textContent = notes.join(' ')
 
-  const ready = !!emp && !missing.length && !emptyDates.length && !toType.length && !state.busy
+  const ready = !!emp && !empty.length && !state.busy
   $('savePdfBtn').disabled = !ready
   $('printBtn').disabled = !ready
 }
