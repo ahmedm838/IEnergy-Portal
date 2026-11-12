@@ -101,3 +101,19 @@
   position: fixed; width: 1px; height: 1px; left: -9999px; top: 0;
   border: 0; opacity: 0; pointer-events: none;
 }
+
+/* The editable date */
+.hr-dates { display: grid; gap: 10px; margin-top: 14px; }
+.hr-date-group { display: flex; gap: 6px; align-items: center; position: relative; }
+.hr-date-input { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.hr-date-input.is-invalid { border-color: var(--danger-text, #b42318); }
+.hr-date-btn { flex: none; padding: 8px 10px; line-height: 1; }
+.hr-date-btn[hidden] { display: none; }
+/* The native picker is only there to be opened by the calendar button. */
+.hr-date-picker {
+  position: absolute; inset-inline-end: 0; bottom: 0; width: 1px; height: 1px;
+  opacity: 0; pointer-events: none; border: 0; padding: 0;
+}
+/* A date in the document that can be changed shows it takes a click. */
+.hr-field[data-field="1"], .hr-field[data-field="2"],
+.hr-field[data-field="9"], .hr-field[data-field="10"] { cursor: pointer; }

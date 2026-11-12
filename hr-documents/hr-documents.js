@@ -46,10 +46,30 @@ export function oneYearFrom(start) {
   return new Date(Date.UTC(y, m, Math.min(less.getUTCDate(), last)))
 }
 
-export const arDate = (d) => d
-  ? toArabicDigits(`${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`)
+/* dd/mm/yyyy with the digits written left to right. Inside Arabic text
+   the browser would otherwise lay the three numbers out right to left
+   and show yyyy/mm/dd; the isolate marks (LRI ... PDI) keep the date in
+   one piece, read day first. They take no space and print nothing. */
+const LRI = '⁦'
+const PDI = '⁩'
+export const dmy = (d) => d
+  ? `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
   : ''
+export const arDate = (d) => (d ? LRI + toArabicDigits(dmy(d)) + PDI : '')
 export const arDay = (d) => (d ? AR_DAYS[d.getUTCDay()] : '')
+export const isoOf = (d) => (d ? d.toISOString().slice(0, 10) : '')
+
+/* A date typed as dd/mm/yyyy, in Western or Arabic digits, with / - or .
+   between the parts. Empty gives null; anything else that is not a real
+   calendar day gives undefined. */
+export function parseDMY(text) {
+  const s = String(text ?? '').replace(/[٠-٩]/g, (d) => AR_DIGITS.indexOf(d)).trim()
+  if (!s) return null
+  const m = /^(\d{1,2})\s*[/\-.]\s*(\d{1,2})\s*[/\-.]\s*(\d{4})$/.exec(s)
+  if (!m) return undefined
+  const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]))
+  return d.getUTCDate() === +m[1] && d.getUTCMonth() === +m[2] - 1 ? d : undefined
+}
 
 /* For searching Arabic names: the spellings people type interchangeably
    are folded together, and diacritics are dropped. */
@@ -66,36 +86,53 @@ export const foldArabic = (s) => String(s ?? '')
 /* The documents                                                        */
 /* ------------------------------------------------------------------ */
 
-/* The contract renewal's blanks, by the number written in the template.
-   Only the employee is chosen; everything else follows from the
-   employee and today's date. */
-export function renewalValues(emp, today = todayUTC()) {
+/* The contract renewal's dates. Each one comes from the employee record
+   and today's date unless the user has set it by hand (`set`, where null
+   means cleared). The end follows the start: one year on, less a day. */
+export function renewalDates(emp, set = {}, today = todayUTC()) {
+  const has = (k) => Object.prototype.hasOwnProperty.call(set, k)
   const lastExpiry = emp ? parseISO(emp.contract_expiry) : null
-  const start = lastExpiry ? addDays(lastExpiry, 1) : null
-  const end = start ? oneYearFrom(start) : null
-  const name = emp?.arabic_name || ''
+  const start = has('start') ? set.start : (lastExpiry ? addDays(lastExpiry, 1) : null)
   return {
-    1: arDay(today),
-    2: arDate(today),
-    3: name,
-    4: toArabicDigits(emp?.national_id || ''),
-    5: arDate(emp ? parseISO(emp.hired_on) : null),
-    6: arDate(start),
-    7: arDate(end),
-    8: name,
-    9: arDate(today),
-    10: arDate(today),
+    today: has('today') ? set.today : today,
+    hired: has('hired') ? set.hired : (emp ? parseISO(emp.hired_on) : null),
+    start,
+    end: has('end') ? set.end : (start ? oneYearFrom(start) : null),
   }
 }
 
-const RENEWAL_LABELS = {
-  1: 'اليوم',
-  2: 'تاريخ اليوم',
-  4: 'الرقم القومي',
-  5: 'تاريخ التعيين',
-  6: 'بداية التجديد',
-  7: 'نهاية التجديد',
+/* The contract renewal's blanks, by the number written in the template. */
+export function renewalValues(emp, d) {
+  const name = emp?.arabic_name || ''
+  return {
+    1: arDay(d.today),
+    2: arDate(d.today),
+    3: name,
+    4: toArabicDigits(emp?.national_id || ''),
+    5: arDate(d.hired),
+    6: arDate(d.start),
+    7: arDate(d.end),
+    8: name,
+    9: arDate(d.today),
+    10: arDate(d.today),
+  }
 }
+
+/* Shown beside the document, read only. */
+const RENEWAL_INFO = [
+  [1, 'اليوم'],
+  [4, 'الرقم القومي'],
+  [5, 'تاريخ التعيين'],
+  [6, 'بداية التجديد'],
+  [7, 'نهاية التجديد'],
+]
+
+/* The one date the user may change: the agreement date, "on day (1),
+   the (2)". It defaults to today and also dates both signatures (9, 10).
+   Every other date comes from the employee record. */
+const RENEWAL_DATES = [
+  ['today', 'تاريخ الاتفاق', [1, 2, 9, 10]],
+]
 
 const DOCUMENTS = [
   {
@@ -110,9 +147,11 @@ const DOCUMENTS = [
     subtitle: 'Contract renewal',
     template: 'templates/contract-renewal.docx?v=1',
     fileName: 'تجديد عقد',
+    dates: renewalDates,
     values: renewalValues,
-    labels: RENEWAL_LABELS,
-    // What has to be on the record before the document can be issued.
+    info: RENEWAL_INFO,
+    dateFields: RENEWAL_DATES,
+    // What has to be on the employee record before the document can be issued.
     required: [
       ['arabic_name', 'الاسم بالعربية'],
       ['national_id', 'الرقم القومي'],
@@ -223,8 +262,23 @@ function lockBlanks(root) {
   }
 }
 
+/* Every paragraph reads right to left. The template marks only some of
+   its paragraphs that way, and the Word renderer takes "left" literally,
+   so a paragraph aligned to its start is aligned right here. Centred and
+   justified paragraphs keep their alignment; a justified paragraph's
+   last line now ends on the right. The signature table keeps its column
+   order, the company on the right. */
+function rightToLeft(root) {
+  for (const p of root.querySelectorAll('section.docx p')) {
+    p.dir = 'rtl'
+    const align = getComputedStyle(p).textAlign
+    if (align === 'left' || align === 'start' || align === '-webkit-left') p.style.textAlign = 'right'
+  }
+}
+
 /* The text around the fields is editable; the fields are not. A
-   deletion that would take a field with it is refused. */
+   deletion that would take a field with it is refused. Wired once, on
+   the preview element, which stays while documents come and go. */
 function protectFields(root) {
   root.addEventListener('beforeinput', (e) => {
     const ranges = e.getTargetRanges ? e.getTargetRanges() : []
@@ -264,11 +318,11 @@ async function drawDocument(def) {
     renderFooters: true,
   })
   lockBlanks(preview)
+  rightToLeft(preview)
   for (const page of preview.querySelectorAll('section.docx')) {
     page.contentEditable = 'true'
     page.spellcheck = false
   }
-  protectFields(preview)
   status.hidden = true
   fitPreview()
 }
@@ -411,7 +465,9 @@ async function printPdf() {
 /* Employees                                                            */
 /* ------------------------------------------------------------------ */
 
-const state = { def: null, employee: null, employees: [], busy: false }
+/* dateSet: dates the user has set by hand, by key; kept while the
+   document is open, so changing the employee keeps the chosen date. */
+const state = { def: null, employee: null, employees: [], dateSet: {}, busy: false }
 
 async function loadEmployees() {
   const supabase = await IEnergyAuth.getClient()
@@ -507,18 +563,122 @@ function setEmployee(emp) {
   refresh()
 }
 
+/* ------------------------------------------------------------------ */
+/* The editable date                                                    */
+/* ------------------------------------------------------------------ */
+
+/* One row per editable date: a dd/mm/yyyy box, a calendar button that
+   opens the browser's date picker, and a button back to the default. */
+function buildDateInputs(def) {
+  const box = $('dateFields')
+  box.innerHTML = ''
+  for (const [key, label] of def.dateFields) {
+    const row = document.createElement('div')
+    row.className = 'hr-date-row'
+    const l = document.createElement('label')
+    l.className = 'hr-label'
+    l.htmlFor = `date-${key}`
+    l.textContent = label
+    const group = document.createElement('div')
+    group.className = 'hr-date-group'
+    group.dir = 'ltr'
+
+    const input = document.createElement('input')
+    input.id = `date-${key}`
+    input.className = 'hr-input hr-date-input'
+    input.type = 'text'
+    input.inputMode = 'numeric'
+    input.placeholder = 'dd/mm/yyyy'
+    input.autocomplete = 'off'
+    input.dataset.key = key
+
+    const picker = document.createElement('input')
+    picker.type = 'date'
+    picker.className = 'hr-date-picker'
+    picker.tabIndex = -1
+    picker.setAttribute('aria-hidden', 'true')
+
+    const cal = document.createElement('button')
+    cal.type = 'button'
+    cal.className = 'btn hr-date-btn'
+    cal.title = 'اختر من التقويم'
+    cal.textContent = '📅'
+
+    const reset = document.createElement('button')
+    reset.type = 'button'
+    reset.className = 'btn hr-date-btn'
+    reset.title = 'إرجاع التاريخ التلقائي'
+    reset.textContent = '↺'
+
+    const apply = (d) => {
+      state.dateSet[key] = d
+      refresh()
+    }
+    input.addEventListener('input', () => {
+      const d = parseDMY(input.value)
+      input.classList.toggle('is-invalid', d === undefined)
+      if (d !== undefined) apply(d)
+    })
+    // On leaving the box, show the date as it was understood: 1/2/2026
+    // becomes 01/02/2026; something unreadable goes back to the last date.
+    input.addEventListener('blur', () => {
+      input.classList.remove('is-invalid')
+      refresh()
+    })
+    cal.addEventListener('click', () => {
+      picker.value = isoOf(currentDates()[key])
+      if (picker.showPicker) {
+        try { picker.showPicker(); return } catch (_) { /* fall through */ }
+      }
+      picker.click()
+    })
+    picker.addEventListener('change', () => apply(parseISO(picker.value)))
+    reset.addEventListener('click', () => {
+      delete state.dateSet[key]
+      refresh()
+    })
+
+    group.append(input, cal, reset, picker)
+    row.append(l, group)
+    box.appendChild(row)
+  }
+}
+
+function currentDates() {
+  return state.def.dates(state.employee, state.dateSet)
+}
+
+/* Clicking a date in the document goes to the box that sets it. */
+function focusDateFor(field) {
+  const hit = state.def?.dateFields.find(([, , fields]) => fields.includes(+field))
+  if (!hit) return false
+  const input = $(`date-${hit[0]}`)
+  input.focus()
+  input.select()
+  return true
+}
+
 /* Fill the document and the read-only list beside it, and decide whether
    the document is complete enough to be issued. */
 function refresh() {
   const def = state.def
   if (!def) return
   const emp = state.employee
-  const values = def.values(emp)
+  const dates = currentDates()
+  const values = def.values(emp, dates)
   fillFields(values)
+
+  for (const [key] of def.dateFields) {
+    const input = $(`date-${key}`)
+    if (input && document.activeElement !== input) input.value = dmy(dates[key])
+    const reset = input?.parentElement.querySelectorAll('.hr-date-btn')[1]
+    if (reset) reset.hidden = !(key in state.dateSet)
+  }
+  const emptyDates = def.dateFields.filter(([key]) => !dates[key]).map(([, label]) => label)
 
   const box = $('autoFields')
   box.innerHTML = ''
-  for (const [n, label] of Object.entries(def.labels)) {
+  for (const [n, label] of def.info) {
     const row = document.createElement('div')
     row.className = 'hr-auto-row'
     const l = document.createElement('span')
@@ -531,12 +691,13 @@ function refresh() {
 
   const missing = emp ? def.required.filter(([k]) => !emp[k]).map(([, label]) => label) : []
   const warn = $('fieldWarning')
-  warn.hidden = !missing.length
-  warn.textContent = missing.length
-    ? `بيانات ناقصة في قاعدة بيانات الموظفين: ${missing.join('، ')}. أكملها أولاً ثم أعد الاختيار.`
-    : ''
+  const notes = []
+  if (missing.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${missing.join('، ')}. أكملها أولاً ثم أعد الاختيار.`)
+  if (emptyDates.length) notes.push(`أدخل ${emptyDates.join('، ')}.`)
+  warn.hidden = !notes.length
+  warn.textContent = notes.join(' ')
 
-  const ready = !!emp && !missing.length && !state.busy
+  const ready = !!emp && !missing.length && !emptyDates.length && !state.busy
   $('savePdfBtn').disabled = !ready
   $('printBtn').disabled = !ready
 }
@@ -578,8 +739,10 @@ function drawList() {
 async function openDocument(def) {
   state.def = def
   state.employee = null
+  state.dateSet = {}
   $('employeeSearch').value = ''
   $('editorTitle').textContent = def.title
+  buildDateInputs(def)
   $('listView').hidden = true
   $('editorView').hidden = false
   history.replaceState(null, '', `#${def.id}`)
@@ -595,6 +758,7 @@ async function openDocument(def) {
 function closeDocument() {
   state.def = null
   state.employee = null
+  state.dateSet = {}
   $('editorView').hidden = true
   $('listView').hidden = false
   $('preview').innerHTML = ''
@@ -654,6 +818,11 @@ async function onAuthed() {
   fillPageBar()
   drawList()
   wirePicker()
+  protectFields($('preview'))
+  $('preview').addEventListener('click', (e) => {
+    const f = e.target.closest && e.target.closest('.hr-field')
+    if (f && focusDateFor(f.dataset.field)) e.preventDefault()
+  })
   $('backBtn').addEventListener('click', closeDocument)
   $('savePdfBtn').addEventListener('click', busy($('savePdfBtn'), 'Saving…', savePdf))
   $('printBtn').addEventListener('click', busy($('printBtn'), 'Preparing…', printPdf))
