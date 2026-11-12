@@ -46,16 +46,12 @@ export function oneYearFrom(start) {
   return new Date(Date.UTC(y, m, Math.min(less.getUTCDate(), last)))
 }
 
-/* dd/mm/yyyy with the digits written left to right. Inside Arabic text
-   the browser would otherwise lay the three numbers out right to left
-   and show yyyy/mm/dd; the isolate marks (LRI ... PDI) keep the date in
-   one piece, read day first. They take no space and print nothing. */
-const LRI = '⁦'
-const PDI = '⁩'
+/* dd/mm/yyyy. In the Arabic text the browser lays the three numbers out
+   right to left, the way the date reads in Arabic. */
 export const dmy = (d) => d
   ? `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
   : ''
-export const arDate = (d) => (d ? LRI + toArabicDigits(dmy(d)) + PDI : '')
+export const arDate = (d) => (d ? toArabicDigits(dmy(d)) : '')
 export const arDay = (d) => (d ? AR_DAYS[d.getUTCDay()] : '')
 export const isoOf = (d) => (d ? d.toISOString().slice(0, 10) : '')
 
@@ -113,8 +109,6 @@ export function renewalValues(emp, d) {
     6: arDate(d.start),
     7: arDate(d.end),
     8: name,
-    9: arDate(d.today),
-    10: arDate(d.today),
   }
 }
 
@@ -128,10 +122,10 @@ const RENEWAL_INFO = [
 ]
 
 /* The one date the user may change: the agreement date, "on day (1),
-   the (2)". It defaults to today and also dates both signatures (9, 10).
-   Every other date comes from the employee record. */
+   the (2)". It defaults to today. Every other date comes from the
+   employee record. */
 const RENEWAL_DATES = [
-  ['today', 'تاريخ الاتفاق', [1, 2, 9, 10]],
+  ['today', 'تاريخ الاتفاق', [1, 2]],
 ]
 
 const DOCUMENTS = [
@@ -145,7 +139,7 @@ const DOCUMENTS = [
     id: 'renewal',
     title: 'اتفاق تجديد عقد عمل محدد المدة',
     subtitle: 'Contract renewal',
-    template: 'templates/contract-renewal.docx?v=1',
+    template: 'templates/contract-renewal.docx?v=2',
     fileName: 'تجديد عقد',
     dates: renewalDates,
     values: renewalValues,
@@ -276,6 +270,20 @@ function rightToLeft(root) {
   }
 }
 
+/* A thin line around each page, 24pt in from the edge, as the template's
+   page border sets it. The Word renderer reads page borders but does not
+   draw them, so the line is drawn here; it is part of the page, so it is
+   in the PDF too. */
+function frame(root) {
+  for (const page of root.querySelectorAll('section.docx')) {
+    const line = document.createElement('div')
+    line.className = 'hr-page-frame'
+    line.contentEditable = 'false'
+    line.setAttribute('aria-hidden', 'true')
+    page.prepend(line)
+  }
+}
+
 /* The text around the fields is editable; the fields are not. A
    deletion that would take a field with it is refused. Wired once, on
    the preview element, which stays while documents come and go. */
@@ -319,6 +327,7 @@ async function drawDocument(def) {
   })
   lockBlanks(preview)
   rightToLeft(preview)
+  frame(preview)
   for (const page of preview.querySelectorAll('section.docx')) {
     page.contentEditable = 'true'
     page.spellcheck = false

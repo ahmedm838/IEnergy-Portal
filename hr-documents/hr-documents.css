@@ -115,5 +115,11 @@
   opacity: 0; pointer-events: none; border: 0; padding: 0;
 }
 /* A date in the document that can be changed shows it takes a click. */
-.hr-field[data-field="1"], .hr-field[data-field="2"],
-.hr-field[data-field="9"], .hr-field[data-field="10"] { cursor: pointer; }
+.hr-field[data-field="1"], .hr-field[data-field="2"] { cursor: pointer; }
+
+/* The page frame: one thin black line, 24pt (32px) in from the edge. */
+.hr-preview section.docx { position: relative; }
+.hr-page-frame {
+  position: absolute; inset: 32px; border: 1px solid #000;
+  pointer-events: none; user-select: none; -webkit-user-select: none;
+}
