@@ -383,6 +383,43 @@ function socialStatusDefaults(emp) {
   }
 }
 
+/* --- Resignation (استقالة مسببة) --------------------------------------- */
+
+/* Every date on the resignation is the user's: none is filled in. */
+export function resignationDates(emp, set = {}) {
+  const d = (k) => (has(set, k) ? set[k] : null)
+  return {
+    submitted: d('submitted'),
+    lastDay: d('lastDay'),
+    managerOn: d('managerOn'),
+    adminOn: d('adminOn'),
+    acceptedOn: d('acceptedOn'),
+    acknowledgedOn: d('acknowledgedOn'),
+  }
+}
+
+/* The name and job title come from the record; the reasons and the two
+   approvers are chosen or typed; (2) is the weekday of the last working
+   day, "يوم (2) الموافق (3)". */
+export function resignationValues(emp, d, inputs = {}) {
+  const name = emp?.arabic_name || ''
+  return {
+    1: arDate(d.submitted),
+    2: arDay(d.lastDay),
+    3: arDate(d.lastDay),
+    4: inputs.reasons || '',
+    5: name,
+    6: jobTitle(emp),
+    7: inputs.manager || '',
+    8: arDate(d.managerOn),
+    9: inputs.admin || '',
+    10: arDate(d.adminOn),
+    11: arDate(d.acceptedOn),
+    12: name,
+    13: arDate(d.acknowledgedOn),
+  }
+}
+
 /* --- The list -------------------------------------------------------- */
 
 /* For each document:
@@ -394,15 +431,18 @@ function socialStatusDefaults(emp) {
    dateFields  [key, label, blanks, { month }?] dates the user sets;
                month ones are month and year only
    inputs      [key, label, kind, blanks, hint] values the user types;
-               kind is text, amount (English digits, shown in Arabic
-               digits and words) or year */
+               kind is text, longtext, amount (English digits, shown in
+               Arabic digits and words), year, or person (an employee
+               chosen from the list, by Arabic name)
+   pool        whose form it is: 'active' employees (the default) or
+               'resigned' ones */
 const DOCUMENTS = [
   {
     id: 'hiring',
-    title: 'عقد عمل',
-    subtitle: 'Hiring contract',
+    title: 'عقد عمل محدد المدة',
+    subtitle: 'Limited hiring contract',
     template: 'templates/hiring-contract.docx?v=1',
-    fileName: 'عقد عمل',
+    fileName: 'عقد عمل محدد المدة',
     fields: {
       1: 'اليوم', 2: 'تاريخ تحرير العقد', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
       5: 'شهر وسنة إصدار البطاقة', 6: 'العنوان', 7: 'المؤهل', 8: 'الرقم التأميني',
@@ -508,6 +548,36 @@ const DOCUMENTS = [
     inputs: [],
   },
 ]
+DOCUMENTS.push({
+  id: 'resignation',
+  title: 'استقالة مسببة',
+  subtitle: 'Resignation',
+  template: 'templates/resignation.docx?v=1',
+  fileName: 'استقالة مسببة',
+  pool: 'resigned',
+  fields: {
+    1: 'تاريخ الاستقالة', 2: 'آخر يوم عمل', 3: 'آخر يوم عمل', 4: 'أسباب الاستقالة',
+    5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'مدير الإدارة', 8: 'تاريخ اعتماد مدير الإدارة',
+    9: 'الشئون الإدارية', 10: 'تاريخ اعتماد الشئون الإدارية', 11: 'تاريخ قبول إدارة الشركة',
+    12: 'الاسم بالعربية', 13: 'تاريخ إقرار الموظف',
+  },
+  dates: resignationDates,
+  values: resignationValues,
+  info: [[6, 'الوظيفة']],
+  dateFields: [
+    ['submitted', 'تاريخ الاستقالة', [1]],
+    ['lastDay', 'آخر يوم عمل', [2, 3]],
+    ['managerOn', 'تاريخ اعتماد مدير الإدارة', [8]],
+    ['adminOn', 'تاريخ اعتماد الشئون الإدارية', [10]],
+    ['acceptedOn', 'تاريخ قبول إدارة الشركة', [11]],
+    ['acknowledgedOn', 'تاريخ إقرار الموظف بالقبول', [13]],
+  ],
+  inputs: [
+    ['reasons', 'أسباب الاستقالة', 'longtext', [4]],
+    ['manager', 'اعتماد مدير الإدارة', 'person', [7]],
+    ['admin', 'اعتماد الشئون الإدارية', 'person', [9]],
+  ],
+})
 for (const def of DOCUMENTS) def.blanks = Object.keys(def.fields).map(Number)
 
 /* ------------------------------------------------------------------ */
@@ -1162,12 +1232,13 @@ async function printPdf() {
 /* dateSet: dates the user has set by hand, by key. inputs: what the user
    has typed (the wage, the address), by key. Both are kept while the
    document is open, so changing the employee keeps them. */
-const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, border: null, tabStops: null, defaultTab: 36, capturing: false, busy: false }
+const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, border: null, tabStops: null, defaultTab: 36, capturing: false, busy: false }
 
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
   'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'is_active',
   'department_id', 'personal_mobile', 'gender', 'birth_date', 'governorate', 'religion',
-  'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name']
+  'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name',
+  'status_id', 'resignation_date']
 
 /* Department names by id, in Arabic where the department has one
    (departments.name_ar, from migration 20261112160001) and as stored
@@ -1184,7 +1255,6 @@ async function loadEmployees() {
   const query = (columns) => supabase
     .from('employee_profiles')
     .select(columns.join(', '))
-    .eq('is_active', true)
     .not('arabic_name', 'is', null)
     .order('arabic_name')
   let { data, error } = await query(EMPLOYEE_COLUMNS)
@@ -1196,13 +1266,38 @@ async function loadEmployees() {
   }
   if (error) throw error
   const departments = await loadDepartments(supabase)
+  const statuses = await loadStatuses(supabase)
   state.employees = (data || []).map((e) => ({
     ...e,
     department_ar: departments.get(e.department_id)?.ar || '',
     department_en: departments.get(e.department_id)?.en || '',
+    status_name: statuses.get(e.status_id) || '',
     _key: foldArabic(e.arabic_name),
   }))
   return state.employees
+}
+
+async function loadStatuses(supabase) {
+  const { data, error } = await supabase.from('employee_statuses').select('id, name')
+  if (error) return new Map()
+  return new Map((data || []).map((s) => [s.id, s.name]))
+}
+
+/* The employees a form is for: those working here, or, for the
+   resignation, those who have resigned -- status Resigned, or a
+   resignation date on the record. */
+const isResigned = (e) => e.status_name === 'Resigned' || !!e.resignation_date
+function pool(def = state.def) {
+  return def?.pool === 'resigned' ? state.employees.filter(isResigned) : state.employees.filter((e) => e.is_active)
+}
+
+function showPoolHint() {
+  const hint = $('employeeHint')
+  if (!hint || !state.loaded) return
+  const n = toArabicDigits(pool().length)
+  hint.textContent = state.def?.pool === 'resigned'
+    ? `${n} موظف مستقيل — ابحث بالاسم أو الكود.`
+    : `${n} موظف — ابحث بالاسم أو الكود.`
 }
 
 function showOptions(list) {
@@ -1240,8 +1335,9 @@ function hideOptions() {
 function search(term) {
   const q = foldArabic(term)
   const digits = String(term).replace(/[٠-٩]/g, (d) => AR_DIGITS.indexOf(d)).replace(/\D/g, '')
-  if (!q) return state.employees
-  return state.employees.filter((e) =>
+  const list = pool()
+  if (!q) return list
+  return list.filter((e) =>
     e._key.includes(q) || (digits && String(e.code ?? '').includes(digits)))
 }
 
@@ -1267,7 +1363,7 @@ function wirePicker() {
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const li = items[Math.max(0, i)]
-      const emp = state.employees.find((x) => String(x.id) === li.dataset.id)
+      const emp = pool().find((x) => String(x.id) === li.dataset.id)
       if (emp) pickEmployee(emp)
     } else if (e.key === 'Escape') {
       hideOptions()
@@ -1431,6 +1527,24 @@ function buildInputs(def) {
     l.className = 'hr-label'
     l.htmlFor = `input-${key}`
     l.textContent = label
+    if (kind === 'person' || kind === 'longtext') {
+      const box2 = kind === 'person' ? document.createElement('select') : document.createElement('textarea')
+      box2.id = `input-${key}`
+      box2.className = 'hr-input'
+      if (kind === 'person') {
+        box2.dataset.person = '1'
+      } else {
+        box2.rows = 3
+        box2.dir = 'rtl'
+      }
+      box2.addEventListener(kind === 'person' ? 'change' : 'input', () => {
+        state.inputs[key] = box2.value.trim()
+        refresh()
+      })
+      row.append(l, box2)
+      box.appendChild(row)
+      continue
+    }
     const input = document.createElement('input')
     input.id = `input-${key}`
     input.className = 'hr-input'
@@ -1477,6 +1591,27 @@ function buildInputs(def) {
       row.appendChild(h)
     }
     box.appendChild(row)
+  }
+}
+
+/* The approvers are chosen from the employees working here, by Arabic
+   name; filled in once the list has loaded. */
+function fillPersonLists() {
+  const people = state.employees.filter((e) => e.is_active)
+  for (const sel of document.querySelectorAll('select[data-person]')) {
+    const keep = sel.value
+    sel.innerHTML = ''
+    const none = document.createElement('option')
+    none.value = ''
+    none.textContent = state.loaded ? '— اختر —' : 'جارٍ التحميل…'
+    sel.appendChild(none)
+    for (const e of people) {
+      const o = document.createElement('option')
+      o.value = e.arabic_name
+      o.textContent = e.arabic_name
+      sel.appendChild(o)
+    }
+    sel.value = keep
   }
 }
 
@@ -1619,6 +1754,8 @@ async function openDocument(def) {
   $('editorTitle').textContent = def.title
   buildDateInputs(def)
   buildInputs(def)
+  fillPersonLists()
+  showPoolHint()
   if (def.refTable) buildRefTable(def.refTable)
   $('listView').hidden = true
   $('editorView').hidden = false
@@ -1706,7 +1843,11 @@ async function onAuthed() {
 
   const hint = $('employeeHint')
   loadEmployees()
-    .then((list) => { hint.textContent = `${toArabicDigits(list.length)} موظف — ابحث بالاسم أو الكود.` })
+    .then(() => {
+      state.loaded = true
+      showPoolHint()
+      fillPersonLists()
+    })
     .catch((err) => { hint.textContent = `تعذر تحميل الموظفين: ${err.message || err}` })
 
   const wanted = DOCUMENTS.find((d) => d.template && `#${d.id}` === location.hash)

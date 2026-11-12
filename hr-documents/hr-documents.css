@@ -15,10 +15,14 @@
   display: grid; place-items: center; font-weight: 800; color: #fff;
   background: #2b579a;
 }
-.hr-doc-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+/* The Arabic name, the English name and the number on one line, the
+   same size. */
+.hr-doc-text { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline;
+  gap: 4px 14px; flex: 1; min-width: 0; }
 .hr-doc-title { font-weight: 700; font-size: 16px; text-align: start; }
-.hr-doc-sub { color: rgba(var(--text-rgb), 0.65); font-size: 13px; }
-.hr-doc-num { color: rgba(var(--text-rgb), 0.45); font-variant-numeric: tabular-nums; }
+.hr-doc-sub { color: rgba(var(--text-rgb), 0.65); font-size: 16px; font-weight: 700; }
+.hr-doc-num { color: rgba(var(--text-rgb), 0.45); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+textarea.hr-input { resize: vertical; min-height: 64px; }
 
 /* Editor */
 .hr-editor-top {
