@@ -134,3 +134,9 @@
   position: absolute; inset: 32px; border: 1px solid #000;
   pointer-events: none; user-select: none; -webkit-user-select: none;
 }
+
+/* The references table's boxes: a numbered row of four. */
+.hr-ref { display: grid; gap: 8px; margin-top: 4px; }
+.hr-ref-row { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: center; }
+.hr-ref-num { grid-row: span 2; font-weight: 700; color: rgba(var(--text-rgb), 0.7); padding-inline-end: 2px; }
+.hr-ref-input { padding: 8px 10px; font-size: 14px; }

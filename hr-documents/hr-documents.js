@@ -357,11 +357,47 @@ export function socialStatusValues(emp, d, inputs = {}) {
     18: female ? na : arDate(d.military),
     19: emp?.address || '',
     20: toArabicDigits(emp?.national_id || ''),
-    21: inputs.idGovernorate || '',
+    21: emp?.governorate || '',
     22: arMonth(d.idIssued),
     23: inArabic('marital', emp?.marital_status, emp),
     24: name,
     25: arDate(d.today),
+    ...refTableValues(REF_TABLE, inputs),
+  }
+}
+
+/* The references table, "أشخاص يمكن الرجوع اليهم للاستفسار": three rows
+   of name, job, relation and phone, blanks (26) to (37) row by row. */
+const REF_TABLE = {
+  title: 'أشخاص يمكن الرجوع إليهم للاستفسار',
+  first: 26,
+  rows: 3,
+  cols: [['name', 'الاسم', 'text'], ['job', 'الوظيفة', 'text'], ['relation', 'صلة القرابة', 'text'], ['phone', 'التليفون', 'phone']],
+}
+const refKey = (r, col) => `ref${r}_${col}`
+const refBlank = (t, r, c) => t.first + r * t.cols.length + c
+
+function refTableValues(t, inputs) {
+  const out = {}
+  for (let r = 0; r < t.rows; r++) {
+    t.cols.forEach(([col, , kind], c) => {
+      const v = inputs[refKey(r, col)] || ''
+      out[refBlank(t, r, c)] = kind === 'phone' ? phone(v) : v
+    })
+  }
+  return out
+}
+
+/* The first row starts as the secondary contact on the record: its
+   number, and its owner as the record writes it, "اسم (صلة القرابة)".
+   Every box can still be changed. */
+function socialStatusDefaults(emp) {
+  if (!emp) return {}
+  const m = /^\s*(.*?)\s*\((.*?)\)\s*$/.exec(emp.secondary_mobile_name || '')
+  return {
+    [refKey(0, 'name')]: m ? m[1] : (emp.secondary_mobile_name || ''),
+    [refKey(0, 'relation')]: m ? m[2] : '',
+    [refKey(0, 'phone')]: emp.secondary_mobile ? String(emp.secondary_mobile).replace(/\D/g, '') : '',
   }
 }
 
@@ -461,7 +497,7 @@ const DOCUMENTS = [
     id: 'social-status',
     title: 'إقرار الحالة الاجتماعية',
     subtitle: 'Social status declaration',
-    template: 'templates/social-status.docx?v=1',
+    template: 'templates/social-status.docx?v=2',
     fileName: 'إقرار الحالة الاجتماعية',
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
@@ -469,9 +505,13 @@ const DOCUMENTS = [
       10: 'محافظة الميلاد (من الرقم القومي)', 11: 'قسم / مركز الميلاد',
       12: 'تاريخ الميلاد (من الرقم القومي)', 13: 'المؤهل', 14: 'سنة التخرج', 15: 'جهة التخرج',
       16: 'التخصص', 17: 'الموقف من التجنيد', 18: 'تاريخ شهادة التجنيد', 19: 'العنوان',
-      20: 'الرقم القومي', 21: 'محافظة إصدار البطاقة', 22: 'شهر وسنة إصدار البطاقة',
+      20: 'الرقم القومي', 21: 'المحافظة (من الرقم القومي)', 22: 'شهر وسنة إصدار البطاقة',
       23: 'الحالة الاجتماعية', 24: 'الاسم بالعربية', 25: 'تاريخ الإقرار',
+      // One name for the whole table, so a missing box reads as one line.
+      ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [26 + i, 'بيانات جدول الأشخاص الذين يمكن الرجوع إليهم'])),
     },
+    refTable: REF_TABLE,
+    defaults: socialStatusDefaults,
     dates: socialStatusDates,
     values: socialStatusValues,
     info: [
@@ -488,6 +528,7 @@ const DOCUMENTS = [
       [17, 'الموقف من التجنيد'],
       [19, 'العنوان'],
       [20, 'الرقم القومي'],
+      [21, 'المحافظة'],
       [23, 'الحالة الاجتماعية'],
     ],
     dateFields: [
@@ -499,7 +540,6 @@ const DOCUMENTS = [
       ['district', 'قسم / مركز الميلاد', 'text', [11]],
       ['gradYear', 'سنة التخرج (بالأرقام الإنجليزية)', 'year', [14], 'مثال: 2015'],
       ['university', 'جهة التخرج', 'text', [15]],
-      ['idGovernorate', 'محافظة إصدار البطاقة', 'text', [21]],
     ],
   },
 ]
@@ -1011,7 +1051,7 @@ const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
   'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'is_active',
   'department_id', 'personal_mobile', 'gender', 'birth_date', 'governorate', 'religion',
-  'marital_status', 'military_service']
+  'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name']
 
 /* Department names by id, in Arabic where the department has one
    (departments.name_ar, from migration 20261112160001) and as stored
@@ -1126,6 +1166,9 @@ function pickEmployee(emp) {
 }
 
 function setEmployee(emp) {
+  // The references are the employee's own: a new employee starts again.
+  for (const k of Object.keys(state.inputs)) if (k.startsWith('ref')) delete state.inputs[k]
+  for (const box of document.querySelectorAll('.hr-ref-input')) box.value = ''
   state.employee = emp
   refresh()
 }
@@ -1214,6 +1257,55 @@ function buildDateInputs(def) {
 
 /* One box per value the user types. An amount is typed in English
    digits and shown in the document in Arabic digits and Arabic words. */
+/* The references table as boxes: a block per row, name, job, relation
+   and phone. Text in Arabic; the phone in English digits. */
+function buildRefTable(t) {
+  const box = $('dateFields')
+  const wrap = document.createElement('div')
+  wrap.className = 'hr-ref'
+  const h = document.createElement('div')
+  h.className = 'hr-label'
+  h.textContent = t.title
+  wrap.appendChild(h)
+  for (let r = 0; r < t.rows; r++) {
+    const row = document.createElement('div')
+    row.className = 'hr-ref-row'
+    const num = document.createElement('span')
+    num.className = 'hr-ref-num'
+    num.textContent = toArabicDigits(r + 1)
+    row.appendChild(num)
+    for (const [col, label, kind] of t.cols) {
+      const input = document.createElement('input')
+      input.id = `input-${refKey(r, col)}`
+      input.className = 'hr-input hr-ref-input'
+      input.type = 'text'
+      input.autocomplete = 'off'
+      input.placeholder = label
+      input.title = label
+      if (kind === 'phone') {
+        input.dir = 'ltr'
+        input.inputMode = 'tel'
+        input.addEventListener('input', () => {
+          const v = input.value.replace(/[٠-٩]/g, (d) => AR_DIGITS.indexOf(d))
+          const ok = /^[\d\s+-]*$/.test(v) && (v.replace(/\D/g, '').length >= 7 || !v.trim())
+          input.classList.toggle('is-invalid', !ok)
+          state.inputs[refKey(r, col)] = ok ? v.replace(/\D/g, '') : ''
+          refresh()
+        })
+        input.addEventListener('blur', () => input.classList.remove('is-invalid'))
+      } else {
+        input.addEventListener('input', () => {
+          state.inputs[refKey(r, col)] = input.value.trim()
+          refresh()
+        })
+      }
+      row.appendChild(input)
+    }
+    wrap.appendChild(row)
+  }
+  box.appendChild(wrap)
+}
+
 function buildInputs(def) {
   const box = $('dateFields')
   for (const [key, label, kind, , hint] of def.inputs) {
@@ -1281,7 +1373,18 @@ function editableBlanks(def) {
   const out = new Map()
   for (const [key, , fields] of def.dateFields) for (const f of fields) out.set(f, `date-${key}`)
   for (const [key, , , fields] of def.inputs) for (const f of fields) out.set(f, `input-${key}`)
+  const t = def.refTable
+  if (t) {
+    for (let r = 0; r < t.rows; r++) {
+      t.cols.forEach(([col], c) => out.set(refBlank(t, r, c), `input-${refKey(r, col)}`))
+    }
+  }
   return out
+}
+
+/* What the user has typed, over what the document fills in by itself. */
+function currentInputs() {
+  return { ...(state.def?.defaults?.(state.employee) || {}), ...state.inputs }
 }
 
 /* Clicking such a blank in the document goes to its box. */
@@ -1301,10 +1404,17 @@ function refresh() {
   if (!def) return
   const emp = state.employee
   const dates = currentDates()
-  const values = def.values(emp, dates, state.inputs)
+  const inputs = currentInputs()
+  const values = def.values(emp, dates, inputs)
   fillFields(values)
   layoutTabs($('preview'))
   const editable = editableBlanks(def)
+  if (def.refTable) {
+    for (const [k, v] of Object.entries(inputs)) {
+      const box = k.startsWith('ref') && $(`input-${k}`)
+      if (box && document.activeElement !== box && !box.classList.contains('is-invalid')) box.value = v
+    }
+  }
   for (const span of $('preview').querySelectorAll('.hr-field')) {
     span.classList.toggle('is-editable', editable.has(+span.dataset.field))
   }
@@ -1391,6 +1501,7 @@ async function openDocument(def) {
   $('editorTitle').textContent = def.title
   buildDateInputs(def)
   buildInputs(def)
+  if (def.refTable) buildRefTable(def.refTable)
   $('listView').hidden = true
   $('editorView').hidden = false
   history.replaceState(null, '', `#${def.id}`)
