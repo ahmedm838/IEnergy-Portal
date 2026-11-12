@@ -149,8 +149,8 @@ jobs:
           #
           # Excluded by kind rather than by name so a new .md or .sql
           # does not quietly become public the day somebody adds one.
-          # documents.json files are NOT excluded: the HR documents and
-          # company policy pages read them at runtime.
+          # documents.json files are NOT excluded: the company policy
+          # page reads them at runtime.
           EXCLUDES=(
             --exclude '.github' --exclude '_site' --exclude 'apps'
             --exclude 'docs' --exclude '*.md' --exclude '*.sql'

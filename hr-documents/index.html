@@ -7,156 +7,119 @@
   <title>iEnergy | HR Documents</title>
   <link rel="icon" type="image/png" href="../favicon.png?v=2" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
-  <link rel="stylesheet" href="../home.css?v=15" />
-  <style>
-    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
-    .back { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(var(--ink-rgb), 0.03); padding:8px 10px; border-radius:12px; }
-    .hint { margin:8px 0 0; color:rgba(var(--text-rgb), 0.70); font-size:14px; }
-
-    .docs { margin-top:10px; border:1px solid var(--line); border-radius:16px; overflow:hidden; }
-    .docs-head { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:rgba(var(--ink-rgb), 0.03); }
-    .docs-head b { font-weight:700; }
-    .docs-head small { color:rgba(var(--text-rgb), 0.65); }
-    .docs-list { list-style:none; margin:0; padding:0; }
-    .docs-item { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:12px 14px; border-top:1px solid var(--line); }
-    .docs-item:first-child { border-top:0; }
-    .docs-left { display:flex; flex-direction:column; gap:2px; min-width:0; }
-    .docs-title { color:rgba(var(--text-rgb), 0.92); text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-    .docs-meta { color:rgba(var(--text-rgb), 0.60); font-size:13px; }
-    .download { text-decoration:none; color:var(--text); border:1px solid var(--line); background:rgba(var(--ink-rgb), 0.03); padding:8px 10px; border-radius:12px; white-space:nowrap; }
-    .state { color:rgba(var(--text-rgb), 0.75); padding:12px 14px; }
-  </style>
+  <link rel="stylesheet" href="../home.css?v=20" />
+  <link rel="stylesheet" href="hr-documents.css?v=1" />
   <script src="../theme.js?v=4"></script>
-  <!-- Fetch a page when the pointer settles on its link, so the click
-       lands on something already in the cache. Same-origin GETs only. -->
-  <script type="speculationrules">
-    {"prefetch":[{"where":{"href_matches":"/*"},"eagerness":"moderate"}]}
-  </script>
 </head>
 <body>
 
-  <!-- Auth (session up to 15 minutes or until tab closes) -->
+  <!-- Sign-in, shown only when there is no session. HR documents carry
+       national IDs, so the page is for admins and super admins alone. -->
   <div id="auth" class="auth" hidden>
     <div class="auth-card">
       <div class="auth-top">
         <div class="auth-title">
-          <a class="back-link" href="../index.html">← iEnergy Home</a>
+          <a class="back-link" href="../index.html">&larr; iEnergy Home</a>
           <h1>HR Documents</h1>
           <p>Please sign in to continue.</p>
         </div>
-        <img class="logo" src="../logo.jpg?v=2" alt="Company logo" />
       </div>
 
       <label class="auth-label" for="usernameInput">Username</label>
-      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" placeholder="admin or user" />
+      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" />
 
       <label class="auth-label" for="passwordInput">Password</label>
-      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" placeholder="•••••••" />
+      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" />
 
       <div class="auth-actions">
-        <button id="btnLogin" class="primary" type="button">Unlock</button>
+        <button id="btnLogin" class="primary" type="button">Sign in</button>
       </div>
 
       <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
     </div>
   </div>
 
-  <main id="app" class="container" hidden>
-    <div class="top">
-      <div>
-        <div class="pill">HR</div>
-        <h1 style="margin:10px 0 6px;">HR Documents</h1>
-        <p class="tagline">Central place for HR templates and policies.</p>
+  <div id="accessDenied" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-title">
+        <a class="back-link" href="../index.html">&larr; iEnergy Home</a>
+        <h1>HR Documents</h1>
+        <p>HR documents are open to admins and super admins only.</p>
       </div>
-      <a class="back" href="../">← Back</a>
     </div>
+  </div>
 
-    <section class="section">
-      <h2>Documents</h2>
-      <p class="section-sub">Download the latest HR documents.</p>
-      
-      <div class="docs" aria-live="polite">
-        <div class="docs-head">
-          <b>Available files</b>
-          <small id="generatedAt"></small>
+  <main id="app" hidden>
+    <header class="page-bar">
+      <div class="page-bar-inner">
+        <div class="page-bar-brand">
+          <img class="page-bar-logo" src="../logo-mark.png?v=2" alt="" />
+          <span class="page-bar-name">HR Documents</span>
         </div>
-        <div id="state" class="state">Loading documents…</div>
-        <ul id="docsList" class="docs-list" style="display:none;"></ul>
+        <div class="page-bar-right">
+          <span class="page-bar-who" id="whoami"></span>
+          <span class="role-badge" id="roleBadge" hidden></span>
+          <span id="themeSlot"></span>
+          <a class="main-page-btn" href="../">Main page</a>
+          <button id="logoutBtn" class="btn logout-btn" type="button">Sign out</button>
+        </div>
       </div>
-    </section>
+    </header>
 
-    <footer class="footer">
-      <small>© <span id="year"></span> iEnergy. Internal use.</small>
-    </footer>
+    <div class="container">
+
+      <!-- The list of documents. Each one opens the editor below. -->
+      <section class="section" id="listView">
+        <h2>Documents</h2>
+        <p class="section-sub">Choose a document, pick the employee, then save it as PDF or print it.</p>
+        <div class="hr-doc-list" id="docList"></div>
+      </section>
+
+      <!-- The editor: fields on one side, the Word document on the other,
+           updating as the fields change. -->
+      <section class="section" id="editorView" hidden>
+        <div class="hr-editor-top">
+          <button class="btn" type="button" id="backBtn">&larr; Documents</button>
+          <h2 id="editorTitle" class="hr-editor-title" dir="rtl"></h2>
+          <div class="hr-actions">
+            <button class="btn primary" type="button" id="savePdfBtn" disabled>Save PDF</button>
+            <button class="btn" type="button" id="printBtn" disabled>Print</button>
+          </div>
+        </div>
+
+        <div class="hr-editor">
+          <aside class="hr-fields" dir="rtl">
+            <label class="hr-label" for="employeeSearch">اسم الموظف</label>
+            <div class="hr-picker">
+              <input id="employeeSearch" class="hr-input" type="text" autocomplete="off"
+                     placeholder="ابحث بالاسم أو الكود…" role="combobox"
+                     aria-expanded="false" aria-controls="employeeOptions" />
+              <ul id="employeeOptions" class="hr-options" role="listbox" hidden></ul>
+            </div>
+            <p class="hr-hint" id="employeeHint">جارٍ تحميل الموظفين…</p>
+
+            <div id="autoFields" class="hr-auto"></div>
+            <div id="fieldWarning" class="hr-warning" hidden></div>
+            <p class="hr-hint">البيانات المظللة تُملأ تلقائيًا ولا يمكن تعديلها. يمكن تعديل باقي نص المستند مباشرةً.</p>
+          </aside>
+
+          <div class="hr-preview-wrap">
+            <div id="previewStatus" class="hr-hint">Loading document…</div>
+            <div id="preview" class="hr-preview" lang="ar"></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <small>&copy; <span id="year"></span> iEnergy. Internal use.</small>
+      </footer>
+    </div>
   </main>
 
-  <script>
-    document.getElementById('year').textContent = String(new Date().getFullYear());
-
-    async function loadDocuments() {
-      const stateEl = document.getElementById('state');
-      const listEl = document.getElementById('docsList');
-      const genEl = document.getElementById('generatedAt');
-
-      try {
-        // Cache-busting query to ensure updated list is fetched after pushes.
-        const res = await fetch('./documents.json?v=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) throw new Error('documents.json not found');
-        const data = await res.json();
-
-        const docs = Array.isArray(data.documents) ? data.documents : [];
-        if (data.generatedAt) {
-          try {
-            const d = new Date(data.generatedAt);
-            genEl.textContent = 'Updated: ' + d.toLocaleString();
-          } catch (_) {}
-        }
-
-        if (!docs.length) {
-          stateEl.textContent = 'No documents found in this folder.';
-          return;
-        }
-
-        const itemsHtml = docs.map(doc => {
-          const filename = String(doc.file || '');
-          const title = String(doc.title || filename);
-          const sizeHuman = doc.sizeHuman ? String(doc.sizeHuman) : '';
-          const ext = doc.ext ? String(doc.ext).toUpperCase() : '';
-          const href = encodeURI('./' + filename);
-          const meta = [ext, sizeHuman].filter(Boolean).join(' • ');
-
-          return `
-            <li class="docs-item">
-              <div class="docs-left">
-                <a class="docs-title" href="${href}" download>${title}</a>
-                <div class="docs-meta">${meta}</div>
-              </div>
-              <a class="download" href="${href}" download>Download</a>
-            </li>
-          `;
-        }).join('');
-
-        listEl.innerHTML = itemsHtml;
-        stateEl.style.display = 'none';
-        listEl.style.display = '';
-      } catch (err) {
-        stateEl.textContent = 'Unable to load documents list. Please ensure documents.json exists in this folder.';
-      }
-    }
-
-    loadDocuments();
-  </script>
+  <!-- Where the PDF goes to be printed. -->
+  <iframe id="printFrame" class="hr-print-frame" title="Print" aria-hidden="true" tabindex="-1"></iframe>
 
   <script src="../auth.js?v=13"></script>
-
-  <script>
-    (function () {
-      'use strict';
-      document.addEventListener('DOMContentLoaded', () => {
-        IEnergyAuth.ensureAuth({ allowedRoles: ['admin', 'user'], homeHref: '../index.html' });
-      });
-    })();
-  </script>
-
+  <script type="module" src="hr-documents.js?v=1"></script>
 </body>
 </html>
