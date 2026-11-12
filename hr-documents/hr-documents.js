@@ -497,7 +497,7 @@ const DOCUMENTS = [
     id: 'social-status',
     title: 'إقرار الحالة الاجتماعية',
     subtitle: 'Social status declaration',
-    template: 'templates/social-status.docx?v=2',
+    template: 'templates/social-status.docx?v=3',
     fileName: 'إقرار الحالة الاجتماعية',
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
