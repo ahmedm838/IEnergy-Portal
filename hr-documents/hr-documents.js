@@ -474,7 +474,7 @@ const DOCUMENTS = [
     id: 'work-start',
     title: 'إقرار استلام عمل',
     subtitle: 'Work start acknowledgement',
-    template: 'templates/work-start.docx?v=1',
+    template: 'templates/work-start.docx?v=2',
     fileName: 'إقرار استلام عمل',
     fields: {
       1: 'الاسم بالعربية', 2: 'الرقم القومي', 3: 'الموبايل الشخصي', 4: 'العنوان',
