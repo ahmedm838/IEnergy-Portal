@@ -61,6 +61,22 @@ export const arDate = (d) => (d ? toArabicDigits(dmy(d)).split('/').join(`${RLM}
 export const arDay = (d) => (d ? AR_DAYS[d.getUTCDay()] : '')
 export const isoOf = (d) => (d ? d.toISOString().slice(0, 10) : '')
 
+/* Month and year only, mm/yyyy -- the ID card gives no day -- laid out
+   right to left like the full dates. */
+export const my = (d) => (d ? `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}` : '')
+export const arMonth = (d) => (d ? toArabicDigits(my(d)).split('/').join(`${RLM}/${RLM}`) : '')
+
+/* A month typed as mm/yyyy, in Western or Arabic digits. Empty gives
+   null; anything that is not a real month gives undefined. Stored as the
+   first of the month. */
+export function parseMY(text) {
+  const s = String(text ?? '').replace(/[٠-٩]/g, (d) => AR_DIGITS.indexOf(d)).trim()
+  if (!s) return null
+  const m = /^(\d{1,2})\s*[/\-.]\s*(\d{4})$/.exec(s)
+  if (!m || +m[1] < 1 || +m[1] > 12) return undefined
+  return new Date(Date.UTC(+m[2], +m[1] - 1, 1))
+}
+
 /* A date typed as dd/mm/yyyy, in Western or Arabic digits, with / - or .
    between the parts. Empty gives null; anything else that is not a real
    calendar day gives undefined. */
@@ -236,7 +252,7 @@ export function hiringValues(emp, d, inputs = {}) {
     2: arDate(d.today),
     3: name,
     4: toArabicDigits(emp?.national_id || ''),
-    5: arDate(d.idIssued),
+    5: arMonth(d.idIssued),
     6: emp?.address || '',
     7: qualification(emp),
     8: toArabicDigits(emp?.si_no || ''),
@@ -254,8 +270,9 @@ export function hiringValues(emp, d, inputs = {}) {
    blanks      the numbers in brackets that are blanks; any other
                bracketed number in the text, a law number say, is text
    info        [blank, label] shown read-only beside the document
-   dateFields  [key, label, blanks, 'optional'?] dates the user may set;
-               the optional ones may stay empty
+   dateFields  [key, label, blanks, { optional, month }?] dates the user
+               may set; optional ones may stay empty, month ones are
+               month and year only
    inputs      [key, label, kind, blanks, hint] values the user types
    required    [blank, label] that must be filled before the document
                can be issued, the label naming what is missing
@@ -282,9 +299,10 @@ const DOCUMENTS = [
     ],
     dateFields: [
       ['today', 'تاريخ تحرير العقد', [1, 2]],
-      // Typed by the user only; the employee record does not hold it. It
-      // may be left blank, to be written in by hand.
-      ['idIssued', 'تاريخ إصدار البطاقة', [5], 'optional'],
+      // Typed by the user only; the employee record does not hold it.
+      // Month and year: the card gives no day. It may be left blank, to
+      // be written in by hand.
+      ['idIssued', 'شهر وسنة إصدار البطاقة', [5], { optional: true, month: true }],
     ],
     inputs: [
       ['salary', 'الأجر الشهري (بالأرقام الإنجليزية)', 'amount', [10, 11], 'مثال: 8500 أو 8500.50'],
@@ -296,7 +314,7 @@ const DOCUMENTS = [
       [10, 'الأجر الشهري'],
     ],
     optional: [
-      [5, 'تاريخ إصدار البطاقة'],
+      [5, 'شهر وسنة إصدار البطاقة'],
       [6, 'محل الإقامة'],
       [7, 'المؤهل'],
       [8, 'الرقم التأميني'],
@@ -537,30 +555,6 @@ function numberPages(root) {
   })
 }
 
-/* The text around the fields is editable; the fields are not. A
-   deletion that would take a field with it is refused. Wired once, on
-   the preview element, which stays while documents come and go. */
-function protectFields(root) {
-  root.addEventListener('beforeinput', (e) => {
-    const ranges = e.getTargetRanges ? e.getTargetRanges() : []
-    for (const sr of ranges) {
-      const r = document.createRange()
-      r.setStart(sr.startContainer, sr.startOffset)
-      r.setEnd(sr.endContainer, sr.endOffset)
-      for (const f of root.querySelectorAll('.hr-field')) {
-        if (r.intersectsNode(f) && !(r.collapsed)) { e.preventDefault(); return }
-        if (f.contains(sr.startContainer)) { e.preventDefault(); return }
-      }
-    }
-  })
-  // Pasting rich text from Word or a page would bring its styling along.
-  root.addEventListener('paste', (e) => {
-    e.preventDefault()
-    const text = e.clipboardData.getData('text/plain')
-    document.execCommand('insertText', false, toArabicDigits(text))
-  })
-}
-
 async function drawDocument(def) {
   const preview = $('preview')
   const status = $('previewStatus')
@@ -587,10 +581,6 @@ async function drawDocument(def) {
   rightToLeft(preview)
   frame(preview, border)
   numberPages(preview)
-  for (const page of preview.querySelectorAll('section.docx')) {
-    page.contentEditable = 'true'
-    page.spellcheck = false
-  }
   status.hidden = true
   fitPreview()
 }
@@ -640,29 +630,23 @@ function fitPreview() {
 }
 new ResizeObserver(() => fitPreview()).observe(document.documentElement)
 
-/* Where a page may be cut: under each paragraph and each table row, in
-   CSS pixels from the top of the page. A paragraph is never cut through
-   unless it is taller than a whole sheet. */
-function cutPoints(page) {
+/* How far down the page its content goes, in CSS pixels from the top of
+   the page: the bottom of the last paragraph or table row, the footer
+   left out (the page number is drawn on the sheet instead). */
+function contentBottom(page) {
   const top = page.getBoundingClientRect().top
-  const out = new Set()
-  const blocks = [...page.querySelectorAll('p, tr')].filter((el) => !(el.tagName === 'P' && el.closest('tr')))
-  blocks.forEach((el, i) => {
+  let bottom = 0
+  for (const el of page.querySelectorAll('p, tr')) {
+    if (el.closest('footer, header')) continue
     const r = el.getBoundingClientRect()
-    if (!r.height) return
-    // A title stays with what follows it: no cut straight under a short
-    // centred line when more text comes after it.
-    const rest = blocks.slice(i + 1).some((n) => n.textContent.trim())
-    const title = el.tagName === 'P' && rest && getComputedStyle(el).textAlign === 'center'
-      && el.textContent.trim().length < 60 && r.height < 48
-    if (!title) out.add(Math.ceil(r.bottom - top))
-  })
-  return [...out].sort((a, b) => a - b)
+    if (r.height) bottom = Math.max(bottom, r.bottom - top)
+  }
+  return Math.ceil(bottom)
 }
 
-/* One A4 sheet: the slice of page image given, then the frame and the
-   page number, drawn on the sheet itself so they sit in the same place
-   on every sheet however the page was cut. */
+/* One A4 sheet: the page image, then the frame and the page number,
+   drawn on the sheet itself so they sit in the same place on every
+   sheet. */
 function sheet(width, draw, border, number, scale) {
   const c = document.createElement('canvas')
   c.width = width
@@ -670,7 +654,7 @@ function sheet(width, draw, border, number, scale) {
   const ctx = c.getContext('2d')
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, c.width, c.height)
-  draw(ctx)
+  draw(ctx, c.height)
   if (border) {
     const w = border.width * scale
     const inset = border.inset * scale + w / 2
@@ -680,7 +664,7 @@ function sheet(width, draw, border, number, scale) {
   }
   if (number) {
     ctx.fillStyle = '#000000'
-    ctx.font = `bold ${Math.round(11 * scale)}px Arial, sans-serif`
+    ctx.font = `bold ${Math.round(11 * scale)}px 'Times New Roman', Times, serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'alphabetic'
     ctx.fillText(toArabicDigits(number), c.width / 2, c.height - 14 * scale)
@@ -688,6 +672,11 @@ function sheet(width, draw, border, number, scale) {
   return c
 }
 
+/* One sheet per page, always. The pages are the template's own -- split
+   where Word split them -- so the PDF and the printout have exactly as
+   many pages as the Word file. A page that comes out a little longer
+   than A4 here, because a font measures differently in the browser than
+   in Word, is shrunk onto its sheet rather than spilling onto another. */
 async function buildPdf() {
   const preview = $('preview')
   const pages = Array.from(preview.querySelectorAll('section.docx'))
@@ -695,22 +684,16 @@ async function buildPdf() {
   state.capturing = true
   preview.style.zoom = ''
   if (document.activeElement && preview.contains(document.activeElement)) document.activeElement.blur()
-  // The template numbers its pages in the footer; the numbers are drawn
-  // per sheet, since the sheets need not match the pages one for one.
+  // The template numbers its pages in the footer.
   const numbered = pages.some((p) => /\d|[٠-٩]/.test(p.querySelector('footer')?.textContent || ''))
   const border = state.border
   preview.classList.add('is-capturing')
-  const sheets = []
   try {
-    for (const page of pages) {
+    for (const [i, page] of pages.entries()) {
       const cssWidth = page.offsetWidth
-      const cssHeight = page.offsetHeight
       const cssSheet = cssWidth * (297 / 210)
-      const cs = getComputedStyle(page)
-      const padTop = parseFloat(cs.paddingTop) || 48
-      const padBottom = parseFloat(cs.paddingBottom) || 48
-      const cuts = cutPoints(page)
-      const contentEnd = cuts.length ? cuts[cuts.length - 1] : cssHeight
+      const padBottom = parseFloat(getComputedStyle(page).paddingBottom) || 48
+      const needed = contentBottom(page) + padBottom
       /* The page is copied into an SVG image with its styles and drawn
          by the browser itself, so Arabic is shaped and laid out exactly
          as it is on screen. Drawing it text run by text run, as
@@ -723,41 +706,23 @@ async function buildPdf() {
         style: { margin: '0', boxShadow: 'none' },
       })
       const k = canvas.width / cssWidth
-
-      /* A page that fits, or nearly -- a font a little wider than the one
-         Word used -- goes on one sheet, shrunk a touch if need be. */
-      if (contentEnd + padBottom <= cssSheet * 1.06) {
-        const fit = Math.min(1, cssSheet / (contentEnd + padBottom))
-        sheets.push((n) => sheet(canvas.width, (ctx) => {
+      const c = sheet(canvas.width, (ctx, sheetHeight) => {
+        if (needed <= cssSheet) {
+          // Fits: the top of the page, A4 high, at full size.
+          const h = Math.min(canvas.height, sheetHeight)
+          ctx.drawImage(canvas, 0, 0, canvas.width, h, 0, 0, canvas.width, h)
+        } else {
+          // Too long: the whole page, scaled down to the sheet's height
+          // and centred across it.
+          const fit = cssSheet / needed
           const w = canvas.width * fit
-          const h = (contentEnd + padBottom) * k * fit
-          ctx.drawImage(canvas, 0, 0, canvas.width, (contentEnd + padBottom) * k, (canvas.width - w) / 2, 0, w, h)
-        }, border, n, k))
-        continue
-      }
-
-      /* Anything longer goes over several sheets, cut under the last
-         paragraph that fits on each, with the page's margins kept at the
-         top and bottom of every sheet. */
-      let start = 0
-      while (start < contentEnd - 1) {
-        const first = start === 0
-        const room = (first ? cssSheet - padBottom : start + cssSheet - padTop - padBottom)
-        let cut = cuts.filter((y) => y > start + 1 && y <= room).pop()
-        if (cut === undefined) cut = Math.min(room, contentEnd)
-        const from = start
-        sheets.push((n) => sheet(canvas.width, (ctx) => {
-          const y = first ? 0 : padTop * k
-          ctx.drawImage(canvas, 0, from * k, canvas.width, (cut - from) * k, 0, y, canvas.width, (cut - from) * k)
-        }, border, n, k))
-        start = cut
-      }
-    }
-    sheets.forEach((make, i) => {
+          ctx.drawImage(canvas, 0, 0, canvas.width, Math.min(canvas.height, needed * k),
+            (canvas.width - w) / 2, 0, w, sheetHeight)
+        }
+      }, border, numbered ? i + 1 : 0, k)
       if (i) pdf.addPage()
-      const c = make(numbered ? i + 1 : 0)
       pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297)
-    })
+    }
   } finally {
     preview.classList.remove('is-capturing')
     state.capturing = false
@@ -928,7 +893,8 @@ function setEmployee(emp) {
 function buildDateInputs(def) {
   const box = $('dateFields')
   box.innerHTML = ''
-  for (const [key, label] of def.dateFields) {
+  for (const [key, label, , opts = {}] of def.dateFields) {
+    const month = !!opts.month
     const row = document.createElement('div')
     row.className = 'hr-date-row'
     const l = document.createElement('label')
@@ -944,12 +910,12 @@ function buildDateInputs(def) {
     input.className = 'hr-input hr-date-input'
     input.type = 'text'
     input.inputMode = 'numeric'
-    input.placeholder = 'dd/mm/yyyy'
+    input.placeholder = month ? 'mm/yyyy' : 'dd/mm/yyyy'
     input.autocomplete = 'off'
     input.dataset.key = key
 
     const picker = document.createElement('input')
-    picker.type = 'date'
+    picker.type = month ? 'month' : 'date'
     picker.className = 'hr-date-picker'
     picker.tabIndex = -1
     picker.setAttribute('aria-hidden', 'true')
@@ -971,7 +937,7 @@ function buildDateInputs(def) {
       refresh()
     }
     input.addEventListener('input', () => {
-      const d = parseDMY(input.value)
+      const d = month ? parseMY(input.value) : parseDMY(input.value)
       input.classList.toggle('is-invalid', d === undefined)
       if (d !== undefined) apply(d)
     })
@@ -982,13 +948,13 @@ function buildDateInputs(def) {
       refresh()
     })
     cal.addEventListener('click', () => {
-      picker.value = isoOf(currentDates()[key])
+      picker.value = isoOf(currentDates()[key]).slice(0, month ? 7 : 10)
       if (picker.showPicker) {
         try { picker.showPicker(); return } catch (_) { /* fall through */ }
       }
       picker.click()
     })
-    picker.addEventListener('change', () => apply(parseISO(picker.value)))
+    picker.addEventListener('change', () => apply(month ? parseMY(picker.value.split('-').reverse().join('/')) : parseISO(picker.value)))
     reset.addEventListener('click', () => {
       delete state.dateSet[key]
       refresh()
@@ -1082,13 +1048,13 @@ function refresh() {
     span.classList.toggle('is-editable', editable.has(+span.dataset.field))
   }
 
-  for (const [key] of def.dateFields) {
+  for (const [key, , , opts = {}] of def.dateFields) {
     const input = $(`date-${key}`)
-    if (input && document.activeElement !== input) input.value = dmy(dates[key])
+    if (input && document.activeElement !== input) input.value = opts.month ? my(dates[key]) : dmy(dates[key])
     const reset = input?.parentElement.querySelectorAll('.hr-date-btn')[1]
     if (reset) reset.hidden = !(key in state.dateSet)
   }
-  const emptyDates = def.dateFields.filter(([key, , , opt]) => !opt && !dates[key]).map(([, label]) => label)
+  const emptyDates = def.dateFields.filter(([key, , , opts]) => !opts?.optional && !dates[key]).map(([, label]) => label)
 
   const box = $('autoFields')
   box.innerHTML = ''
@@ -1246,7 +1212,6 @@ async function onAuthed() {
   fillPageBar()
   drawList()
   wirePicker()
-  protectFields($('preview'))
   $('preview').addEventListener('click', (e) => {
     const f = e.target.closest && e.target.closest('.hr-field')
     if (f && focusDateFor(f.dataset.field)) e.preventDefault()
