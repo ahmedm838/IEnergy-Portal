@@ -240,6 +240,10 @@ const GROUPS = [
       { key: 'qualification_degree_id', label: 'Qualification degree', type: 'select', source: 'degrees' },
       { key: 'education_field', label: 'Education field', type: 'text',
         dir: 'rtl', placeholder: 'Arabic only' },
+      // On a row of its own: an address is long, and it is read whole.
+      // In Arabic, as the hiring contract that prints it is written.
+      { key: 'address', label: 'Address', type: 'text', full: true,
+        dir: 'rtl', placeholder: 'Arabic — as it should read in the contract' },
     ],
   },
   {
@@ -921,7 +925,8 @@ function fieldControl(field, value) {
   // A date is a text box with a picker button beside it, and the button
   // inside a <label> would steal the click, so dates get a plain div.
   const wrap = document.createElement(field.type === 'date' ? 'div' : 'label')
-  wrap.className = field.half ? 'db-field db-field-half' : 'db-field'
+  wrap.className = field.full ? 'db-field db-field-full'
+    : field.half ? 'db-field db-field-half' : 'db-field'
   const label = document.createElement('span')
   label.className = 'db-label'
   // No star on a derived field: there is nothing to fill in, and the
@@ -1665,6 +1670,7 @@ function exportRow(e) {
     'Qualification degree': e.qualification_degree ?? '',
     'Qualification degree (Arabic)': e.qualification_degree_ar ?? '',
     'Education field': e.education_field ?? '',
+    'Address': e.address ?? '',
 
     /* Personnel file */
     ...Object.fromEntries(DOCUMENTS.map(([key, label]) => [label, yn(e[key])])),
@@ -1851,6 +1857,13 @@ function validate(v) {
   if (v.education_field && touched('education_field', v.education_field) &&
       !/^[ء-ْ]+( [ء-ْ]+)*$/.test(v.education_field)) {
     problems.push('Education field must be Arabic letters only.')
+  }
+
+  /* Arabic, with the digits and punctuation an address needs -- building
+     numbers, "١٢ ش التحرير، الدقي - الجيزة" -- but no Latin letters: it is
+     printed as written in an Arabic contract. */
+  if (v.address && touched('address', v.address) && /[A-Za-z]/.test(v.address)) {
+    problems.push('Address must be written in Arabic.')
   }
 
   /* Arabic, with brackets allowed.

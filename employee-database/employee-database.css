@@ -700,6 +700,7 @@ body:has(#app) .container { max-width: 1500px; }
 .db-grid[data-cols='7'] { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .db-grid[data-cols='6'] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .db-field-half { grid-column: span 2; }
+.db-field-full { grid-column: 1 / -1; }
 
 /* A fixed count is a full-width promise. Below that, step down rather
    than squeezing seven controls into a laptop. */

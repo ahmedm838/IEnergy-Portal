@@ -227,8 +227,7 @@ const qualification = (emp) =>
 
 /* The hiring contract's blanks. (10) and (11) are the monthly wage, typed
    by the user in English digits: (10) shows it in Arabic digits, (11) in
-   Arabic words. (6), the address, is typed too: the employee record has
-   no address. */
+   Arabic words. (6) is the address on the employee record. */
 export function hiringValues(emp, d, inputs = {}) {
   const name = emp?.arabic_name || ''
   const wage = inputs.salary || null
@@ -238,7 +237,7 @@ export function hiringValues(emp, d, inputs = {}) {
     3: name,
     4: toArabicDigits(emp?.national_id || ''),
     5: arDate(d.idIssued),
-    6: inputs.address || '',
+    6: emp?.address || '',
     7: qualification(emp),
     8: toArabicDigits(emp?.si_no || ''),
     9: emp?.si_title || emp?.title || '',
@@ -274,6 +273,7 @@ const DOCUMENTS = [
     info: [
       [1, 'اليوم'],
       [4, 'الرقم القومي'],
+      [6, 'محل الإقامة'],
       [7, 'المؤهل'],
       [8, 'الرقم التأميني'],
       [9, 'الوظيفة'],
@@ -288,7 +288,6 @@ const DOCUMENTS = [
     ],
     inputs: [
       ['salary', 'الأجر الشهري (بالأرقام الإنجليزية)', 'amount', [10, 11], 'مثال: 8500 أو 8500.50'],
-      ['address', 'محل الإقامة', 'text', [6], 'غير مسجل في قاعدة البيانات؛ اكتبه هنا.'],
     ],
     required: [
       [3, 'الاسم بالعربية'],
@@ -816,15 +815,24 @@ async function printPdf() {
    document is open, so changing the employee keeps them. */
 const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, border: null, capturing: false, busy: false }
 
+const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
+  'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'is_active']
+
 async function loadEmployees() {
   const supabase = await IEnergyAuth.getClient()
-  const { data, error } = await supabase
+  const query = (columns) => supabase
     .from('employee_profiles')
-    .select('id, code, arabic_name, national_id, hired_on, contract_expiry, '
-      + 'si_no, si_title, title, qualification_degree_ar, education_field, is_active')
+    .select(columns.join(', '))
     .eq('is_active', true)
     .not('arabic_name', 'is', null)
     .order('arabic_name')
+  let { data, error } = await query(EMPLOYEE_COLUMNS)
+  /* A database the address migration (20261112150001) has not reached
+     yet has no address column. The page still opens; the address prints
+     blank until the migration is applied. */
+  if (error && error.code === '42703' && /address/.test(error.message || '')) {
+    ({ data, error } = await query(EMPLOYEE_COLUMNS.filter((c) => c !== 'address')))
+  }
   if (error) throw error
   state.employees = (data || []).map((e) => ({ ...e, _key: foldArabic(e.arabic_name) }))
   return state.employees
@@ -1102,16 +1110,15 @@ function refresh() {
   const fromRecord = ([n]) => !editable.has(n)
   const missing = emp ? empty(def.required).filter(fromRecord).map(([, l]) => l) : []
   const toType = empty(def.required).filter((x) => !fromRecord(x)).map(([, l]) => l)
-  const blank = emp ? empty(def.optional).map(([, l]) => l) : []
-  const blankNote = emp && blank.length
-    ? (def.optional.some(([n]) => editable.has(n)) ? 'فارغ، وسيترك للكتابة باليد' : 'غير مسجل، وسيترك فارغًا في العقد')
-    : ''
+  const blankRecord = emp ? empty(def.optional).filter(fromRecord).map(([, l]) => l) : []
+  const blankTyped = emp ? empty(def.optional).filter((x) => !fromRecord(x)).map(([, l]) => l) : []
   const warn = $('fieldWarning')
   const notes = []
   if (missing.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${missing.join('، ')}. أكملها أولاً ثم أعد الاختيار.`)
   if (emptyDates.length) notes.push(`أدخل ${emptyDates.join('، ')}.`)
   if (emp && toType.length) notes.push(`أدخل ${toType.join('، ')}.`)
-  if (blankNote) notes.push(`${blankNote}: ${blank.join('، ')}.`)
+  if (blankRecord.length) notes.push(`غير مسجل في قاعدة بيانات الموظفين، وسيترك فارغًا في العقد: ${blankRecord.join('، ')}.`)
+  if (blankTyped.length) notes.push(`فارغ، وسيترك للكتابة باليد: ${blankTyped.join('، ')}.`)
   warn.hidden = !notes.length
   warn.textContent = notes.join(' ')
 
