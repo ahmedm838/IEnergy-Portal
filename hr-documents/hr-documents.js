@@ -218,7 +218,6 @@ const AR = {
   gender: { Male: ['ذكر', 'ذكر'], Female: ['أنثى', 'أنثى'] },
   religion: { Muslim: ['مسلم', 'مسلمة'], Christian: ['مسيحي', 'مسيحية'] },
   marital: { Single: ['أعزب', 'عزباء'], Married: ['متزوج', 'متزوجة'], Divorced: ['مطلق', 'مطلقة'] },
-  military: { Served: ['أدى الخدمة', 'أدى الخدمة'], Postponed: ['مؤجل', 'مؤجل'], Exempted: ['معفى', 'معفى'] },
 }
 const inArabic = (list, value, emp) => (AR[list][value] || [])[isFemale(emp) ? 1 : 0] || ''
 
@@ -318,47 +317,30 @@ export function workStartValues(emp, d) {
 
 /* --- Social status declaration (إقرار الحالة الاجتماعية) ---------------- */
 
-/* Dated today unless the user sets it. The military certificate date and
-   the ID issue month are typed: the record holds neither. */
+/* Dated today unless the user sets it. */
 export function socialStatusDates(emp, set = {}, today = todayUTC()) {
   return {
     today: has(set, 'today') ? set.today : today,
     birth: emp ? parseISO(emp.birth_date) : null,
-    military: has(set, 'military') ? set.military : null,
-    idIssued: has(set, 'idIssued') ? set.idIssued : null,
   }
 }
 
-/* Gender, birth date and birth governorate are read out of the national
-   ID by the database. Military service does not apply to women: both of
-   its blanks say so, and the certificate date is not asked for. */
+/* Gender, nationality, birth date and governorate are read out of the
+   national ID by the database; the rest is on the record, in the
+   employee's gender where Arabic has one. (10) is the governorate. */
 export function socialStatusValues(emp, d, inputs = {}) {
   const name = emp?.arabic_name || ''
-  const female = isFemale(emp)
-  const na = emp ? 'لا ينطبق' : ''
   return {
     1: arDate(d.today),
     2: name,
     3: toArabicDigits(emp?.si_no || ''),
     4: jobTitle(emp),
     5: department(emp),
-    6: phone(emp?.personal_mobile),
     7: inArabic('gender', emp?.gender, emp),
-    8: emp?.national_id ? (female ? 'مصرية' : 'مصري') : '',
+    8: emp?.national_id ? (isFemale(emp) ? 'مصرية' : 'مصري') : '',
     9: inArabic('religion', emp?.religion, emp),
     10: emp?.governorate || '',
-    11: inputs.district || '',
     12: arDate(d.birth),
-    13: emp?.qualification_degree_ar || '',
-    14: inputs.gradYear ? toArabicDigits(inputs.gradYear) : '',
-    15: inputs.university || '',
-    16: emp?.education_field || '',
-    17: female ? na : inArabic('military', emp?.military_service, emp),
-    18: female ? na : arDate(d.military),
-    19: emp?.address || '',
-    20: toArabicDigits(emp?.national_id || ''),
-    21: emp?.governorate || '',
-    22: arMonth(d.idIssued),
     23: inArabic('marital', emp?.marital_status, emp),
     24: name,
     25: arDate(d.today),
@@ -497,15 +479,12 @@ const DOCUMENTS = [
     id: 'social-status',
     title: 'إقرار الحالة الاجتماعية',
     subtitle: 'Social status declaration',
-    template: 'templates/social-status.docx?v=3',
+    template: 'templates/social-status.docx?v=4',
     fileName: 'إقرار الحالة الاجتماعية',
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
-      6: 'الموبايل الشخصي', 7: 'النوع (من الرقم القومي)', 8: 'الجنسية (من الرقم القومي)', 9: 'الديانة',
-      10: 'محافظة الميلاد (من الرقم القومي)', 11: 'قسم / مركز الميلاد',
-      12: 'تاريخ الميلاد (من الرقم القومي)', 13: 'المؤهل', 14: 'سنة التخرج', 15: 'جهة التخرج',
-      16: 'التخصص', 17: 'الموقف من التجنيد', 18: 'تاريخ شهادة التجنيد', 19: 'العنوان',
-      20: 'الرقم القومي', 21: 'المحافظة (من الرقم القومي)', 22: 'شهر وسنة إصدار البطاقة',
+      7: 'النوع (من الرقم القومي)', 8: 'الجنسية (من الرقم القومي)', 9: 'الديانة',
+      10: 'المحافظة (من الرقم القومي)', 12: 'تاريخ الميلاد (من الرقم القومي)',
       23: 'الحالة الاجتماعية', 24: 'الاسم بالعربية', 25: 'تاريخ الإقرار',
       // One name for the whole table, so a missing box reads as one line.
       ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [26 + i, 'بيانات جدول الأشخاص الذين يمكن الرجوع إليهم'])),
@@ -518,29 +497,15 @@ const DOCUMENTS = [
       [3, 'الرقم التأميني'],
       [4, 'الوظيفة'],
       [5, 'الإدارة'],
-      [6, 'الموبايل'],
       [7, 'النوع'],
+      [8, 'الجنسية'],
       [9, 'الديانة'],
-      [10, 'محافظة الميلاد'],
+      [10, 'المحافظة'],
       [12, 'تاريخ الميلاد'],
-      [13, 'المؤهل'],
-      [16, 'التخصص'],
-      [17, 'الموقف من التجنيد'],
-      [19, 'العنوان'],
-      [20, 'الرقم القومي'],
-      [21, 'المحافظة'],
       [23, 'الحالة الاجتماعية'],
     ],
-    dateFields: [
-      ['today', 'تاريخ الإقرار', [1, 25]],
-      ['military', 'تاريخ شهادة التجنيد', [18]],
-      ['idIssued', 'شهر وسنة إصدار البطاقة', [22], { month: true }],
-    ],
-    inputs: [
-      ['district', 'قسم / مركز الميلاد', 'text', [11]],
-      ['gradYear', 'سنة التخرج (بالأرقام الإنجليزية)', 'year', [14], 'مثال: 2015'],
-      ['university', 'جهة التخرج', 'text', [15]],
-    ],
+    dateFields: [['today', 'تاريخ الإقرار', [1, 25]]],
+    inputs: [],
   },
 ]
 for (const def of DOCUMENTS) def.blanks = Object.keys(def.fields).map(Number)
@@ -785,6 +750,15 @@ function lockBlanks(root) {
    last line now ends on the right. The signature table keeps its column
    order, the company on the right. */
 function rightToLeft(root) {
+  /* A section in columns fills them from the right, as Word does in a
+     right-to-left document: CSS columns follow the direction of the
+     element that holds them. Tables inside keep the column order they
+     have in Word, which is left to right. */
+  for (const article of root.querySelectorAll('section.docx article')) {
+    if (!article.style.columnCount) continue
+    article.dir = 'rtl'
+    for (const table of article.querySelectorAll('table')) table.dir = 'ltr'
+  }
   for (const p of root.querySelectorAll('section.docx p')) {
     p.dir = 'rtl'
     const align = getComputedStyle(p).textAlign
