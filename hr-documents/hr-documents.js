@@ -385,12 +385,13 @@ function socialStatusDefaults(emp) {
 
 /* --- Resignation (استقالة مسببة) --------------------------------------- */
 
-/* Every date on the resignation is the user's: none is filled in. */
+/* The last working day is the resignation date on the record; every
+   other date is the user's, and none is filled in. */
 export function resignationDates(emp, set = {}) {
   const d = (k) => (has(set, k) ? set[k] : null)
   return {
     submitted: d('submitted'),
-    lastDay: d('lastDay'),
+    lastDay: emp ? parseISO(emp.resignation_date) : null,
     managerOn: d('managerOn'),
     adminOn: d('adminOn'),
     acceptedOn: d('acceptedOn'),
@@ -398,16 +399,17 @@ export function resignationDates(emp, set = {}) {
   }
 }
 
-/* The name and job title come from the record; the reasons and the two
-   approvers are chosen or typed; (2) is the weekday of the last working
-   day, "يوم (2) الموافق (3)". */
+/* The name, job title, last working day and reasons come from the
+   record -- the reasons are the resignation reason on it; the two
+   approvers are chosen. (2) is the weekday of the last working day,
+   "يوم (2) الموافق (3)". */
 export function resignationValues(emp, d, inputs = {}) {
   const name = emp?.arabic_name || ''
   return {
     1: arDate(d.submitted),
     2: arDay(d.lastDay),
     3: arDate(d.lastDay),
-    4: inputs.reasons || '',
+    4: emp?.resignation_reason || '',
     5: name,
     6: jobTitle(emp),
     7: inputs.manager || '',
@@ -435,7 +437,7 @@ export function resignationValues(emp, d, inputs = {}) {
                Arabic digits and words), year, or person (an employee
                chosen from the list, by Arabic name)
    pool        whose form it is: 'active' employees (the default) or
-               'resigned' ones */
+               'resigned' ones, those with a notice date */
 const DOCUMENTS = [
   {
     id: 'hiring',
@@ -556,24 +558,28 @@ DOCUMENTS.push({
   fileName: 'استقالة مسببة',
   pool: 'resigned',
   fields: {
-    1: 'تاريخ الاستقالة', 2: 'آخر يوم عمل', 3: 'آخر يوم عمل', 4: 'أسباب الاستقالة',
+    1: 'تاريخ الاستقالة', 2: 'تاريخ الاستقالة (آخر يوم عمل)', 3: 'تاريخ الاستقالة (آخر يوم عمل)',
+    4: 'سبب الاستقالة',
     5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'مدير الإدارة', 8: 'تاريخ اعتماد مدير الإدارة',
     9: 'الشئون الإدارية', 10: 'تاريخ اعتماد الشئون الإدارية', 11: 'تاريخ قبول إدارة الشركة',
     12: 'الاسم بالعربية', 13: 'تاريخ إقرار الموظف',
   },
   dates: resignationDates,
   values: resignationValues,
-  info: [[6, 'الوظيفة']],
+  info: [
+    [6, 'الوظيفة'],
+    [3, 'آخر يوم عمل'],
+    [2, 'اليوم'],
+    [4, 'سبب الاستقالة'],
+  ],
   dateFields: [
-    ['submitted', 'تاريخ الاستقالة', [1]],
-    ['lastDay', 'آخر يوم عمل', [2, 3]],
+    ['submitted', 'تاريخ تقديم الاستقالة', [1]],
     ['managerOn', 'تاريخ اعتماد مدير الإدارة', [8]],
     ['adminOn', 'تاريخ اعتماد الشئون الإدارية', [10]],
     ['acceptedOn', 'تاريخ قبول إدارة الشركة', [11]],
     ['acknowledgedOn', 'تاريخ إقرار الموظف بالقبول', [13]],
   ],
   inputs: [
-    ['reasons', 'أسباب الاستقالة', 'longtext', [4]],
     ['manager', 'اعتماد مدير الإدارة', 'person', [7]],
     ['admin', 'اعتماد الشئون الإدارية', 'person', [9]],
   ],
@@ -1238,7 +1244,7 @@ const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on'
   'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'is_active',
   'department_id', 'personal_mobile', 'gender', 'birth_date', 'governorate', 'religion',
   'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name',
-  'status_id', 'resignation_date']
+  'status_id', 'notice_date', 'resignation_date', 'resignation_reason']
 
 /* Department names by id, in Arabic where the department has one
    (departments.name_ar, from migration 20261112160001) and as stored
@@ -1284,9 +1290,9 @@ async function loadStatuses(supabase) {
 }
 
 /* The employees a form is for: those working here, or, for the
-   resignation, those who have resigned -- status Resigned, or a
-   resignation date on the record. */
-const isResigned = (e) => e.status_name === 'Resigned' || !!e.resignation_date
+   resignation, those who have handed in their notice -- a notice date
+   saved on the record. */
+const isResigned = (e) => !!e.notice_date
 function pool(def = state.def) {
   return def?.pool === 'resigned' ? state.employees.filter(isResigned) : state.employees.filter((e) => e.is_active)
 }
@@ -1296,7 +1302,7 @@ function showPoolHint() {
   if (!hint || !state.loaded) return
   const n = toArabicDigits(pool().length)
   hint.textContent = state.def?.pool === 'resigned'
-    ? `${n} موظف مستقيل — ابحث بالاسم أو الكود.`
+    ? `${n} موظف له تاريخ إشعار استقالة — ابحث بالاسم أو الكود.`
     : `${n} موظف — ابحث بالاسم أو الكود.`
 }
 
