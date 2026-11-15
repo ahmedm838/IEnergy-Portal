@@ -300,7 +300,7 @@ export function workStartDates(emp, set = {}, today = todayUTC()) {
   }
 }
 
-export function workStartValues(emp, d) {
+export function workStartValues(emp, d, inputs = {}) {
   const name = emp?.arabic_name || ''
   return {
     1: name,
@@ -312,6 +312,7 @@ export function workStartValues(emp, d) {
     7: arDate(d.hired),
     8: name,
     9: arDate(d.today),
+    10: inputs.admin || '',
   }
 }
 
@@ -417,9 +418,6 @@ export function resignationDates(emp, set = {}) {
   return {
     submitted: d('submitted'),
     lastDay: emp ? parseISO(emp.resignation_date) : null,
-    managerOn: d('managerOn'),
-    adminOn: d('adminOn'),
-    acceptedOn: d('acceptedOn'),
     acknowledgedOn: d('acknowledgedOn'),
   }
 }
@@ -438,10 +436,7 @@ export function resignationValues(emp, d, inputs = {}) {
     5: name,
     6: jobTitle(emp),
     7: inputs.manager || '',
-    8: arDate(d.managerOn),
     9: inputs.admin || '',
-    10: arDate(d.adminOn),
-    11: arDate(d.acceptedOn),
     12: name,
     13: arDate(d.acknowledgedOn),
   }
@@ -461,6 +456,7 @@ export function resignationValues(emp, d, inputs = {}) {
                kind is text, longtext, amount (English digits, shown in
                Arabic digits and words), year, or person (an employee
                chosen from the list, by Arabic name)
+   optional    blanks that may be left empty (they print as nothing)
    pool        whose form it is: 'active' employees (the default) or
                'resigned' ones, those with a notice date */
 const DOCUMENTS = [
@@ -468,7 +464,7 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=1',
+    template: 'templates/hiring-contract.docx?v=3',
     fileName: 'عقد عمل محدد المدة',
     fields: {
       1: 'اليوم', 2: 'تاريخ تحرير العقد', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
@@ -501,7 +497,7 @@ const DOCUMENTS = [
     id: 'renewal',
     title: 'اتفاق تجديد عقد عمل محدد المدة',
     subtitle: 'Contract renewal',
-    template: 'templates/contract-renewal.docx?v=2',
+    template: 'templates/contract-renewal.docx?v=3',
     fileName: 'تجديد عقد',
     fields: {
       1: 'اليوم', 2: 'تاريخ الاتفاق', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
@@ -523,11 +519,12 @@ const DOCUMENTS = [
     id: 'work-start',
     title: 'إقرار استلام عمل',
     subtitle: 'Work start acknowledgement',
-    template: 'templates/work-start.docx?v=3',
+    template: 'templates/work-start.docx?v=4',
     fileName: 'إقرار استلام عمل',
     fields: {
       1: 'الاسم بالعربية', 2: 'الرقم القومي', 3: 'الموبايل الشخصي', 4: 'العنوان',
       5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'تاريخ الإقرار',
+      10: 'الشئون الإدارية',
     },
     dates: workStartDates,
     values: workStartValues,
@@ -540,13 +537,14 @@ const DOCUMENTS = [
       [7, 'تاريخ استلام العمل'],
     ],
     dateFields: [['today', 'تاريخ الإقرار', [9]]],
-    inputs: [],
+    // Who signs for administrative affairs, chosen from the employees.
+    inputs: [['admin', 'الشئون الإدارية', 'person', [10]]],
   },
   {
     id: 'social-status',
     title: 'إقرار الحالة الاجتماعية',
     subtitle: 'Social status declaration',
-    template: 'templates/social-status.docx?v=4',
+    template: 'templates/social-status.docx?v=5',
     fileName: 'إقرار الحالة الاجتماعية',
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
@@ -557,6 +555,9 @@ const DOCUMENTS = [
       ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [26 + i, 'بيانات جدول الأشخاص الذين يمكن الرجوع إليهم'])),
     },
     refTable: REF_TABLE,
+    // The second and third people in the references table may be left
+    // out; the first must be given.
+    optional: [30, 31, 32, 33, 34, 35, 36, 37],
     defaults: socialStatusDefaults,
     dates: socialStatusDates,
     values: socialStatusValues,
@@ -579,7 +580,7 @@ DOCUMENTS.push({
   id: 'confidentiality',
   title: 'إقرار سرية البيانات',
   subtitle: 'Confidentiality declaration',
-  template: 'templates/confidentiality.docx?v=2',
+  template: 'templates/confidentiality.docx?v=3',
   fileName: 'إقرار سرية البيانات',
   // The signature line is left for the employee to sign by hand.
   fields: {
@@ -601,14 +602,13 @@ DOCUMENTS.push({
   id: 'resignation',
   title: 'استقالة مسببة',
   subtitle: 'Resignation',
-  template: 'templates/resignation.docx?v=2',
+  template: 'templates/resignation.docx?v=3',
   fileName: 'استقالة مسببة',
   pool: 'resigned',
   fields: {
     1: 'تاريخ الاستقالة', 2: 'تاريخ الاستقالة (آخر يوم عمل)', 3: 'تاريخ الاستقالة (آخر يوم عمل)',
     4: 'سبب الاستقالة',
-    5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'مدير الإدارة', 8: 'تاريخ اعتماد مدير الإدارة',
-    9: 'الشئون الإدارية', 10: 'تاريخ اعتماد الشئون الإدارية', 11: 'تاريخ قبول إدارة الشركة',
+    5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'مدير الإدارة', 9: 'الشئون الإدارية',
     12: 'الاسم بالعربية', 13: 'تاريخ إقرار الموظف',
   },
   dates: resignationDates,
@@ -621,9 +621,6 @@ DOCUMENTS.push({
   ],
   dateFields: [
     ['submitted', 'تاريخ تقديم الاستقالة', [1]],
-    ['managerOn', 'تاريخ اعتماد مدير الإدارة', [8]],
-    ['adminOn', 'تاريخ اعتماد الشئون الإدارية', [10]],
-    ['acceptedOn', 'تاريخ قبول إدارة الشركة', [11]],
     ['acknowledgedOn', 'تاريخ إقرار الموظف بالقبول', [13]],
   ],
   inputs: [
@@ -1109,10 +1106,13 @@ function matchFieldSize(root) {
 }
 
 function fillFields(values) {
+  const optional = new Set(state.def?.optional || [])
   for (const span of $('preview').querySelectorAll('.hr-field')) {
     const v = values[span.dataset.field]
     span.textContent = v || '……'
     span.classList.toggle('is-empty', !v)
+    // An optional blank left empty prints as nothing at all.
+    span.classList.toggle('is-optional', optional.has(+span.dataset.field))
   }
 }
 
@@ -1151,6 +1151,26 @@ function contentBottom(page) {
   return Math.ceil(bottom)
 }
 
+/* Where a long page may be cut between sheets: under each paragraph and
+   table row, in CSS pixels from the top of the page -- never straight
+   under a title (a short centred line with text after it), which stays
+   with what it heads. */
+function cutPoints(page) {
+  const top = page.getBoundingClientRect().top
+  const out = new Set()
+  const blocks = [...page.querySelectorAll('p, tr')]
+    .filter((el) => !el.closest('footer, header') && !(el.tagName === 'P' && el.closest('tr')))
+  blocks.forEach((el, i) => {
+    const r = el.getBoundingClientRect()
+    if (!r.height) return
+    const rest = blocks.slice(i + 1).some((n) => n.textContent.replace(/\u200b/g, '').trim())
+    const title = el.tagName === 'P' && rest && getComputedStyle(el).textAlign === 'center'
+      && el.textContent.trim().length < 60 && r.height < 48
+    if (!title) out.add(Math.ceil(r.bottom - top))
+  })
+  return [...out].sort((a, b) => a - b)
+}
+
 /* One A4 sheet: the page image, then the frame and the page number,
    drawn on the sheet itself so they sit in the same place on every
    sheet. */
@@ -1179,11 +1199,19 @@ function sheet(width, draw, border, number, scale) {
   return c
 }
 
-/* One sheet per page, always. The pages are the template's own -- split
-   where Word split them -- so the PDF and the printout have exactly as
-   many pages as the Word file. A page that comes out a little longer
-   than A4 here, because a font measures differently in the browser than
-   in Word, is shrunk onto its sheet rather than spilling onto another. */
+/* One sheet per page, as a rule. The pages are the template's own --
+   split where Word split them -- so the PDF and the printout have as many
+   pages as the Word file. A page that comes out a little longer than A4
+   here, because a font measures differently in the browser than in Word,
+   is shrunk onto its sheet rather than spilling onto another. A page far
+   longer than A4 -- a template saved without the page breaks Word made,
+   so that it comes out as one long page -- is cut into sheets between
+   paragraphs instead, with the page margins at the top and bottom of
+   each. */
+/* How much longer than A4 a page may run before it is cut rather than
+   shrunk: a fifth. */
+const LONG_PAGE = 1.2
+
 async function buildPdf() {
   const preview = $('preview')
   const pages = Array.from(preview.querySelectorAll('section.docx'))
@@ -1195,8 +1223,9 @@ async function buildPdf() {
   const numbered = pages.some((p) => /\d|[٠-٩]/.test(p.querySelector('footer')?.textContent || ''))
   const border = state.border
   preview.classList.add('is-capturing')
+  const sheets = []
   try {
-    for (const [i, page] of pages.entries()) {
+    for (const page of pages) {
       const cssWidth = page.offsetWidth
       const cssSheet = cssWidth * (297 / 210)
       const padBottom = parseFloat(getComputedStyle(page).paddingBottom) || 48
@@ -1213,7 +1242,26 @@ async function buildPdf() {
         style: { margin: '0', boxShadow: 'none' },
       })
       const k = canvas.width / cssWidth
-      const c = sheet(canvas.width, (ctx, sheetHeight) => {
+      if (needed > cssSheet * LONG_PAGE) {
+        const padTop = parseFloat(getComputedStyle(page).paddingTop) || 48
+        const cuts = cutPoints(page)
+        const end = needed - padBottom
+        let start = 0
+        while (start < end - 1) {
+          const first = start === 0
+          const limit = first ? cssSheet - padBottom : start + cssSheet - padTop - padBottom
+          let cut = cuts.filter((y) => y > start + 1 && y <= limit).pop()
+          if (cut === undefined) cut = Math.min(limit, end)
+          const from = start
+          const at = first ? 0 : padTop
+          sheets.push(sheet(canvas.width, (ctx) => {
+            ctx.drawImage(canvas, 0, from * k, canvas.width, (cut - from) * k, 0, at * k, canvas.width, (cut - from) * k)
+          }, border, numbered ? sheets.length + 1 : 0, k))
+          start = cut
+        }
+        continue
+      }
+      sheets.push(sheet(canvas.width, (ctx, sheetHeight) => {
         if (needed <= cssSheet) {
           // Fits: the top of the page, A4 high, at full size.
           const h = Math.min(canvas.height, sheetHeight)
@@ -1226,10 +1274,12 @@ async function buildPdf() {
           ctx.drawImage(canvas, 0, 0, canvas.width, Math.min(canvas.height, needed * k),
             (canvas.width - w) / 2, 0, w, sheetHeight)
         }
-      }, border, numbered ? i + 1 : 0, k)
+      }, border, numbered ? sheets.length + 1 : 0, k))
+    }
+    sheets.forEach((c, i) => {
       if (i) pdf.addPage()
       pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297)
-    }
+    })
   } finally {
     preview.classList.remove('is-capturing')
     state.capturing = false
@@ -1747,7 +1797,8 @@ function refresh() {
   /* The rule for every form: nothing is saved or printed with a blank
      left empty. What is missing is named -- from the employee record,
      to be put right there, or from the boxes here, to be filled in. */
-  const empty = def.blanks.filter((n) => !values[n])
+  const optional = new Set(def.optional || [])
+  const empty = def.blanks.filter((n) => !values[n] && !optional.has(n))
   const names = (list) => [...new Set(list.map((n) => def.fields[n]))].join('، ')
   const fromRecord = empty.filter((n) => !editable.has(n))
   const toFill = empty.filter((n) => editable.has(n))

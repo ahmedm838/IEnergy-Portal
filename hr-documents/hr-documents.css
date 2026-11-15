@@ -149,3 +149,7 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
    are kept as typed, as everywhere in the document. */
 .hr-preview p.hr-one-line,
 .hr-preview p.hr-one-line * { white-space: pre !important; }
+
+/* An optional blank left empty: dots on screen, nothing on paper. */
+.hr-field.is-optional.is-empty { background: #eef2f7; border-bottom-color: #9aa5b1; color: #9aa5b1; }
+.hr-preview.is-capturing .hr-field.is-optional.is-empty { color: transparent; background: none; border: 0; }
