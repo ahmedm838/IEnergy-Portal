@@ -737,6 +737,33 @@ export function holdEmptyLines(xml) {
   })
 }
 
+/* Word draws one box around consecutive paragraphs that have the same
+   borders: the top border over the first of them, the bottom border under
+   the last, none in between. The renderer borders each paragraph on its
+   own, so an empty paragraph above a title, bordered like it, drew a
+   second line above the title. Within each such run, only the first
+   keeps its top border and only the last its bottom border. */
+export function mergeParagraphBorders(xml) {
+  const body = xml.indexOf('<w:body')
+  const paras = [...xml.slice(body).matchAll(/<w:p\b(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/g)]
+  const border = (p) => /<w:pBdr>[\s\S]*?<\/w:pBdr>/.exec(/<w:pPr>[\s\S]*?<\/w:pPr>/.exec(p)?.[0] || '')?.[0] || ''
+  const edits = []
+  for (let i = 0; i < paras.length; i++) {
+    const b = border(paras[i][0])
+    if (!b) continue
+    // Next to each other in the document, with nothing between them.
+    const prevSame = i > 0 && border(paras[i - 1][0]) === b && paras[i - 1].index + paras[i - 1][0].length === paras[i].index
+    const nextSame = i + 1 < paras.length && border(paras[i + 1][0]) === b && paras[i].index + paras[i][0].length === paras[i + 1].index
+    if (!prevSame && !nextSame) continue
+    let nb = b
+    if (prevSame) nb = nb.replace(/<w:top\b[^>]*\/>/, '')
+    if (nextSame) nb = nb.replace(/<w:bottom\b[^>]*\/>/, '')
+    if (nb !== b) edits.push([body + paras[i].index, paras[i][0], paras[i][0].replace(b, nb)])
+  }
+  for (const [at, from, to] of edits.reverse()) xml = xml.slice(0, at) + to + xml.slice(at + from.length)
+  return xml
+}
+
 const templateCache = new Map()
 async function loadTemplate(def) {
   const url = def.template
@@ -753,7 +780,7 @@ async function loadTemplate(def) {
       // Kashida justification is how Word justifies Arabic; the renderer
       // does not know it and would leave those paragraphs unaligned.
       xml = xml.replace(/(<w:jc w:val=")(?:low|medium|high)Kashida(")/g, '$1both$2')
-      zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(xml)), def.blanks))
+      zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(mergeParagraphBorders(xml))), def.blanks))
       for (const name of Object.keys(zip.files)) {
         if (/^word\/(styles|header\d*|footer\d*)\.xml$/.test(name)) {
           zip.file(name, useArabicRunProps(await zip.file(name).async('string')))
