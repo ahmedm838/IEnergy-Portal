@@ -523,7 +523,7 @@ const DOCUMENTS = [
     id: 'work-start',
     title: 'إقرار استلام عمل',
     subtitle: 'Work start acknowledgement',
-    template: 'templates/work-start.docx?v=2',
+    template: 'templates/work-start.docx?v=3',
     fileName: 'إقرار استلام عمل',
     fields: {
       1: 'الاسم بالعربية', 2: 'الرقم القومي', 3: 'الموبايل الشخصي', 4: 'العنوان',
@@ -579,7 +579,7 @@ DOCUMENTS.push({
   id: 'confidentiality',
   title: 'إقرار سرية البيانات',
   subtitle: 'Confidentiality declaration',
-  template: 'templates/confidentiality.docx?v=1',
+  template: 'templates/confidentiality.docx?v=2',
   fileName: 'إقرار سرية البيانات',
   // The signature line is left for the employee to sign by hand.
   fields: {
@@ -601,7 +601,7 @@ DOCUMENTS.push({
   id: 'resignation',
   title: 'استقالة مسببة',
   subtitle: 'Resignation',
-  template: 'templates/resignation.docx?v=1',
+  template: 'templates/resignation.docx?v=2',
   fileName: 'استقالة مسببة',
   pool: 'resigned',
   fields: {
