@@ -383,6 +383,31 @@ function socialStatusDefaults(emp) {
   }
 }
 
+/* --- Confidentiality declaration (إقرار سرية البيانات) ------------------ */
+
+/* Dated today unless the user sets it, at the top and above the name at
+   the bottom alike; the hiring date is the one on the record. */
+export function confidentialityDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+  }
+}
+
+export function confidentialityValues(emp, d) {
+  const name = emp?.arabic_name || ''
+  return {
+    1: arDate(d.today),
+    2: name,
+    3: toArabicDigits(emp?.national_id || ''),
+    4: arDate(d.hired),
+    5: jobTitle(emp),
+    6: department(emp),
+    7: name,
+    8: arDate(d.today),
+  }
+}
+
 /* --- Resignation (استقالة مسببة) --------------------------------------- */
 
 /* The last working day is the resignation date on the record; every
@@ -550,6 +575,28 @@ const DOCUMENTS = [
     inputs: [],
   },
 ]
+DOCUMENTS.push({
+  id: 'confidentiality',
+  title: 'إقرار سرية البيانات',
+  subtitle: 'Confidentiality declaration',
+  template: 'templates/confidentiality.docx?v=1',
+  fileName: 'إقرار سرية البيانات',
+  // The signature line is left for the employee to sign by hand.
+  fields: {
+    1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
+    5: 'الوظيفة', 6: 'الإدارة', 7: 'الاسم بالعربية', 8: 'تاريخ الإقرار',
+  },
+  dates: confidentialityDates,
+  values: confidentialityValues,
+  info: [
+    [3, 'الرقم القومي'],
+    [4, 'تاريخ التعيين'],
+    [5, 'الوظيفة'],
+    [6, 'الإدارة'],
+  ],
+  dateFields: [['today', 'تاريخ الإقرار', [1, 8]]],
+  inputs: [],
+})
 DOCUMENTS.push({
   id: 'resignation',
   title: 'استقالة مسببة',
