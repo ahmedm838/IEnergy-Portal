@@ -412,12 +412,13 @@ export function confidentialityValues(emp, d) {
 
 /* --- Resignation (استقالة مسببة) --------------------------------------- */
 
-/* The last working day is the resignation date on the record; every
-   other date is the user's, and none is filled in. */
+/* The resignation date (1) is the notice date on the record and the last
+   working day the resignation date; neither can be changed here. Only
+   the employee's acknowledgement date is the user's, and it starts empty. */
 export function resignationDates(emp, set = {}) {
   const d = (k) => (has(set, k) ? set[k] : null)
   return {
-    submitted: d('submitted'),
+    submitted: emp ? parseISO(emp.notice_date) : null,
     lastDay: emp ? parseISO(emp.resignation_date) : null,
     acknowledgedOn: d('acknowledgedOn'),
   }
@@ -617,12 +618,13 @@ DOCUMENTS.push({
   values: resignationValues,
   info: [
     [6, 'الوظيفة'],
+    // From the notice date on the record, not typed here.
+    [1, 'تاريخ تقديم الاستقالة'],
     [3, 'آخر يوم عمل'],
     [2, 'اليوم'],
     [4, 'سبب الاستقالة'],
   ],
   dateFields: [
-    ['submitted', 'تاريخ تقديم الاستقالة', [1]],
     ['acknowledgedOn', 'تاريخ إقرار الموظف بالقبول', [13]],
   ],
   inputs: [
