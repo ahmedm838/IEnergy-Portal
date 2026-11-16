@@ -324,8 +324,17 @@ export function socialStatusDates(emp, set = {}, today = todayUTC()) {
   return {
     today: has(set, 'today') ? set.today : today,
     birth: emp ? parseISO(emp.birth_date) : null,
+    idIssued: emp ? parseISO(emp.id_issue_date) : null,
   }
 }
+
+/* Military service in the form's Arabic, in the employee's gender. */
+const MILITARY = {
+  Served: ['أدى الخدمة', 'أدت الخدمة'],
+  Postponed: ['مؤجل', 'مؤجلة'],
+  Exempted: ['معفى', 'معفاة'],
+}
+const militaryService = (emp) => (MILITARY[emp?.military_service] || [])[isFemale(emp) ? 1 : 0] || ''
 
 /* Gender, nationality, birth date and governorate are read out of the
    national ID by the database; the rest is on the record, in the
@@ -347,6 +356,16 @@ export function socialStatusValues(emp, d, inputs = {}) {
     24: name,
     25: arDate(d.today),
     ...refTableValues(REF_TABLE, inputs),
+    38: toArabicDigits(emp?.national_id || ''),
+    39: militaryService(emp),
+    // "صادرة بتاريخ": the card's issue month, as the hiring contract prints it.
+    40: arMonth(d.idIssued),
+    41: phone(emp?.personal_mobile),
+    42: qualification(emp),
+    // The address on the record is the one on the ID card.
+    43: emp?.address || '',
+    // Typed on the form; starts as the record's address.
+    44: inputs.currentAddress || '',
   }
 }
 
@@ -379,6 +398,7 @@ function socialStatusDefaults(emp) {
   if (!emp) return {}
   const m = /^\s*(.*?)\s*\((.*?)\)\s*$/.exec(emp.secondary_mobile_name || '')
   return {
+    currentAddress: emp.address || '',
     [refKey(0, 'name')]: m ? m[1] : (emp.secondary_mobile_name || ''),
     [refKey(0, 'relation')]: m ? m[2] : '',
     [refKey(0, 'phone')]: emp.secondary_mobile ? String(emp.secondary_mobile).replace(/\D/g, '') : '',
@@ -547,13 +567,15 @@ const DOCUMENTS = [
     id: 'social-status',
     title: 'إقرار الحالة الاجتماعية',
     subtitle: 'Social status declaration',
-    template: 'templates/social-status.docx?v=6',
+    template: 'templates/social-status.docx?v=7',
     fileName: 'إقرار الحالة الاجتماعية',
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
       7: 'النوع (من الرقم القومي)', 8: 'الجنسية (من الرقم القومي)', 9: 'الديانة',
       10: 'المحافظة (من الرقم القومي)', 12: 'تاريخ الميلاد (من الرقم القومي)',
       23: 'الحالة الاجتماعية', 24: 'الاسم بالعربية', 25: 'تاريخ الإقرار',
+      38: 'الرقم القومي', 39: 'الخدمة العسكرية', 40: 'تاريخ إصدار البطاقة',
+      41: 'رقم التليفون', 42: 'المؤهل الدراسي', 43: 'العنوان', 44: 'العنوان الحالي',
       // One name for the whole table, so a missing box reads as one line.
       ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [26 + i, 'بيانات جدول الأشخاص الذين يمكن الرجوع إليهم'])),
     },
@@ -574,9 +596,17 @@ const DOCUMENTS = [
       [10, 'المحافظة'],
       [12, 'تاريخ الميلاد'],
       [23, 'الحالة الاجتماعية'],
+      [38, 'الرقم القومي'],
+      [40, 'تاريخ إصدار البطاقة'],
+      [39, 'الخدمة العسكرية'],
+      [41, 'رقم التليفون'],
+      [42, 'المؤهل الدراسي'],
+      [43, 'العنوان من الرقم القومي'],
     ],
     dateFields: [['today', 'تاريخ الإقرار', [1, 25]]],
-    inputs: [],
+    // Starts as the address on the record; changed here when the
+    // employee lives elsewhere now.
+    inputs: [['currentAddress', 'العنوان الحالي', 'longtext', [44]]],
   },
 ]
 DOCUMENTS.push({
@@ -1801,10 +1831,13 @@ function refresh() {
   layoutTabs($('preview'))
   keepLines($('preview'))
   const editable = editableBlanks(def)
-  if (def.refTable) {
+  /* Boxes that start from the record (the references table, the current
+     address) show what the document is printing. Lists are left alone. */
+  if (def.defaults) {
     for (const [k, v] of Object.entries(inputs)) {
-      const box = k.startsWith('ref') && $(`input-${k}`)
-      if (box && document.activeElement !== box && !box.classList.contains('is-invalid')) box.value = v
+      const box = $(`input-${k}`)
+      if (box && box.tagName !== 'SELECT' && document.activeElement !== box &&
+          !box.classList.contains('is-invalid')) box.value = v
     }
   }
   for (const span of $('preview').querySelectorAll('.hr-field')) {
