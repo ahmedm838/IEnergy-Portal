@@ -364,7 +364,7 @@ export function socialStatusValues(emp, d, inputs = {}) {
     42: qualification(emp),
     // The address on the record is the one on the ID card.
     43: emp?.address || '',
-    // Typed on the form; starts as the record's address.
+    // Typed on the form every time; starts empty and must be filled.
     44: inputs.currentAddress || '',
   }
 }
@@ -398,7 +398,6 @@ function socialStatusDefaults(emp) {
   if (!emp) return {}
   const m = /^\s*(.*?)\s*\((.*?)\)\s*$/.exec(emp.secondary_mobile_name || '')
   return {
-    currentAddress: emp.address || '',
     [refKey(0, 'name')]: m ? m[1] : (emp.secondary_mobile_name || ''),
     [refKey(0, 'relation')]: m ? m[2] : '',
     [refKey(0, 'phone')]: emp.secondary_mobile ? String(emp.secondary_mobile).replace(/\D/g, '') : '',
@@ -604,8 +603,7 @@ const DOCUMENTS = [
       [43, 'العنوان من الرقم القومي'],
     ],
     dateFields: [['today', 'تاريخ الإقرار', [1, 25]]],
-    // Starts as the address on the record; changed here when the
-    // employee lives elsewhere now.
+    // Starts empty; save and print stay off until it is typed.
     inputs: [['currentAddress', 'العنوان الحالي', 'longtext', [44]]],
   },
 ]
@@ -1831,8 +1829,8 @@ function refresh() {
   layoutTabs($('preview'))
   keepLines($('preview'))
   const editable = editableBlanks(def)
-  /* Boxes that start from the record (the references table, the current
-     address) show what the document is printing. Lists are left alone. */
+  /* Boxes that start from the record (the references table) show what
+     the document is printing. Lists are left alone. */
   if (def.defaults) {
     for (const [k, v] of Object.entries(inputs)) {
       const box = $(`input-${k}`)
