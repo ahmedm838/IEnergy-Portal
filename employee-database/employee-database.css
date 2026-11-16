@@ -445,7 +445,8 @@
    because a hidden input cannot be asked to open its picker. */
 .db-date { position: relative; display: block; }
 .db-date-text { width: 100%; padding-right: 30px; }
-.db-date-text.bad { border-color: var(--danger-text); }
+.db-date-text.bad,
+.input.bad { border-color: var(--danger-text); }
 .db-date-native {
   position: absolute;
   right: 8px;
@@ -722,6 +723,16 @@ body:has(#app) .container { max-width: 1500px; }
   .db-grid[data-cols='6'] {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 8px;
+  }
+}
+/* Identity: one row of six. Code, the two names, then the three ID boxes
+   -- ID No., issue date (mm/yy) and expiry date -- each narrower, sized
+   to the fixed shape it holds. Below 1000px the usual auto-fit wraps it. */
+@media (min-width: 1000px) {
+  .db-grid[data-layout='identity'] {
+    grid-template-columns:
+      minmax(0, 0.8fr) minmax(0, 1.5fr) minmax(0, 1.5fr)
+      minmax(0, 0.95fr) minmax(0, 0.55fr) minmax(0, 0.85fr);
   }
 }
 @media (max-width: 860px)  { .db-grid[data-cols] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

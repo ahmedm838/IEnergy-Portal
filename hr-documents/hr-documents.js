@@ -254,13 +254,14 @@ export function renewalValues(emp, d) {
 
 /* --- Hiring contract ------------------------------------------------- */
 
-/* The ID issue month is typed by the user; it starts empty. The contract
-   runs one year from the hiring date, less a day. */
+/* The ID issue month comes from the employee record (id_issue_date, the
+   first of the month on the card). The contract runs one year from the
+   hiring date, less a day. */
 export function hiringDates(emp, set = {}, today = todayUTC()) {
   const hired = emp ? parseISO(emp.hired_on) : null
   return {
     today: has(set, 'today') ? set.today : today,
-    idIssued: has(set, 'idIssued') ? set.idIssued : null,
+    idIssued: emp ? parseISO(emp.id_issue_date) : null,
     start: hired,
     end: hired ? oneYearFrom(hired) : null,
   }
@@ -477,6 +478,7 @@ const DOCUMENTS = [
     info: [
       [1, 'اليوم'],
       [4, 'الرقم القومي'],
+      [5, 'تاريخ إصدار البطاقة'],
       [6, 'محل الإقامة'],
       [7, 'المؤهل'],
       [8, 'الرقم التأميني'],
@@ -484,10 +486,10 @@ const DOCUMENTS = [
       [12, 'بداية العقد'],
       [13, 'نهاية العقد'],
     ],
+    // The ID issue month (5) is no longer typed here: it is read from the
+    // employee record, where it is entered as mm/yy.
     dateFields: [
       ['today', 'تاريخ تحرير العقد', [1, 2]],
-      // Month and year: the card gives no day.
-      ['idIssued', 'شهر وسنة إصدار البطاقة', [5], { month: true }],
     ],
     inputs: [
       ['salary', 'الأجر الشهري (بالأرقام الإنجليزية)', 'amount', [10, 11], 'مثال: 8500 أو 8500.50'],
@@ -1365,7 +1367,7 @@ async function printPdf() {
 const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, border: null, tabStops: null, defaultTab: 36, capturing: false, busy: false }
 
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
-  'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'is_active',
+  'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',
   'department_id', 'personal_mobile', 'gender', 'birth_date', 'governorate', 'religion',
   'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name',
   'status_id', 'notice_date', 'resignation_date', 'resignation_reason']
@@ -1387,12 +1389,17 @@ async function loadEmployees() {
     .select(columns.join(', '))
     .not('arabic_name', 'is', null)
     .order('arabic_name')
-  let { data, error } = await query(EMPLOYEE_COLUMNS)
-  /* A database the address migration (20261112150001) has not reached
-     yet has no address column. The page still opens; the address prints
-     blank until the migration is applied. */
-  if (error && error.code === '42703' && /address/.test(error.message || '')) {
-    ({ data, error } = await query(EMPLOYEE_COLUMNS.filter((c) => c !== 'address')))
+  /* A database a newer migration has not reached yet lacks that column:
+     address (20261112150001) or id_issue_date (20261116100001). The page
+     still opens without it; that blank prints empty until the migration
+     is applied. Dropped one at a time, as the error names them. */
+  let columns = EMPLOYEE_COLUMNS
+  let { data, error } = await query(columns)
+  let missing
+  while (error && error.code === '42703' &&
+         (missing = ['address', 'id_issue_date'].find((c) => columns.includes(c) && (error.message || '').includes(c)))) {
+    columns = columns.filter((c) => c !== missing)
+    ;({ data, error } = await query(columns))
   }
   if (error) throw error
   const departments = await loadDepartments(supabase)

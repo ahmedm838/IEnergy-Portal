@@ -104,6 +104,50 @@ function parseDateInput(text) {
   return when.toISOString().slice(0, 10)
 }
 
+/* The ID card's issue date is a month and a year -- the card prints no
+   day -- written mm/yy as on the card. It is stored as the first of that
+   month so the column stays a real date the hiring contract can read. */
+
+/** 2019-03-01 -> 03/19. Empty string for anything that is not a date. */
+function isoToMY(iso) {
+  const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(String(iso ?? '').slice(0, 10))
+  return m ? `${m[2]}/${m[1].slice(2)}` : ''
+}
+
+/**
+ * What somebody typed into a month box, as YYYY-MM-01.
+ *
+ * Takes mm/yy, and mm/yyyy for anyone who writes the whole year. A two
+ * digit year is this century unless that would be a future year, so 98
+ * is 1998 and 19 is 2019. Empty gives ''; anything that is not a real
+ * month gives null.
+ */
+function parseMonthYear(text, today = new Date()) {
+  const value = String(text ?? '').trim()
+  if (!value) return ''
+  const m = /^(\d{1,2})\s*[-/.]\s*(\d{2}|\d{4})$/.exec(value)
+  if (!m) return null
+  const month = Number(m[1])
+  if (month < 1 || month > 12) return null
+  let year = Number(m[2])
+  if (m[2].length === 2) year += year <= today.getFullYear() % 100 ? 2000 : 1900
+  return `${year}-${String(month).padStart(2, '0')}-01`
+}
+
+/**
+ * A month box as it is typed: digits and one slash only, and the slash
+ * put in after two digits -- 0319 -> 03/19. A slash typed after a single
+ * digit is kept (3/19), and so is a four-digit year (03/2019).
+ */
+function formatMonthYear(v) {
+  const s = String(v ?? '').replace(/[^\d/]/g, '')
+  const slash = s.indexOf('/')
+  if (slash >= 0) {
+    return `${s.slice(0, slash).slice(0, 2)}/${s.slice(slash + 1).replace(/\//g, '').slice(0, 4)}`
+  }
+  return s.length > 2 ? `${s.slice(0, 2)}/${s.slice(2, 6)}` : s
+}
+
 /* ------------------------------------------------------------------ */
 /* The record, described once and rendered from the description        */
 /* ------------------------------------------------------------------ */
@@ -140,11 +184,17 @@ const DOCUMENTS = [
 const GROUPS = [
   {
     title: 'Identity',
+    // One row of six. The three ID boxes hold short fixed shapes -- 14
+    // digits, mm/yy, a date -- so they are narrower and the names wider.
+    layout: 'identity',
     fields: [
       { key: 'code', label: 'Code', type: 'digits', maxLength: 6, placeholder: 'enter 6 numbers' },
       { key: 'name', label: 'Name (English)', type: 'text', placeholder: '3 English names only' },
       { key: 'arabic_name', label: 'Arabic name as in ID', type: 'text', dir: 'rtl', placeholder: 'As in ID arabic only' },
       { key: 'national_id', label: 'ID No.', type: 'digits', maxLength: 14, placeholder: '14 numbers' },
+      // Required, like everything not in OPTIONAL. The hiring contract
+      // prints it after "صادرة بتاريخ".
+      { key: 'id_issue_date', label: 'ID issue date', type: 'monthyear', placeholder: 'mm/yy' },
       { key: 'id_expiry_date', label: 'ID expiry date', type: 'date' },
     ],
   },
@@ -986,6 +1036,26 @@ function fieldControl(field, value) {
     input.addEventListener('input', () => siCodeLookup(input.value))
   } else if (field.type === 'date') {
     input = dateControl(value)
+  } else if (field.type === 'monthyear') {
+    // mm/yy, the slash put in as the digits are typed. A 4-digit year
+    // typed with its own slash (03/2019) is left alone and accepted.
+    input = document.createElement('input')
+    input.className = 'input'
+    input.type = 'text'
+    input.inputMode = 'numeric'
+    input.autocomplete = 'off'
+    input.maxLength = 7
+    input.placeholder = field.placeholder ?? 'mm/yy'
+    input.value = isoToMY(value)
+    input.addEventListener('input', () => {
+      input.value = formatMonthYear(input.value)
+      input.classList.remove('bad')
+    })
+    input.addEventListener('blur', () => {
+      const iso = parseMonthYear(input.value)
+      if (iso) input.value = isoToMY(iso)
+      input.classList.toggle('bad', iso === null)
+    })
   } else {
     input = document.createElement('input')
     input.className = 'input'
@@ -1364,6 +1434,7 @@ function renderForm(employee) {
     const grid = document.createElement('div')
     grid.className = 'db-grid'
     if (group.columns) grid.dataset.cols = String(group.columns)
+    if (group.layout) grid.dataset.layout = group.layout
     /* The status and bus-route widths that used to be measured here fed
        grid tracks that no longer exist. Employment is two rows now, and a
        grid track is shared down the whole grid -- track one carries the
@@ -1619,6 +1690,8 @@ function exportRow(e) {
     'Gender': e.gender ?? '',
     'Governorate code': e.governorate_code ?? '',
     'Governorate': e.governorate ?? '',
+    // mm/yy, as on the card and the form.
+    'ID issue date': isoToMY(e.id_issue_date),
     'ID expiry': isoToDMY(e.id_expiry_date),
     'ID expiry status': expiryStatus(e.id_expiry_date),
 
@@ -1765,6 +1838,11 @@ function readForm() {
       out[key] = typed === '' ? null : (el.dataset.iso || BAD_DATE)
       continue
     }
+    if (el.dataset.kind === 'monthyear') {
+      const iso = parseMonthYear(el.value)
+      out[key] = iso === '' ? null : (iso || BAD_DATE)
+      continue
+    }
     let raw = String(el.value ?? '').trim()
     if (el.dataset.kind === 'money') raw = onlyDigits(raw.split('.')[0], 9)
     // One space between names, whatever was pasted in -- a no-break space
@@ -1902,6 +1980,21 @@ function validate(v) {
   for (const field of EDITABLE) {
     if (field.type === 'date' && v[field.key] === BAD_DATE) {
       problems.push(`${field.label} is not a real date. Write it as dd-mmm-yyyy, for example 15-Jan-2026.`)
+    }
+    if (field.type === 'monthyear' && v[field.key] === BAD_DATE) {
+      problems.push(`${field.label} is not a real month. Write it as mm/yy, for example 03/19.`)
+    }
+  }
+
+  /* A card is issued before it expires, and not in a month still to come. */
+  const issued = v.id_issue_date
+  if (issued && issued !== BAD_DATE) {
+    const now = new Date()
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    if (issued > thisMonth) {
+      problems.push('ID issue date cannot be in the future.')
+    } else if (v.id_expiry_date && v.id_expiry_date !== BAD_DATE && issued >= v.id_expiry_date) {
+      problems.push('ID issue date must be before the ID expiry date.')
     }
   }
 
