@@ -1423,7 +1423,10 @@ function renderDerived() {
 
   // Just the count. The checklist is immediately below and already shows
   // which ones are unticked, so naming them here only made the line long.
-  const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).length
+  // The military certificate is not asked of a woman (as missing_documents
+  // in the database).
+  const missing = DOCUMENTS.filter(([key]) =>
+    !(key === 'doc_military_certificate' && militaryNotApplicable()) && !$(`f_${key}`)?.checked).length
   items.push([
     'File status',
     missing ? `Missing (${missing})` : 'Complete',
@@ -1473,6 +1476,15 @@ function syncMilitary() {
     service.disabled = false
     service.title = ''
   }
+
+  // The military certificate box: unticked while the ID is female, back
+  // to what was saved otherwise. Its buttons follow (personnelFileSection).
+  const docBox = $('f_doc_military_certificate')
+  if (docBox) {
+    if (docBox.dataset.saved == null) docBox.dataset.saved = docBox.checked ? '1' : ''
+    docBox.checked = !female && docBox.dataset.saved === '1'
+  }
+  document.querySelector('#employeeForm .db-docs')?.closest('fieldset')?.refreshFiles?.()
 
   if (!expiry) return
   const needed = MILITARY_WITH_EXPIRY.includes(service.value)
@@ -1580,34 +1592,10 @@ function renderForm(employee) {
   pay.appendChild(payGrid)
   form.appendChild(pay)
 
-  // The eleven tick boxes decide whether the file counts as complete, so
-  // they read better as one block than scattered through the rest.
-  const docs = document.createElement('fieldset')
-  docs.className = 'db-group db-group-wide'
-  const legend = document.createElement('legend')
-  legend.textContent = 'Personnel file'
-  docs.appendChild(legend)
-  const docGrid = document.createElement('div')
-  docGrid.className = 'db-docs'
-  for (const [key, label] of DOCUMENTS) {
-    const wrap = document.createElement('label')
-    wrap.className = 'db-doc'
-    const box = document.createElement('input')
-    box.type = 'checkbox'
-    box.id = `f_${key}`
-    box.dataset.key = key
-    box.checked = !!employee[key]
-    box.addEventListener('change', updateFileStatus)
-    const text = document.createElement('span')
-    text.textContent = key === 'doc_military_certificate' ? `${label} (males only)` : label
-    wrap.appendChild(box)
-    wrap.appendChild(text)
-    docGrid.appendChild(wrap)
-  }
-  docs.appendChild(docGrid)
-  form.appendChild(docs)
-
-  form.appendChild(employeePdfSection(employee))
+  // The ten boxes decide whether the file counts as complete. Each has
+  // its own PDF; the box is ticked by uploading and unticked by deleting,
+  // never by hand.
+  form.appendChild(personnelFileSection(employee))
 
   // Before the read-only lock below, which must have the last word.
   syncMilitary()
@@ -1650,131 +1638,215 @@ async function fileApiError(response) {
   return `The server answered ${response.status}.`
 }
 
+/** True when the military certificate does not apply: a female ID No. */
+function militaryNotApplicable() {
+  return readNationalId($('f_national_id')?.value ?? '')?.gender === 'Female'
+}
+
 /**
- * Upload / Replace and View for the record that is open.
+ * The personnel file: one box per document, each with its own PDF.
  *
- * One PDF holds the employee's documents. Upload becomes Replace once a
- * file is there; replacing overwrites it. A new employee has no id yet,
- * so the buttons wait until the record is saved.
+ * The box is never ticked by hand -- it is always disabled. Uploading a
+ * file ticks it and deleting the file unticks it; the server does both,
+ * writing the employee's doc_ flag itself, so the tick and the file move
+ * together. Upload becomes Replace once a file is there.
+ *
+ * A new employee has no id yet, so the buttons wait until it is saved.
+ * The military certificate is off for a female ID No. (syncMilitary).
  */
-function employeePdfSection(employee) {
+function personnelFileSection(employee) {
   const section = document.createElement('fieldset')
   section.className = 'db-group db-group-wide'
   const legend = document.createElement('legend')
-  legend.textContent = 'Employee documents (PDF)'
+  legend.textContent = 'Personnel file'
   section.appendChild(legend)
 
-  const row = document.createElement('div')
-  row.className = 'db-files'
-  const status = document.createElement('span')
-  status.className = 'db-files-status'
-  const picker = document.createElement('input')
-  picker.type = 'file'
-  picker.accept = 'application/pdf,.pdf'
-  picker.hidden = true
-  const upload = document.createElement('button')
-  upload.type = 'button'
-  upload.className = 'btn'
-  upload.textContent = 'Upload documents'
-  const view = document.createElement('button')
-  view.type = 'button'
-  view.className = 'btn'
-  view.textContent = 'View documents'
-  view.disabled = true
-  row.append(upload, view, status, picker)
-  section.appendChild(row)
+  const grid = document.createElement('div')
+  grid.className = 'db-docs'
+  section.appendChild(grid)
+  const note = document.createElement('div')
+  note.className = 'db-files-status'
+  section.appendChild(note)
 
   const id = employee?.id
+  const canEdit = mayEdit(me?.role)
+  const rows = new Map()
+
+  for (const [key, label] of DOCUMENTS) {
+    const cell = document.createElement('div')
+    cell.className = 'db-doc db-doc-file'
+    cell.dataset.doc = key
+
+    const head = document.createElement('label')
+    head.className = 'db-doc-head'
+    const box = document.createElement('input')
+    box.type = 'checkbox'
+    box.id = `f_${key}`
+    box.dataset.key = key
+    box.checked = !!employee[key]
+    box.disabled = true
+    box.title = 'Ticked by uploading a file, unticked by deleting it'
+    const text = document.createElement('span')
+    text.textContent = label
+    head.append(box, text)
+
+    const actions = document.createElement('div')
+    actions.className = 'db-doc-actions'
+    const make = (text, cls = '') => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = `btn btn-mini ${cls}`.trim()
+      b.textContent = text
+      b.disabled = true
+      actions.appendChild(b)
+      return b
+    }
+    const upload = make('Upload')
+    const view = make('View')
+    const remove = make('Delete', 'btn-mini-danger')
+    const picker = document.createElement('input')
+    picker.type = 'file'
+    picker.accept = 'application/pdf,.pdf'
+    picker.hidden = true
+    actions.appendChild(picker)
+
+    cell.append(head, actions)
+    grid.appendChild(cell)
+    rows.set(key, { cell, box, upload, view, remove, picker, file: null, busy: false })
+  }
+
   if (!id) {
-    upload.disabled = true
-    status.textContent = 'Save the new employee first, then upload the documents.'
+    note.textContent = 'Save the new employee first, then upload the documents.'
     return section
   }
-  if (!mayEdit(me?.role)) upload.disabled = true
 
-  const url = (extra = '') => `${EMPLOYEE_FILE_API}?id=${encodeURIComponent(id)}${extra}`
-  const show = (info) => {
-    const has = !!info?.exists
-    upload.textContent = has ? 'Replace documents' : 'Upload documents'
-    view.disabled = !has
-    status.textContent = has
-      ? `PDF on file · ${(info.size / 1048576).toFixed(1)} MB · uploaded ${new Date(info.updated).toLocaleString()}`
-      : 'No PDF uploaded yet.'
+  const url = (extra) => `${EMPLOYEE_FILE_API}?id=${encodeURIComponent(id)}${extra}`
+  const stillOpen = () => current?.id === id
+
+  /* Buttons follow the file, the box, and whether the document applies. */
+  const refresh = (key) => {
+    const r = rows.get(key)
+    const off = key === 'doc_military_certificate' && militaryNotApplicable()
+    r.cell.classList.toggle('is-off', off)
+    r.upload.textContent = r.file ? 'Replace' : 'Upload'
+    r.upload.disabled = r.busy || off || !canEdit || r.file === undefined
+    r.view.disabled = r.busy || off || !r.file
+    r.remove.disabled = r.busy || off || !canEdit || !(r.file || r.box.checked)
+    r.view.title = r.file
+      ? `${(r.file.size / 1048576).toFixed(1)} MB · uploaded ${new Date(r.file.updated).toLocaleString()}`
+      : r.box.checked ? 'Ticked before attachments existed: no file on record' : ''
   }
+  section.refreshFiles = () => rows.forEach((_, key) => refresh(key))
 
-  status.textContent = 'Checking for a PDF…'
+  const say = (text) => { if (stillOpen()) note.textContent = text }
+
+  // undefined = not known yet, so Upload waits for the status.
+  rows.forEach((r) => { r.file = undefined })
+  section.refreshFiles()
+  say('Checking for attachments…')
   ;(async () => {
     try {
       const response = await fetch(url('&action=status'), { headers: await fileApiHeaders() })
-      if (current?.id !== id) return
+      if (!stillOpen()) return
       if (!response.ok) throw new Error(await fileApiError(response))
-      show(await response.json())
+      const { files } = await response.json()
+      rows.forEach((r, key) => { r.file = files?.[key] ?? null })
+      section.refreshFiles()
+      say('')
     } catch (err) {
-      if (current?.id === id) status.textContent = err.message || 'Could not check for a PDF.'
+      say(`Attachments unavailable: ${err.message || 'unknown error'}`)
     }
   })()
 
-  upload.addEventListener('click', () => {
-    if (upload.textContent.startsWith('Replace') &&
-        !confirm('Replace the PDF on file for this employee? The current one will be overwritten.')) return
-    picker.value = ''
-    picker.click()
-  })
+  const settle = (key, result) => {
+    const r = rows.get(key)
+    r.file = result.file ?? null
+    r.box.checked = !!result.checked
+    r.box.dataset.saved = r.box.checked ? '1' : ''
+    updateFileStatus()
+  }
 
-  picker.addEventListener('change', async () => {
-    const file = picker.files?.[0]
-    if (!file) return
-    if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
-      status.textContent = 'Only PDF files can be uploaded.'
-      return
-    }
-    if (file.size > 25 * 1048576) {
-      status.textContent = 'The file is larger than 25 MB.'
-      return
-    }
-    upload.disabled = true
-    view.disabled = true
-    status.textContent = `Uploading ${file.name}…`
-    try {
-      const body = new FormData()
-      body.append('file', file)
-      const response = await fetch(url(), { method: 'POST', headers: await fileApiHeaders(), body })
-      if (!response.ok) throw new Error(await fileApiError(response))
-      if (current?.id === id) show(await response.json())
-    } catch (err) {
-      if (current?.id === id) {
-        status.textContent = `Upload failed: ${err.message || 'unknown error'}`
-        view.disabled = !upload.textContent.startsWith('Replace')
+  for (const [key, label] of DOCUMENTS) {
+    const r = rows.get(key)
+
+    r.upload.addEventListener('click', () => {
+      if (r.file && !confirm(`Replace the ${label} file for this employee? The current one will be overwritten.`)) return
+      r.picker.value = ''
+      r.picker.click()
+    })
+
+    r.picker.addEventListener('change', async () => {
+      const file = r.picker.files?.[0]
+      if (!file) return
+      if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) return say('Only PDF files can be uploaded.')
+      if (file.size > 25 * 1048576) return say('The file is larger than 25 MB.')
+      r.busy = true
+      refresh(key)
+      say(`Uploading ${label}…`)
+      try {
+        const body = new FormData()
+        body.append('file', file)
+        const response = await fetch(url(`&doc=${key}`), { method: 'POST', headers: await fileApiHeaders(), body })
+        if (!response.ok) throw new Error(await fileApiError(response))
+        const result = await response.json()
+        if (!stillOpen()) return
+        settle(key, result)
+        say(`${label} uploaded.`)
+      } catch (err) {
+        say(`${label}: upload failed. ${err.message || ''}`)
+      } finally {
+        r.busy = false
+        if (stillOpen()) refresh(key)
       }
-    } finally {
-      upload.disabled = !mayEdit(me?.role)
-    }
-  })
+    })
 
-  view.addEventListener('click', async () => {
-    /* Opened now, inside the click, and filled in when the file arrives.
-       A window opened after an await is a popup, and gets blocked. */
-    const tab = window.open('', '_blank')
-    view.disabled = true
-    try {
-      const response = await fetch(url(), { headers: await fileApiHeaders() })
-      if (!response.ok) throw new Error(await fileApiError(response))
-      const blob = await response.blob()
-      const href = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
-      if (tab) tab.location.href = href
-      else window.location.assign(href)
-      setTimeout(() => URL.revokeObjectURL(href), 60000)
-    } catch (err) {
-      if (tab) tab.close()
-      status.textContent = `Could not open the PDF: ${err.message || 'unknown error'}`
-    } finally {
-      view.disabled = false
-    }
-  })
+    r.view.addEventListener('click', async () => {
+      /* Opened now, inside the click, and filled in when the file
+         arrives. A window opened after an await is a popup, and gets
+         blocked. */
+      const tab = window.open('', '_blank')
+      r.busy = true
+      refresh(key)
+      try {
+        const response = await fetch(url(`&doc=${key}`), { headers: await fileApiHeaders() })
+        if (!response.ok) throw new Error(await fileApiError(response))
+        const blob = await response.blob()
+        const href = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+        if (tab) tab.location.href = href
+        else window.location.assign(href)
+        setTimeout(() => URL.revokeObjectURL(href), 60000)
+      } catch (err) {
+        if (tab) tab.close()
+        say(`${label}: could not open the file. ${err.message || ''}`)
+      } finally {
+        r.busy = false
+        if (stillOpen()) refresh(key)
+      }
+    })
+
+    r.remove.addEventListener('click', async () => {
+      const what = r.file ? `the ${label} file` : `the tick on ${label}`
+      if (!confirm(`Delete ${what} for this employee? The box will be unticked.`)) return
+      r.busy = true
+      refresh(key)
+      try {
+        const response = await fetch(url(`&doc=${key}`), { method: 'DELETE', headers: await fileApiHeaders() })
+        if (!response.ok) throw new Error(await fileApiError(response))
+        const result = await response.json()
+        if (!stillOpen()) return
+        settle(key, result)
+        say(`${label} deleted.`)
+      } catch (err) {
+        say(`${label}: delete failed. ${err.message || ''}`)
+      } finally {
+        r.busy = false
+        if (stillOpen()) refresh(key)
+      }
+    })
+  }
 
   return section
 }
-
 /**
  * The file status is reported once, in the calculated panel, alongside
  * the other things the system works out. It was repeated beside the
