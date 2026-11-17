@@ -450,7 +450,7 @@ export default function MonthlyReport() {
         days are missing rather than money is owed. Total Deductions = (Deducted Leaves + Absence
         Penalties) × {lookups.requiredHoursPerDay} + Deducted Hours, where Deducted Hours =
         (Penalties × {lookups.requiredHoursPerDay}) − (Adjusted Days ×{' '}
-        {lookups.requiredHoursPerDay}) − Adjusted Hours − any late beyond {lookups.lateGraceHours} h
+        {lookups.requiredHoursPerDay}) − Adjusted Hours + any late beyond {lookups.lateGraceHours} h
         for the period; hover the figure for that breakdown, or open the employee report for the
         days behind it.
       </p>
