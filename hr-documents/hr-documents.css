@@ -15,12 +15,12 @@
   display: grid; place-items: center; font-weight: 800; color: #fff;
   background: #2b579a;
 }
-/* The Arabic name, the English name and the number on one line, the
-   same size. */
+/* One line, the same size, right-aligned (the button is dir=rtl): the
+   number, the Arabic name, then the English name. */
 .hr-doc-text { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline;
   gap: 4px 14px; flex: 1; min-width: 0; }
 .hr-doc-title { font-weight: 700; font-size: 16px; text-align: start; }
-.hr-doc-sub { color: rgba(var(--text-rgb), 0.65); font-size: 16px; font-weight: 700; }
+.hr-doc-sub { color: rgba(var(--text-rgb), 0.65); font-size: 16px; font-weight: 700; unicode-bidi: isolate; }
 .hr-doc-num { color: rgba(var(--text-rgb), 0.45); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
 textarea.hr-input { resize: vertical; min-height: 64px; }
 

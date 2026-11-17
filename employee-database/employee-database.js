@@ -271,13 +271,24 @@ const GROUPS = [
   },
   {
     title: 'Contact',
+    /* One row: the employee's own lines, then the secondary contact --
+       who, what they are to the employee, their job, their number. The
+       social status declaration fills its references table from these.
+       Weighted columns (CSS, data-layout='contact'), not equal ones: an
+       email needs more room than a relationship. */
+    layout: 'contact',
     fields: [
       { key: 'email', label: 'Email', type: 'text' },
       { key: 'company_mobile', label: 'Company mobile', type: 'mobile' },
       { key: 'personal_mobile', label: 'Personal mobile', type: 'mobile' },
-      { key: 'secondary_mobile', label: 'Secondary mobile', type: 'mobile' },
-      { key: 'secondary_mobile_name', label: 'Secondary number belongs to', type: 'text',
-        dir: 'rtl', placeholder: 'Arabic only — اسم (صلة القرابة)' },
+      // The column keeps its old name; it now holds the name alone. The
+      // "(relationship)" that used to follow it has a field of its own.
+      { key: 'secondary_mobile_name', label: 'Secondary contact name', type: 'text',
+        dir: 'rtl', placeholder: 'Arabic only' },
+      { key: 'secondary_contact_relation', label: 'Secondary contact relationship', type: 'text',
+        dir: 'rtl', placeholder: 'e.g. الاخ' },
+      { key: 'secondary_contact_title', label: 'Secondary contact title', type: 'text', dir: 'rtl' },
+      { key: 'secondary_mobile', label: 'Secondary contact mobile', type: 'mobile' },
       { key: 'office_number', label: 'Office number', type: 'text' },
     ],
   },
@@ -2066,8 +2077,10 @@ function exportRow(e) {
     'Email': e.email ?? '',
     'Company mobile': e.company_mobile ?? '',
     'Personal mobile': e.personal_mobile ?? '',
-    'Secondary mobile': e.secondary_mobile ?? '',
-    'Secondary number belongs to': e.secondary_mobile_name ?? '',
+    'Secondary contact name': e.secondary_mobile_name ?? '',
+    'Secondary contact relationship': e.secondary_contact_relation ?? '',
+    'Secondary contact title': e.secondary_contact_title ?? '',
+    'Secondary contact mobile': e.secondary_mobile ?? '',
     'Office number': e.office_number ?? '',
 
     /* Personal */
@@ -2280,17 +2293,16 @@ function validate(v) {
     problems.push('Address must be written in Arabic.')
   }
 
-  /* Arabic, with brackets allowed.
-
-     This field is written "اسم (صلة القرابة)" throughout the database --
-     the name, then who they are to the employee. The plain Arabic rule
-     would reject the convention the records already follow and make most
-     of them unsaveable, so the brackets are part of the rule rather than
-     an exception to it. */
-  if (v.secondary_mobile_name && touched('secondary_mobile_name', v.secondary_mobile_name) &&
-      (!/^[ء-ْ() ]+$/.test(v.secondary_mobile_name) ||
-       !/[ء-ْ]/.test(v.secondary_mobile_name))) {
-    problems.push('Secondary number belongs to must be Arabic letters only, brackets allowed.')
+  /* The secondary contact's name and relationship, in Arabic: both print
+     on the social status declaration. The name used to carry the
+     relationship in brackets; that now has its own field, so brackets are
+     no longer part of the rule. Checked only when changed, so a record
+     saved under the old rule is not refused for it. */
+  for (const [key, label] of [['secondary_mobile_name', 'Secondary contact name'],
+                              ['secondary_contact_relation', 'Secondary contact relationship']]) {
+    if (v[key] && touched(key, v[key]) && (!/^[ء-ْ ]+$/.test(v[key]) || !/[ء-ْ]/.test(v[key]))) {
+      problems.push(`${label} must be Arabic letters only.`)
+    }
   }
 
   if (v.national_id && !/^[23]\d{13}$/.test(v.national_id)) {
@@ -2299,7 +2311,7 @@ function validate(v) {
 
   for (const [key, label] of [['company_mobile', 'Company mobile'],
                               ['personal_mobile', 'Personal mobile'],
-                              ['secondary_mobile', 'Secondary mobile']]) {
+                              ['secondary_mobile', 'Secondary contact mobile']]) {
     if (v[key] && !validMobile(v[key])) {
       problems.push(`${label} must be 11 digits starting with 0, as 000-0000-0000.`)
     }

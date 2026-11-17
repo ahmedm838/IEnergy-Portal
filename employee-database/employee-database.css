@@ -752,6 +752,19 @@ body:has(#app) .container { max-width: 1500px; }
       minmax(0, 0.95fr) minmax(0, 0.55fr) minmax(0, 0.85fr);
   }
 }
+/* Contact: one row of eight. Email widest; the four mobiles sized to
+   000-0000-0000; the contact's name and job wider than the relationship
+   and the office extension. Below 1000px the usual auto-fit wraps it. */
+@media (min-width: 1000px) {
+  .db-grid[data-layout='contact'] {
+    grid-template-columns:
+      minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr)
+      minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.75fr);
+    gap: 8px;
+  }
+  /* The longer labels wrap to two lines; keep the boxes level anyway. */
+  .db-grid[data-layout='contact'] { align-items: end; }
+}
 @media (max-width: 860px)  { .db-grid[data-cols] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px)  {
   .db-grid[data-cols] { grid-template-columns: 1fr; }

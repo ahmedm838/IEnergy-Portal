@@ -408,15 +408,19 @@ function refTableValues(t, inputs) {
   return out
 }
 
-/* The first row starts as the secondary contact on the record: its
-   number, and its owner as the record writes it, "اسم (صلة القرابة)".
-   Every box can still be changed. */
+/* The first row starts as the secondary contact on the record: name,
+   job title, relationship and number, each a field of its own on the
+   Employee Database page. A name still written the old way, "اسم (صلة
+   القرابة)", with no relationship beside it, is split as before. Every
+   box can still be changed. */
 function socialStatusDefaults(emp) {
   if (!emp) return {}
-  const m = /^\s*(.*?)\s*\((.*?)\)\s*$/.exec(emp.secondary_mobile_name || '')
+  const raw = emp.secondary_mobile_name || ''
+  const m = emp.secondary_contact_relation ? null : /^\s*(.*?)\s*\((.*?)\)\s*$/.exec(raw)
   return {
-    [refKey(0, 'name')]: m ? m[1] : (emp.secondary_mobile_name || ''),
-    [refKey(0, 'relation')]: m ? m[2] : '',
+    [refKey(0, 'name')]: m ? m[1] : raw,
+    [refKey(0, 'job')]: emp.secondary_contact_title || '',
+    [refKey(0, 'relation')]: emp.secondary_contact_relation || (m ? m[2] : ''),
     [refKey(0, 'phone')]: emp.secondary_mobile ? String(emp.secondary_mobile).replace(/\D/g, '') : '',
   }
 }
@@ -1430,6 +1434,7 @@ const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on'
   'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',
   'department_id', 'personal_mobile', 'gender', 'birth_date', 'governorate', 'religion',
   'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name',
+  'secondary_contact_relation', 'secondary_contact_title',
   'status_id', 'notice_date', 'resignation_date', 'resignation_reason']
 
 /* Department names by id, in Arabic where the department has one
@@ -1459,7 +1464,7 @@ async function loadEmployees() {
   let { data, error } = await query(columns)
   let missing
   while (error && error.code === '42703' &&
-         (missing = ['address', 'id_issue_date'].find((c) => columns.includes(c) && (error.message || '').includes(c)))) {
+         (missing = ['address', 'id_issue_date', 'secondary_contact_relation', 'secondary_contact_title'].find((c) => columns.includes(c) && (error.message || '').includes(c)))) {
     columns = columns.filter((c) => c !== missing)
     ;({ data, error } = await query(columns))
   }
@@ -2026,6 +2031,9 @@ function drawList() {
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.className = 'hr-doc'
+    /* Read from the right: number, Arabic name, English name, with the
+       Word mark at the far left. Shared with Employee Documents. */
+    btn.dir = 'rtl'
     btn.disabled = !def.template
     const num = document.createElement('span')
     num.className = 'hr-doc-num'
@@ -2038,12 +2046,13 @@ function drawList() {
     t.textContent = def.title
     const s = document.createElement('span')
     s.className = 'hr-doc-sub'
+    s.dir = 'ltr'
     s.textContent = def.template ? def.subtitle : `${def.subtitle} · coming soon`
     text.append(t, s)
     const icon = document.createElement('span')
     icon.className = 'hr-doc-icon'
     icon.textContent = 'W'
-    btn.append(icon, text, num)
+    btn.append(num, text, icon)
     if (def.template) btn.addEventListener('click', () => openDocument(def))
     list.appendChild(btn)
   })
