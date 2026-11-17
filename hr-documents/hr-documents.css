@@ -45,6 +45,7 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
   background: rgba(var(--ink-rgb), 0.03);
 }
 .hr-label { display: block; font-weight: 700; margin-bottom: 6px; }
+.hr-label[hidden], .hr-picker[hidden] { display: none; }
 .hr-picker { position: relative; }
 .hr-input {
   width: 100%; box-sizing: border-box; font: inherit; color: var(--text);

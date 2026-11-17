@@ -689,6 +689,28 @@ DOCUMENTS.push({
     ['admin', 'اعتماد الشئون الإدارية', 'person', [9]],
   ],
 })
+/* A form handed out empty, for the applicant to fill in by hand: no
+   employee, no blanks, nothing to check. It prints on both sides of the
+   paper (duplex). */
+DOCUMENTS.push({
+  id: 'job-application',
+  title: 'طلب توظيف',
+  subtitle: 'Job application · blank form',
+  template: 'templates/job-application.docx?v=1',
+  fileName: 'طلب توظيف',
+  blankForm: true,
+  duplex: true,
+  ownDirection: true,
+  // Its two pages stay two, front and back: a page that runs a little
+  // long here is shrunk onto its sheet, never cut onto a third.
+  shrinkPages: true,
+  fields: {},
+  dates: () => ({}),
+  values: () => ({}),
+  info: [],
+  dateFields: [],
+  inputs: [],
+})
 for (const def of DOCUMENTS) def.blanks = Object.keys(def.fields).map(Number)
 
 /* ------------------------------------------------------------------ */
@@ -1114,6 +1136,32 @@ function rightToLeft(root) {
   }
 }
 
+/* A bilingual form whose template sets each paragraph's direction itself
+   -- Arabic right to left, English left to right -- keeps it. Its tables
+   are right to left in Word (bidiVisual: the first column on the right),
+   which the renderer does not read, so they are turned here; each cell's
+   paragraphs keep the direction they had before. In a right-to-left
+   paragraph Word reads "left" and "right" alignment the other way round
+   ("right" puts it on the left, at the line's end); the renderer takes
+   them as written, so they are swapped back. */
+function keepDirection(root) {
+  // A table centred on the page is not centred text: the renderer lets
+  // the one pass into the other, centring every cell that sets nothing.
+  for (const el of root.querySelectorAll('section.docx table, section.docx tr, section.docx td')) el.style.textAlign = 'start'
+  const paras = [...root.querySelectorAll('section.docx p')]
+  const looks = paras.map((p) => {
+    const cs = getComputedStyle(p)
+    return [cs.direction, cs.textAlign]
+  })
+  for (const t of root.querySelectorAll('section.docx table')) t.dir = 'rtl'
+  paras.forEach((p, i) => {
+    const [dir, align] = looks[i]
+    p.dir = dir
+    if (dir === 'rtl' && align === 'right') p.style.textAlign = 'left'
+    else if (dir === 'rtl' && align === 'left') p.style.textAlign = 'right'
+  })
+}
+
 /* A line around each page, as thick and as far in as the template's page
    border sets it. The Word renderer reads page borders but does not draw
    them, so the line is drawn here; it is part of the page, so it is in
@@ -1172,7 +1220,8 @@ async function drawDocument(def) {
   markTabs(preview)
   lockBlanks(preview)
   matchFieldSize(preview)
-  rightToLeft(preview)
+  if (def.ownDirection) keepDirection(preview)
+  else rightToLeft(preview)
   frame(preview, border)
   numberPages(preview)
   layoutTabs(preview)
@@ -1267,7 +1316,7 @@ function cutPoints(page) {
 /* One A4 sheet: the page image, then the frame and the page number,
    drawn on the sheet itself so they sit in the same place on every
    sheet. */
-function sheet(width, draw, border, number, scale) {
+function sheet(width, draw, border, number, scale, stamp) {
   const c = document.createElement('canvas')
   c.width = width
   c.height = Math.round(width * (297 / 210))
@@ -1289,7 +1338,26 @@ function sheet(width, draw, border, number, scale) {
     ctx.textBaseline = 'alphabetic'
     ctx.fillText(toArabicDigits(number), c.width / 2, c.height - 14 * scale)
   }
+  /* When the PDF was made, at the foot of every page, on the right where
+     an Arabic line starts. */
+  if (stamp) {
+    ctx.fillStyle = '#000000'
+    ctx.font = `${Math.round(9 * scale)}px 'Times New Roman', Times, serif`
+    ctx.direction = 'rtl'
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(stamp, c.width - 30 * scale, c.height - 14 * scale)
+  }
   return c
+}
+
+/* "تاريخ ووقت الطباعة: ١٨/١١/٢٠٢٦ - ١٢:٣٥ ص", in the computer's own
+   time, as the clock on the wall reads it. */
+export function printStamp(now = new Date()) {
+  const day = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+  const h = now.getHours()
+  const time = `${h % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`
+  return `تاريخ ووقت الطباعة: ${arDate(day)} - ${toArabicDigits(time)} ${h < 12 ? 'ص' : 'م'}`
 }
 
 /* One sheet per page, as a rule. The pages are the template's own --
@@ -1309,6 +1377,11 @@ async function buildPdf() {
   const preview = $('preview')
   const pages = Array.from(preview.querySelectorAll('section.docx'))
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true })
+  // A two-sided form asks the print dialog for both sides, flipped on the
+  // long edge, as a book turns.
+  if (state.def?.duplex) pdf.viewerPreferences({ Duplex: 'DuplexFlipLongEdge' })
+  // One time for the whole PDF, the same on every page.
+  const stamp = printStamp()
   state.capturing = true
   preview.style.zoom = ''
   if (document.activeElement && preview.contains(document.activeElement)) document.activeElement.blur()
@@ -1339,18 +1412,37 @@ async function buildPdf() {
         const padTop = parseFloat(getComputedStyle(page).paddingTop) || 48
         const cuts = cutPoints(page)
         const end = needed - padBottom
-        let start = 0
-        while (start < end - 1) {
-          const first = start === 0
-          const limit = first ? cssSheet - padBottom : start + cssSheet - padTop - padBottom
-          let cut = cuts.filter((y) => y > start + 1 && y <= limit).pop()
-          if (cut === undefined) cut = Math.min(limit, end)
-          const from = start
-          const at = first ? 0 : padTop
+        /* Where the sheets split, for sheets h CSS pixels high. */
+        const plan = (h) => {
+          const out = []
+          let start = 0
+          while (start < end - 1) {
+            const first = start === 0
+            const limit = first ? h - padBottom : start + h - padTop - padBottom
+            let cut = cuts.filter((y) => y > start + 1 && y <= limit).pop()
+            if (cut === undefined) cut = Math.min(limit, end)
+            out.push([start, cut, first ? 0 : padTop])
+            start = cut
+          }
+          return out
+        }
+        /* A form that must keep its page count (shrinkPages) is drawn a
+           little smaller, as little as it takes, rather than spill onto
+           one more sheet: as many sheets as its length in A4 pages. */
+        let f = 1
+        let pieces = plan(cssSheet)
+        if (state.def?.shrinkPages) {
+          const target = Math.ceil(needed / cssSheet)
+          while (pieces.length > target && f > 0.8) {
+            f = Math.round((f - 0.01) * 100) / 100
+            pieces = plan(cssSheet / f)
+          }
+        }
+        for (const [from, cut, at] of pieces) {
           sheets.push(sheet(canvas.width, (ctx) => {
-            ctx.drawImage(canvas, 0, from * k, canvas.width, (cut - from) * k, 0, at * k, canvas.width, (cut - from) * k)
-          }, border, numbered ? sheets.length + 1 : 0, k))
-          start = cut
+            ctx.drawImage(canvas, 0, from * k, canvas.width, (cut - from) * k,
+              (canvas.width * (1 - f)) / 2, at * k * f, canvas.width * f, (cut - from) * k * f)
+          }, border, numbered ? sheets.length + 1 : 0, k, stamp))
         }
         continue
       }
@@ -1367,7 +1459,7 @@ async function buildPdf() {
           ctx.drawImage(canvas, 0, 0, canvas.width, Math.min(canvas.height, needed * k),
             (canvas.width - w) / 2, 0, w, sheetHeight)
         }
-      }, border, numbered ? sheets.length + 1 : 0, k))
+      }, border, numbered ? sheets.length + 1 : 0, k, stamp))
     }
     sheets.forEach((c, i) => {
       if (i) pdf.addPage()
@@ -1385,7 +1477,7 @@ function pdfName(def, emp) {
   const d = new Date()
   const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const safe = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').trim()
-  return `${safe(def.fileName)} - ${safe(emp?.arabic_name)} - ${stamp}.pdf`
+  return emp ? `${safe(def.fileName)} - ${safe(emp.arabic_name)} - ${stamp}.pdf` : `${safe(def.fileName)} - ${stamp}.pdf`
 }
 
 async function savePdf() {
@@ -1498,7 +1590,12 @@ function pool(def = state.def) {
 
 function showPoolHint() {
   const hint = $('employeeHint')
-  if (!hint || !state.loaded) return
+  if (!hint) return
+  if (state.def?.blankForm) {
+    hint.textContent = 'نموذج فارغ يُطبع كما هو ليملأه المتقدم بخط اليد، على وجهي الورقة.'
+    return
+  }
+  if (!state.loaded) return
   const n = toArabicDigits(pool().length)
   hint.textContent = state.def?.pool === 'resigned'
     ? `${n} موظف له تاريخ إشعار استقالة — ابحث بالاسم أو الكود.`
@@ -2015,7 +2112,7 @@ function refresh() {
   warn.hidden = !notes.length
   warn.textContent = notes.join(' ')
 
-  const ready = !!emp && !empty.length && !state.busy
+  const ready = (!!emp || !!def.blankForm) && !empty.length && !state.busy
   $('savePdfBtn').disabled = !ready
   $('printBtn').disabled = !ready
 }
@@ -2064,6 +2161,10 @@ async function openDocument(def) {
   state.dateSet = {}
   state.inputs = {}
   $('employeeSearch').value = ''
+  // A blank form is for no one in particular: no employee to choose.
+  $('employeeSearch').closest('.hr-picker').hidden = !!def.blankForm
+  document.querySelector('label[for="employeeSearch"]').hidden = !!def.blankForm
+  if ($('fieldsHint')) $('fieldsHint').hidden = !!def.blankForm
   $('editorTitle').textContent = def.title
   buildDateInputs(def)
   buildInputs(def)
