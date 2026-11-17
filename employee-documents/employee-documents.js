@@ -54,8 +54,8 @@ export function grantDates(emp, set = {}, today = todayUTC()) {
 }
 
 /* The grant is picked from the financial grants table (Settings in the
-   tracker): its amount and attachments fill (2) and (4). The reason is
-   typed; the requester is the employee chosen at the top. The four
+   tracker): its name is the reason (3), its amount and attachments fill
+   (2) and (4). The requester is the employee chosen at the top. The four
    approvers, (8) to (11), are left empty: they are written by hand when
    the form is signed. */
 export function grantValues(emp, d, inputs = {}, ctx = {}) {
@@ -63,7 +63,7 @@ export function grantValues(emp, d, inputs = {}, ctx = {}) {
   return {
     1: arDate(d.today),
     2: grant ? pounds(parseAmount(String(grant.amount)) || null) : '',
-    3: inputs.reason || '',
+    3: grant?.name || '',
     4: grant?.attachments || '',
     5: emp?.arabic_name || '',
     6: jobTitle(emp),
@@ -108,7 +108,7 @@ const DOCUMENTS = [
     template: 'templates/financial-grant.docx?v=1',
     fileName: 'طلب صرف منحة مالية',
     fields: {
-      1: 'تاريخ الطلب', 2: 'نوع المنحة', 3: 'السبب', 4: 'نوع المنحة',
+      1: 'تاريخ الطلب', 2: 'نوع المنحة', 3: 'نوع المنحة', 4: 'نوع المنحة',
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة',
       8: 'مدير الإدارة', 9: 'الشئون الإدارية', 10: 'العضو المنتدب', 11: 'الإدارة المالية',
     },
@@ -120,14 +120,14 @@ const DOCUMENTS = [
     info: [
       [6, 'الوظيفة'],
       [7, 'الإدارة'],
+      [3, 'السبب'],
       [2, 'قيمة المنحة'],
       [4, 'المرفقات'],
     ],
     dateFields: [['today', 'تاريخ الطلب', [1]]],
     inputs: [
-      ['grant', 'نوع المنحة', 'choice', [2, 4], 'القيمة والمرفقات تُملأ تلقائيًا من جدول المنح المالية.',
+      ['grant', 'نوع المنحة', 'choice', [2, 3, 4], 'السبب والقيمة والمرفقات تُملأ تلقائيًا من جدول المنح المالية.',
         { table: 'financial_grants', label: 'name' }],
-      ['reason', 'السبب', 'longtext', [3]],
     ],
   },
 ]
