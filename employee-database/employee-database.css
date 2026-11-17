@@ -297,7 +297,7 @@
 
 .totals {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(10, minmax(0, 1fr));
   gap: 8px;
 }
 @media (max-width: 900px) { .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -584,7 +584,10 @@ body:has(#app) .container { max-width: 1500px; }
      reports about 1093 CSS pixels, and the row wrapped. At 118px it
      needs 1000, which fits that and leaves room. Wider screens still
      spread the columns evenly, because the minimum is only a floor. */
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  /* Nine now, with the military service expiry beside the ID
+     expiry: 9 x 100 + 8 gaps + padding is under 1000px, so it still
+     fits the 1093px a scaled laptop reports. */
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 8px;
   /* A small gap under the Save and Cancel row, so the calculated values
      do not sit flush against the buttons. */

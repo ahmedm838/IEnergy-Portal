@@ -283,8 +283,18 @@ const GROUPS = [
   },
   {
     title: 'Personal',
+    // One row of six, the address on its own row below. Pinned to six
+    // because auto-fit at 200px gives only five at laptop width.
+    columns: 6,
     fields: [
+      /* Fixed at Exempted, and disabled, when the ID says female: see
+         syncMilitary. */
       { key: 'military_service', label: 'Military service', type: 'select', options: [['Served', 'Served'], ['Postponed', 'Postponed'], ['Exempted', 'Exempted']] },
+      /* When the certificate or the postponement runs out. Needed only
+         for Served and Postponed; blank and disabled otherwise. In
+         OPTIONAL so the general required check leaves it alone --
+         validate() has its own rule for it. */
+      { key: 'military_service_expiry', label: 'Military service expiry', type: 'date' },
       { key: 'marital_status', label: 'Marital status', type: 'select', options: [['Single', 'Single'], ['Married', 'Married'], ['Divorced', 'Divorced']] },
       { key: 'religion', label: 'Religion', type: 'select', options: [['Muslim', 'Muslim'], ['Christian', 'Christian']] },
       { key: 'qualification_degree_id', label: 'Qualification degree', type: 'select', source: 'degrees' },
@@ -324,7 +334,13 @@ const OPTIONAL = new Set([
   // the number that actually reaches them.
   'email', 'office_number', 'company_mobile',
   'notice_date', 'resignation_date', 'resignation_reason',
+  // Required only when military service is Served or Postponed; validate()
+  // and syncMilitary() handle it.
+  'military_service_expiry',
 ])
+
+/** Military service values that carry an expiry date. */
+const MILITARY_WITH_EXPIRY = ['Served', 'Postponed']
 
 const isRequired = (key) => !OPTIONAL.has(key)
 
@@ -501,6 +517,28 @@ const totalLists = {
     columns: [
       ['Expiry date', (e) => isoToDMY(e.contract_expiry), 'col-date'],
       ['Days remaining', (e) => daysRemaining(e.contract_expiry), 'col-days'],
+    ],
+  },
+  /* Expired, or expiring within three months. Active employees only, as
+     with contracts: nobody chases a renewal for somebody who has left. */
+  idExpiry: {
+    title: 'ID expiry < 3 months',
+    apply: (q) => q.eq('is_active', true).not('id_expiry_date', 'is', null).lte('id_expiry_date', monthsAhead(3)),
+    select: 'id_expiry_date',
+    columns: [
+      ['Expiry date', (e) => isoToDMY(e.id_expiry_date), 'col-date'],
+      ['Days remaining', (e) => daysRemaining(e.id_expiry_date), 'col-days'],
+    ],
+  },
+  militaryExpiry: {
+    title: 'Military service expiry < 3 months',
+    apply: (q) => q.eq('is_active', true).in('military_service', MILITARY_WITH_EXPIRY)
+      .not('military_service_expiry', 'is', null).lte('military_service_expiry', monthsAhead(3)),
+    select: 'military_service, military_service_expiry',
+    columns: [
+      ['Military service', (e) => e.military_service],
+      ['Expiry date', (e) => isoToDMY(e.military_service_expiry), 'col-date'],
+      ['Days remaining', (e) => daysRemaining(e.military_service_expiry), 'col-days'],
     ],
   },
   incomplete: {
@@ -698,7 +736,7 @@ async function loadTotals() {
       return null
     }
   }
-  const [listed, onBoard, uninsured, contracts, incomplete, absent, suspended, onLeave] = await Promise.all([
+  const [listed, onBoard, uninsured, contracts, incomplete, absent, suspended, onLeave, idExpiry, militaryExpiry] = await Promise.all([
     count((q) => q),
     count((q) => q.eq('is_active', true)),
     // On board with no insurance date on file. "On board" is the same
@@ -713,6 +751,8 @@ async function loadTotals() {
     count(totalLists.absent.apply),
     count(totalLists.suspended.apply),
     count(totalLists.onLeave.apply),
+    count(totalLists.idExpiry.apply),
+    count(totalLists.militaryExpiry.apply),
   ])
   $('totalListed').textContent = listed ?? '—'
   $('totalOnBoard').textContent = onBoard ?? '—'
@@ -722,6 +762,8 @@ async function loadTotals() {
   $('totalAbsent').textContent = absent ?? '—'
   $('totalSuspended').textContent = suspended ?? '—'
   $('totalOnLeave').textContent = onLeave ?? '—'
+  $('totalIdExpiry').textContent = idExpiry ?? '—'
+  $('totalMilitaryExpiry').textContent = militaryExpiry ?? '—'
 }
 
 /**
@@ -1108,6 +1150,12 @@ function fieldControl(field, value) {
       if (box) box.value = sectorOf(input.value)
     })
   }
+  // Gender comes from the ID, and the expiry depends on the service, so
+  // both re-check the military pair as they change.
+  if (field.key === 'national_id') input.addEventListener('input', syncMilitary)
+  if (field.key === 'military_service') {
+    input.addEventListener('change', () => { syncMilitary(); renderDerived() })
+  }
   if (field.key === 'si_code') {
     input.addEventListener('change', () => resolveSiTitle(input.value))
     input.addEventListener('input', () => { derivedSiTitle = null; renderDerived() })
@@ -1356,6 +1404,22 @@ function renderDerived() {
     items.push(['ID expiry', 'not recorded', 'muted'])
   }
 
+  // Beside the ID expiry, on the same terms.
+  const military = val('military_service')
+  const militaryExpiry = val('military_service_expiry')
+  if (!MILITARY_WITH_EXPIRY.includes(military)) {
+    items.push(['Military expiry', military ? 'not required' : '—', 'muted'])
+  } else if (militaryExpiry) {
+    const left = daysUntil(militaryExpiry)
+    items.push([
+      'Military expiry',
+      expiryStatus(militaryExpiry),
+      left == null ? '' : left < 0 ? 'bad' : left <= 30 ? 'warn' : '',
+    ])
+  } else {
+    items.push(['Military expiry', 'not recorded', 'warn'])
+  }
+
   // Just the count. The checklist is immediately below and already shows
   // which ones are unticked, so naming them here only made the line long.
   const missing = DOCUMENTS.filter(([key]) => !$(`f_${key}`)?.checked).length
@@ -1383,6 +1447,48 @@ function renderDerived() {
 }
 
 let derivedSiTitle = null
+
+/**
+ * Keep the two military fields consistent with the ID and each other.
+ *
+ * Female (from the ID No.): the service is fixed at Exempted and the box
+ * is disabled -- the value is still read and saved, because the social
+ * status declaration prints it ("معفاة"). The expiry date is only open
+ * for Served and Postponed; otherwise it is cleared and disabled, and its
+ * star shows only while it is required.
+ */
+function syncMilitary() {
+  const service = $('f_military_service')
+  const expiry = $('f_military_service_expiry')
+  if (!service) return
+
+  const nid = $('f_national_id')?.value ?? ''
+  const female = readNationalId(nid)?.gender === 'Female'
+  if (female) {
+    service.value = 'Exempted'
+    service.disabled = true
+    service.title = 'Not applicable: the ID No. is a female one'
+  } else {
+    service.disabled = false
+    service.title = ''
+  }
+
+  if (!expiry) return
+  const needed = MILITARY_WITH_EXPIRY.includes(service.value)
+  const row = expiry.parentNode
+  if (!needed) {
+    expiry.value = ''
+    expiry.dataset.iso = ''
+    expiry.classList.remove('bad')
+    const native = row?.querySelector('.db-date-native')
+    if (native) native.value = ''
+  }
+  expiry.disabled = !needed
+  const button = row?.querySelector('.db-date-btn')
+  if (button) button.disabled = !needed
+  const label = row?.parentNode?.querySelector('.db-label')
+  if (label) label.textContent = 'Military service expiry' + (needed ? ' *' : '')
+}
 
 /* What used to sit under the ID box -- birth date, gender, governorate --
    is in the calculated panel above the form, which is where every other
@@ -1499,6 +1605,9 @@ function renderForm(employee) {
   }
   docs.appendChild(docGrid)
   form.appendChild(docs)
+
+  // Before the read-only lock below, which must have the last word.
+  syncMilitary()
 
   if (!(me?.role === 'admin' || me?.role === 'super_admin')) {
     form.querySelectorAll('input, select').forEach((el) => { el.disabled = true })
@@ -1738,6 +1847,8 @@ function exportRow(e) {
 
     /* Personal */
     'Military service status': e.military_service ?? '',
+    'Military service expiry': isoToDMY(e.military_service_expiry),
+    'Military service expiry status': expiryStatus(e.military_service_expiry),
     'Marital status': e.marital_status ?? '',
     'Religion': e.religion ?? '',
     'Qualification degree': e.qualification_degree ?? '',
@@ -1984,6 +2095,11 @@ function validate(v) {
     if (field.type === 'monthyear' && v[field.key] === BAD_DATE) {
       problems.push(`${field.label} is not a real month. Write it as mm/yy, for example 03/19.`)
     }
+  }
+
+  /* Served and Postponed both run out, so they need the date it happens. */
+  if (MILITARY_WITH_EXPIRY.includes(v.military_service) && blank(v.military_service_expiry)) {
+    problems.push(`Military service expiry is required when military service is ${v.military_service}.`)
   }
 
   /* A card is issued before it expires, and not in a month still to come. */
