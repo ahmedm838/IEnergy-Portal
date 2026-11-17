@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en" data-documents-page="employee">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="description" content="iEnergy employee documents" />
+  <title>iEnergy | Employee Documents</title>
+  <link rel="icon" type="image/png" href="../favicon.png?v=2" />
+  <link rel="stylesheet" href="../responsive.css?v=1" />
+  <link rel="stylesheet" href="../home.css?v=20" />
+  <link rel="stylesheet" href="../hr-documents/hr-documents.css?v=11" />
+  <script src="../theme.js?v=4"></script>
+</head>
+<body>
+
+  <!-- Sign-in, shown only when there is no session. Open to every user;
+       which employees a user can fill a form for is decided by the
+       database (the user and the people below them). -->
+  <div id="auth" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">&larr; iEnergy Home</a>
+          <h1>Employee Documents</h1>
+          <p>Please sign in to continue.</p>
+        </div>
+      </div>
+
+      <label class="auth-label" for="usernameInput">Username</label>
+      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" />
+
+      <label class="auth-label" for="passwordInput">Password</label>
+      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" />
+
+      <div class="auth-actions">
+        <button id="btnLogin" class="primary" type="button">Sign in</button>
+      </div>
+
+      <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
+    </div>
+  </div>
+
+  <div id="accessDenied" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-title">
+        <a class="back-link" href="../index.html">&larr; iEnergy Home</a>
+        <h1>Employee Documents</h1>
+        <p>Your account has no access to employee documents.</p>
+      </div>
+    </div>
+  </div>
+
+  <main id="app" hidden>
+    <header class="page-bar">
+      <div class="page-bar-inner">
+        <div class="page-bar-brand">
+          <img class="page-bar-logo" src="../logo-mark.png?v=2" alt="" />
+          <span class="page-bar-name">Employee Documents</span>
+        </div>
+        <div class="page-bar-right">
+          <span class="page-bar-who" id="whoami"></span>
+          <span class="role-badge" id="roleBadge" hidden></span>
+          <span id="themeSlot"></span>
+          <a class="main-page-btn" href="../">Main page</a>
+          <button id="logoutBtn" class="btn logout-btn" type="button">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="container">
+
+      <!-- The list of documents. Each one opens the editor below. -->
+      <section class="section" id="listView">
+        <h2>Documents</h2>
+        <p class="section-sub">Choose a document, pick the employee, then save it as PDF or print it.</p>
+        <div class="hr-doc-list" id="docList"></div>
+      </section>
+
+      <!-- The editor: fields on one side, the Word document on the other,
+           updating as the fields change. -->
+      <section class="section" id="editorView" hidden>
+        <div class="hr-editor-top">
+          <button class="btn" type="button" id="backBtn">&larr; Documents</button>
+          <h2 id="editorTitle" class="hr-editor-title" dir="rtl"></h2>
+          <div class="hr-actions">
+            <button class="btn primary" type="button" id="savePdfBtn" disabled>Save PDF</button>
+            <button class="btn" type="button" id="printBtn" disabled>Print</button>
+          </div>
+        </div>
+
+        <div class="hr-editor">
+          <aside class="hr-fields" dir="rtl">
+            <label class="hr-label" for="employeeSearch">اسم الموظف</label>
+            <div class="hr-picker">
+              <input id="employeeSearch" class="hr-input" type="text" autocomplete="off"
+                     placeholder="ابحث بالاسم أو الكود…" role="combobox"
+                     aria-expanded="false" aria-controls="employeeOptions" />
+              <ul id="employeeOptions" class="hr-options" role="listbox" hidden></ul>
+            </div>
+            <p class="hr-hint" id="employeeHint">جارٍ تحميل الموظفين…</p>
+
+            <div id="dateFields" class="hr-dates"></div>
+
+            <div id="autoFields" class="hr-auto"></div>
+            <div id="fieldWarning" class="hr-warning" hidden></div>
+            <p class="hr-hint">البيانات المظللة تُملأ تلقائيًا من قاعدة البيانات أو من الخانات أعلاه. نص المستند للعرض فقط ولا يمكن تعديله.</p>
+          </aside>
+
+          <div class="hr-preview-wrap">
+            <div id="previewStatus" class="hr-hint">Loading document…</div>
+            <div id="preview" class="hr-preview" lang="ar"></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <small>&copy; <span id="year"></span> iEnergy. Internal use.</small>
+      </footer>
+    </div>
+  </main>
+
+  <!-- Where the PDF goes to be printed. -->
+  <iframe id="printFrame" class="hr-print-frame" title="Print" aria-hidden="true" tabindex="-1"></iframe>
+
+  <script src="../auth.js?v=13"></script>
+  <script type="module" src="employee-documents.js?v=1"></script>
+</body>
+</html>

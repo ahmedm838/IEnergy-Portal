@@ -2,6 +2,10 @@
    - Admins and super admins only: ensureAuth turns everyone else away,
      and row level security on employee_profiles says the same thing from
      the database's side.
+   - The same engine runs Employee Documents (employee-documents/), open
+     to every signed-in user: that page calls startDocumentsPage with its
+     own list and roles, and row level security limits the employees it
+     can read to the user and the people below them.
    - Each document is a Word template whose blanks are written as (1),
      (2), ... in the text. The template is rendered in the page as it
      looks in Word; every blank becomes a locked field, filled from the
@@ -28,7 +32,7 @@ export function parseISO(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ''))
   return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null
 }
-const todayUTC = () => {
+export const todayUTC = () => {
   const n = new Date()
   return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()))
 }
@@ -174,6 +178,14 @@ export function amountWords(a) {
   return `${s} لا غير`
 }
 
+/* An amount split into equal installments, rounded to the piaster:
+   8500 over 6 is 1416.67. */
+export function installment(a, count) {
+  if (!a || !count) return null
+  const each = Math.round((a.pounds * 100 + a.piasters) / count)
+  return { pounds: Math.floor(each / 100), piasters: each % 100 }
+}
+
 /* For searching Arabic names: the spellings people type interchangeably
    are folded together, and diacritics are dropped. */
 export const foldArabic = (s) => String(s ?? '')
@@ -189,18 +201,18 @@ export const foldArabic = (s) => String(s ?? '')
 /* The documents                                                        */
 /* ------------------------------------------------------------------ */
 
-const has = (set, k) => Object.prototype.hasOwnProperty.call(set, k)
+export const has = (set, k) => Object.prototype.hasOwnProperty.call(set, k)
 
 /* --- Shared ---------------------------------------------------------- */
 
-const isFemale = (emp) => emp?.gender === 'Female'
+export const isFemale = (emp) => emp?.gender === 'Female'
 
 /* The job title as the forms state it: the official social-insurance
    title, in Arabic; the English title when there is none. */
-const jobTitle = (emp) => emp?.si_title || emp?.title || ''
+export const jobTitle = (emp) => emp?.si_title || emp?.title || ''
 
 /* The department in Arabic when it has an Arabic name, else as stored. */
-const department = (emp) => emp?.department_ar || emp?.department_en || ''
+export const department = (emp) => emp?.department_ar || emp?.department_en || ''
 
 /* A mobile number as one run of Arabic digits: 010-1234-5678 becomes
    ٠١٠١٢٣٤٥٦٧٨. With the hyphens kept, Arabic text would lay the three
@@ -475,8 +487,13 @@ export function resignationValues(emp, d, inputs = {}) {
                month ones are month and year only
    inputs      [key, label, kind, blanks, hint] values the user types;
                kind is text, longtext, amount (English digits, shown in
-               Arabic digits and words), year, or person (an employee
-               chosen from the list, by Arabic name)
+               Arabic digits and words), count (a whole number), year,
+               person (an employee chosen from the list, by Arabic name)
+               or employee (an employee chosen from the list, other than
+               the one the form is for; its id is kept, and values() reads
+               the rest of that employee's record through ctx.find). For
+               an employee box, the first blank is the name, the rest come
+               from that employee's record
    optional    blanks that may be left empty (they print as nothing)
    pool        whose form it is: 'active' employees (the default) or
                'resigned' ones, those with a notice date */
@@ -1549,6 +1566,7 @@ function setEmployee(emp) {
   for (const k of Object.keys(state.inputs)) if (k.startsWith('ref')) delete state.inputs[k]
   for (const box of document.querySelectorAll('.hr-ref-input')) box.value = ''
   state.employee = emp
+  fillEmployeeLists()
   refresh()
 }
 
@@ -1694,12 +1712,14 @@ function buildInputs(def) {
     l.className = 'hr-label'
     l.htmlFor = `input-${key}`
     l.textContent = label
-    if (kind === 'person' || kind === 'longtext') {
-      const box2 = kind === 'person' ? document.createElement('select') : document.createElement('textarea')
+    if (kind === 'person' || kind === 'employee' || kind === 'longtext') {
+      const box2 = kind === 'longtext' ? document.createElement('textarea') : document.createElement('select')
       box2.id = `input-${key}`
       box2.className = 'hr-input'
       if (kind === 'person') {
         box2.dataset.person = '1'
+      } else if (kind === 'employee') {
+        box2.dataset.employee = '1'
       } else {
         box2.rows = 3
         box2.dir = 'rtl'
@@ -1717,7 +1737,21 @@ function buildInputs(def) {
     input.className = 'hr-input'
     input.type = 'text'
     input.autocomplete = 'off'
-    if (kind === 'year') {
+    if (kind === 'count') {
+      // A whole number from 1, in English digits; shown in Arabic digits.
+      input.dir = 'ltr'
+      input.inputMode = 'numeric'
+      input.maxLength = 3
+      input.placeholder = '0'
+      input.addEventListener('input', () => {
+        const v = input.value.replace(/[٠-٩]/g, (d) => AR_DIGITS.indexOf(d)).trim()
+        const ok = /^[1-9]\d{0,2}$/.test(v)
+        input.classList.toggle('is-invalid', !!v && !ok)
+        state.inputs[key] = ok ? +v : ''
+        refresh()
+      })
+      input.addEventListener('blur', () => input.classList.remove('is-invalid'))
+    } else if (kind === 'year') {
       // Four English digits; shown in Arabic digits in the document.
       input.dir = 'ltr'
       input.inputMode = 'numeric'
@@ -1780,7 +1814,34 @@ function fillPersonLists() {
     }
     sel.value = keep
   }
+  fillEmployeeLists()
 }
+
+/* Employee boxes list the employees working here, by Arabic name and
+   code, without the one the form is for: nobody guarantees themselves.
+   A choice that is no longer in the list is cleared. */
+function fillEmployeeLists() {
+  const people = state.employees.filter((e) => e.is_active && e.id !== state.employee?.id)
+  for (const sel of document.querySelectorAll('select[data-employee]')) {
+    const key = sel.id.replace(/^input-/, '')
+    const keep = state.inputs[key] || ''
+    sel.innerHTML = ''
+    const none = document.createElement('option')
+    none.value = ''
+    none.textContent = state.loaded ? '— اختر —' : 'جارٍ التحميل…'
+    sel.appendChild(none)
+    for (const e of people) {
+      const o = document.createElement('option')
+      o.value = e.id
+      o.textContent = `${e.arabic_name} — ${toArabicDigits(e.code ?? '')}`
+      sel.appendChild(o)
+    }
+    sel.value = people.some((e) => String(e.id) === String(keep)) ? keep : ''
+    if (sel.value !== String(keep)) delete state.inputs[key]
+  }
+}
+
+const findEmployee = (id) => (id ? state.employees.find((e) => String(e.id) === String(id)) || null : null)
 
 function currentDates() {
   return state.def.dates(state.employee, state.dateSet)
@@ -1790,7 +1851,13 @@ function currentDates() {
 function editableBlanks(def) {
   const out = new Map()
   for (const [key, , fields] of def.dateFields) for (const f of fields) out.set(f, `date-${key}`)
-  for (const [key, , , fields] of def.inputs) for (const f of fields) out.set(f, `input-${key}`)
+  for (const [key, , kind, fields] of def.inputs) {
+    // An employee box fills its other blanks from that employee's record:
+    // until one is chosen they are the user's to fill, once one is they
+    // are the record's.
+    const own = kind === 'employee' && state.inputs[key] ? fields.slice(0, 1) : fields
+    for (const f of own) out.set(f, `input-${key}`)
+  }
   const t = def.refTable
   if (t) {
     for (let r = 0; r < t.rows; r++) {
@@ -1823,7 +1890,7 @@ function refresh() {
   const emp = state.employee
   const dates = currentDates()
   const inputs = currentInputs()
-  const values = def.values(emp, dates, inputs)
+  const values = def.values(emp, dates, inputs, { find: findEmployee })
   releaseLines($('preview'))
   fillFields(values)
   layoutTabs($('preview'))
@@ -1868,7 +1935,11 @@ function refresh() {
   const empty = def.blanks.filter((n) => !values[n] && !optional.has(n))
   const names = (list) => [...new Set(list.map((n) => def.fields[n]))].join('، ')
   const fromRecord = empty.filter((n) => !editable.has(n))
-  const toFill = empty.filter((n) => editable.has(n))
+  /* An employee box not yet chosen is one thing to do, not one per
+     blank it fills: only its first blank, the name, is named. */
+  const later = new Set(def.inputs.filter(([key, , kind]) => kind === 'employee' && !state.inputs[key])
+    .flatMap(([, , , fields]) => fields.slice(1)))
+  const toFill = empty.filter((n) => editable.has(n) && !later.has(n))
   const warn = $('fieldWarning')
   const notes = []
   if (emp && fromRecord.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${names(fromRecord)}. أكملها أولاً ثم أعد الاختيار.`)
@@ -1889,7 +1960,7 @@ function refresh() {
 function drawList() {
   const list = $('docList')
   list.innerHTML = ''
-  DOCUMENTS.forEach((def, i) => {
+  pageDocs.forEach((def, i) => {
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.className = 'hr-doc'
@@ -1991,9 +2062,10 @@ function fillPageBar() {
   name.className = 'who-name'
   name.textContent = me.name || ''
   who.appendChild(name)
-  const LABEL = { super_admin: 'Super admin', admin: 'Admin' }
+  const LABEL = { super_admin: 'Super admin', admin: 'Admin', user: 'User' }
   badge.textContent = LABEL[me.trackerRole] || me.trackerRole || ''
-  badge.className = 'role-badge' + (me.trackerRole === 'super_admin' ? ' is-super' : ' is-admin')
+  badge.className = 'role-badge' + (me.trackerRole === 'super_admin' ? ' is-super'
+    : me.trackerRole === 'admin' ? ' is-admin' : '')
   badge.hidden = false
   const slot = $('themeSlot')
   const toggle = document.querySelector('.theme-toggle')
@@ -2021,11 +2093,21 @@ async function onAuthed() {
     })
     .catch((err) => { hint.textContent = `تعذر تحميل الموظفين: ${err.message || err}` })
 
-  const wanted = DOCUMENTS.find((d) => d.template && `#${d.id}` === location.hash)
+  const wanted = pageDocs.find((d) => d.template && `#${d.id}` === location.hash)
   if (wanted) openDocument(wanted)
 }
 
-function start() {
+/* The documents this page lists: HR Documents' own unless another page
+   (Employee Documents) has started the engine with its list. */
+let pageDocs = DOCUMENTS
+
+export function startDocumentsPage({ documents, allowedRoles }) {
+  pageDocs = documents
+  for (const def of pageDocs) def.blanks = Object.keys(def.fields).map(Number)
+  start(allowedRoles)
+}
+
+function start(allowedRoles = ['admin']) {
   $('year').textContent = String(new Date().getFullYear())
   const out = $('logoutBtn')
   out.addEventListener('click', () => {
@@ -2033,7 +2115,9 @@ function start() {
     out.textContent = 'Signing out…'
     IEnergyAuth.signOutAndLeave('../index.html')
   })
-  IEnergyAuth.ensureAuth({ allowedRoles: ['admin'], homeHref: '../index.html', onAuthed })
+  IEnergyAuth.ensureAuth({ allowedRoles, homeHref: '../index.html', onAuthed })
 }
 
-if (window.IEnergyAuth) start()
+/* HR Documents starts itself. A page that marks its <html> with
+   data-documents-page starts the engine through startDocumentsPage. */
+if (window.IEnergyAuth && !document.documentElement.dataset.documentsPage) start()
