@@ -323,7 +323,7 @@ export function workStartValues(emp, d, inputs = {}) {
     1: name,
     2: toArabicDigits(emp?.national_id || ''),
     3: phone(emp?.personal_mobile),
-    4: emp?.address || '',
+    // No 4: the current address line was taken off the form.
     5: jobTitle(emp),
     6: department(emp),
     7: arDate(d.hired),
@@ -567,10 +567,10 @@ const DOCUMENTS = [
     id: 'work-start',
     title: 'إقرار استلام عمل',
     subtitle: 'Work start acknowledgement',
-    template: 'templates/work-start.docx?v=4',
+    template: 'templates/work-start.docx?v=5',
     fileName: 'إقرار استلام عمل',
     fields: {
-      1: 'الاسم بالعربية', 2: 'الرقم القومي', 3: 'الموبايل الشخصي', 4: 'العنوان',
+      1: 'الاسم بالعربية', 2: 'الرقم القومي', 3: 'الموبايل الشخصي',
       5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'تاريخ الإقرار',
       10: 'الشئون الإدارية',
     },
@@ -579,7 +579,6 @@ const DOCUMENTS = [
     info: [
       [2, 'الرقم القومي'],
       [3, 'الموبايل'],
-      [4, 'العنوان'],
       [5, 'الوظيفة'],
       [6, 'الإدارة'],
       [7, 'تاريخ استلام العمل'],
