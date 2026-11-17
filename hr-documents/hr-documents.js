@@ -211,8 +211,12 @@ export const isFemale = (emp) => emp?.gender === 'Female'
    title, in Arabic; the English title when there is none. */
 export const jobTitle = (emp) => emp?.si_title || emp?.title || ''
 
-/* The department in Arabic when it has an Arabic name, else as stored. */
-export const department = (emp) => emp?.department_ar || emp?.department_en || ''
+/* The department and sector in Arabic, as set in the tracker's Settings.
+   Arabic only: a department without an Arabic name leaves the blank
+   empty, so the form says the data is missing rather than printing an
+   English name in an Arabic document. */
+export const department = (emp) => emp?.department_ar || ''
+export const sector = (emp) => emp?.sector_ar || ''
 
 /* A mobile number as one run of Arabic digits: 010-1234-5678 becomes
    ٠١٠١٢٣٤٥٦٧٨. With the hyphens kept, Arabic text would lay the three
@@ -493,7 +497,10 @@ export function resignationValues(emp, d, inputs = {}) {
                the one the form is for; its id is kept, and values() reads
                the rest of that employee's record through ctx.find). For
                an employee box, the first blank is the name, the rest come
-               from that employee's record
+               from that employee's record. choice is a row picked from a
+               table, given as a sixth item { table, label }; values()
+               reads the row through ctx.choice(key), and every blank it
+               fills is the box's to fill
    optional    blanks that may be left empty (they print as nothing)
    wrap        blanks of free text whose line may wrap onto more lines
    pool        whose form it is: 'active' employees (the default) or
@@ -1417,7 +1424,7 @@ async function printPdf() {
 /* dateSet: dates the user has set by hand, by key. inputs: what the user
    has typed (the wage, the address), by key. Both are kept while the
    document is open, so changing the employee keeps them. */
-const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, border: null, tabStops: null, defaultTab: 36, capturing: false, busy: false }
+const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, border: null, tabStops: null, defaultTab: 36, capturing: false, busy: false, choices: {}, choiceLabel: {} }
 
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
   'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',
@@ -1429,10 +1436,12 @@ const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on'
    (departments.name_ar, from migration 20261112160001) and as stored
    otherwise. A database without that column yet gives the stored names. */
 async function loadDepartments(supabase) {
-  let { data, error } = await supabase.from('departments').select('id, name, name_ar')
-  if (error && error.code === '42703') ({ data, error } = await supabase.from('departments').select('id, name'))
+  let { data, error } = await supabase.from('departments').select('id, name, name_ar, sector_id')
+  if (error && error.code === '42703') ({ data, error } = await supabase.from('departments').select('id, name, sector_id'))
   if (error) return new Map()
-  return new Map((data || []).map((d) => [d.id, { en: d.name, ar: d.name_ar || '' }]))
+  const sectors = await supabase.from('sectors').select('id, name_ar')
+  const sectorAr = new Map((sectors.data || []).map((x) => [x.id, x.name_ar || '']))
+  return new Map((data || []).map((d) => [d.id, { en: d.name, ar: d.name_ar || '', sectorAr: sectorAr.get(d.sector_id) || '' }]))
 }
 
 async function loadEmployees() {
@@ -1461,6 +1470,7 @@ async function loadEmployees() {
     ...e,
     department_ar: departments.get(e.department_id)?.ar || '',
     department_en: departments.get(e.department_id)?.en || '',
+    sector_ar: departments.get(e.department_id)?.sectorAr || '',
     status_name: statuses.get(e.status_id) || '',
     _key: foldArabic(e.arabic_name),
   }))
@@ -1718,7 +1728,7 @@ function buildInputs(def) {
     l.className = 'hr-label'
     l.htmlFor = `input-${key}`
     l.textContent = label
-    if (kind === 'person' || kind === 'employee' || kind === 'longtext') {
+    if (kind === 'person' || kind === 'employee' || kind === 'choice' || kind === 'longtext') {
       const box2 = kind === 'longtext' ? document.createElement('textarea') : document.createElement('select')
       box2.id = `input-${key}`
       box2.className = 'hr-input'
@@ -1726,6 +1736,8 @@ function buildInputs(def) {
         box2.dataset.person = '1'
       } else if (kind === 'employee') {
         box2.dataset.employee = '1'
+      } else if (kind === 'choice') {
+        box2.dataset.choice = key
       } else {
         box2.rows = 3
         box2.dir = 'rtl'
@@ -1735,6 +1747,12 @@ function buildInputs(def) {
         refresh()
       })
       row.append(l, box2)
+      if (hint) {
+        const h = document.createElement('p')
+        h.className = 'hr-hint'
+        h.textContent = hint
+        row.appendChild(h)
+      }
       box.appendChild(row)
       continue
     }
@@ -1845,7 +1863,45 @@ function fillEmployeeLists() {
     sel.value = people.some((e) => String(e.id) === String(keep)) ? keep : ''
     if (sel.value !== String(keep)) delete state.inputs[key]
   }
+  fillChoiceLists()
 }
+
+/* Rows for each choice box, by key, read from their table once the user
+   is signed in. */
+async function loadChoices() {
+  const supabase = await IEnergyAuth.getClient()
+  const wanted = new Map()
+  for (const def of pageDocs) {
+    for (const [key, , kind, , , opts] of def.inputs) if (kind === 'choice') wanted.set(key, opts)
+  }
+  for (const [key, opts] of wanted) {
+    const { data, error } = await supabase.from(opts.table).select('*').order('sort_order').order('id')
+    state.choices[key] = error ? [] : data || []
+    state.choiceLabel[key] = opts.label || 'name'
+  }
+}
+
+function fillChoiceLists() {
+  for (const sel of document.querySelectorAll('select[data-choice]')) {
+    const key = sel.dataset.choice
+    const rows = state.choices[key]
+    const keep = state.inputs[key] || ''
+    sel.innerHTML = ''
+    const none = document.createElement('option')
+    none.value = ''
+    none.textContent = !rows ? 'جارٍ التحميل…' : rows.length ? '— اختر —' : 'لا توجد بيانات بعد'
+    sel.appendChild(none)
+    for (const r of rows || []) {
+      const o = document.createElement('option')
+      o.value = r.id
+      o.textContent = r[state.choiceLabel[key]] ?? ''
+      sel.appendChild(o)
+    }
+    sel.value = (rows || []).some((r) => String(r.id) === String(keep)) ? keep : ''
+  }
+}
+
+const chosen = (key) => (state.choices[key] || []).find((r) => String(r.id) === String(state.inputs[key])) || null
 
 const findEmployee = (id) => (id ? state.employees.find((e) => String(e.id) === String(id)) || null : null)
 
@@ -1896,7 +1952,7 @@ function refresh() {
   const emp = state.employee
   const dates = currentDates()
   const inputs = currentInputs()
-  const values = def.values(emp, dates, inputs, { find: findEmployee })
+  const values = def.values(emp, dates, inputs, { find: findEmployee, choice: chosen })
   releaseLines($('preview'))
   fillFields(values)
   layoutTabs($('preview'))
@@ -2098,6 +2154,7 @@ async function onAuthed() {
       fillPersonLists()
     })
     .catch((err) => { hint.textContent = `تعذر تحميل الموظفين: ${err.message || err}` })
+  loadChoices().then(() => { fillChoiceLists(); refresh() }).catch((err) => console.error(err))
 
   const wanted = pageDocs.find((d) => d.template && `#${d.id}` === location.hash)
   if (wanted) openDocument(wanted)

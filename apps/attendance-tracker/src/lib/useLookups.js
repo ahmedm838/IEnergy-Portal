@@ -27,7 +27,7 @@ export function clearLookupsCache() {
  * Both paths below end here, so the one RPC and the seven requests
  * cannot drift into returning different shapes.
  */
-function shapeLookups({ sites, sectors, departments, statuses, allTypes, busRoutes, levels, settings }) {
+function shapeLookups({ sites, sectors, departments, statuses, allTypes, busRoutes, levels, financialGrants = [], settings }) {
   const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]))
   return {
     sites,
@@ -42,6 +42,8 @@ function shapeLookups({ sites, sectors, departments, statuses, allTypes, busRout
     // Job grades, L1 to L7. Set in the portal's Employee Database; read
     // here so a report can print one beside the job title.
     levels,
+    // The grants on the financial grant request form (Employee Documents).
+    financialGrants,
     settings: settingsMap,
   }
 }
@@ -78,20 +80,21 @@ async function fetchLookups() {
     allTypes: data.types ?? [],
     busRoutes: data.bus_routes ?? [],
     levels: data.levels ?? [],
+    financialGrants: data.financial_grants ?? [],
     settings: data.settings ?? [],
   })
 }
 
 async function fetchLookupsSeparately() {
   const [
-    sites, sectors, departments, statuses, allTypes, busRoutes, levels, settings,
+    sites, sectors, departments, statuses, allTypes, busRoutes, levels, settings, financialGrants,
   ] = await Promise.all([
     run(supabase.from('sites').select('*').order('sort_order')),
     run(supabase.from('sectors').select('*').order('sort_order')),
     run(
       supabase
         .from('departments')
-        .select('id, name, sector_id, sort_order, sectors ( id, name )')
+        .select('id, name, name_ar, sector_id, sort_order, sectors ( id, name, name_ar )')
         .order('sort_order'),
     ),
     run(supabase.from('employee_statuses').select('*').order('sort_order')),
@@ -115,10 +118,13 @@ async function fetchLookupsSeparately() {
     run(supabase.from('bus_routes').select('*').order('sort_order')),
     run(supabase.from('employee_levels').select('*').order('sort_order')),
     run(supabase.from('app_settings').select('*')),
+    // Newer than the rest: a database without the table gives none.
+    supabase.from('financial_grants').select('*').order('sort_order')
+      .then(({ data }) => data ?? []),
   ])
 
   return shapeLookups({
-    sites, sectors, departments, statuses, allTypes, busRoutes, levels, settings,
+    sites, sectors, departments, statuses, allTypes, busRoutes, levels, settings, financialGrants,
   })
 }
 

@@ -8,8 +8,8 @@
 */
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
-  amountDigits, installment, jobTitle, department,
-} from '../hr-documents/hr-documents.js?v=37'
+  amountDigits, installment, jobTitle, department, parseAmount,
+} from '../hr-documents/hr-documents.js?v=38'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -53,15 +53,18 @@ export function grantDates(emp, set = {}, today = todayUTC()) {
   return { today: has(set, 'today') ? set.today : today }
 }
 
-/* The amount, reason and attachments are typed; the requester is the
-   employee chosen at the top. The four approvers, (8) to (11), are left
-   empty: they are written by hand when the form is signed. */
-export function grantValues(emp, d, inputs = {}) {
+/* The grant is picked from the financial grants table (Settings in the
+   tracker): its amount and attachments fill (2) and (4). The reason is
+   typed; the requester is the employee chosen at the top. The four
+   approvers, (8) to (11), are left empty: they are written by hand when
+   the form is signed. */
+export function grantValues(emp, d, inputs = {}, ctx = {}) {
+  const grant = ctx.choice ? ctx.choice('grant') : null
   return {
     1: arDate(d.today),
-    2: pounds(inputs.amount || null),
+    2: grant ? pounds(parseAmount(String(grant.amount)) || null) : '',
     3: inputs.reason || '',
-    4: inputs.attachments || '',
+    4: grant?.attachments || '',
     5: emp?.arabic_name || '',
     6: jobTitle(emp),
     7: department(emp),
@@ -105,7 +108,7 @@ const DOCUMENTS = [
     template: 'templates/financial-grant.docx?v=1',
     fileName: 'طلب صرف منحة مالية',
     fields: {
-      1: 'تاريخ الطلب', 2: 'قيمة المنحة', 3: 'السبب', 4: 'المرفقات',
+      1: 'تاريخ الطلب', 2: 'نوع المنحة', 3: 'السبب', 4: 'نوع المنحة',
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة',
       8: 'مدير الإدارة', 9: 'الشئون الإدارية', 10: 'العضو المنتدب', 11: 'الإدارة المالية',
     },
@@ -117,12 +120,14 @@ const DOCUMENTS = [
     info: [
       [6, 'الوظيفة'],
       [7, 'الإدارة'],
+      [2, 'قيمة المنحة'],
+      [4, 'المرفقات'],
     ],
     dateFields: [['today', 'تاريخ الطلب', [1]]],
     inputs: [
-      ['amount', 'قيمة المنحة (بالأرقام الإنجليزية)', 'amount', [2], 'مثال: 5000 أو 5000.50'],
+      ['grant', 'نوع المنحة', 'choice', [2, 4], 'القيمة والمرفقات تُملأ تلقائيًا من جدول المنح المالية.',
+        { table: 'financial_grants', label: 'name' }],
       ['reason', 'السبب', 'longtext', [3]],
-      ['attachments', 'المرفقات', 'longtext', [4]],
     ],
   },
 ]

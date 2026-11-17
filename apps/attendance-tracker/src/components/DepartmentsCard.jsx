@@ -11,6 +11,10 @@ import { Alert, Button, Card, CardHeader, Field, Input, Select, Td, Th } from '.
  * meant a migration. They are ordinary reference data and belong next to
  * the sites and statuses that were already editable here.
  *
+ * Each has an English name and an Arabic one. The Arabic name is what the
+ * HR and employee forms print as the department (الإدارة); a department
+ * without one is reported on the form as missing data.
+ *
  * Nothing is deleted out from under a record: the foreign keys are
  * restricting, so a department still holding employees, or a sector still
  * holding departments, refuses to go and says why.
@@ -19,8 +23,8 @@ export default function DepartmentsCard({ lookups, readOnly }) {
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(false)
-  const [newSector, setNewSector] = useState('')
-  const [newDept, setNewDept] = useState({ name: '', sector_id: '' })
+  const [newSector, setNewSector] = useState({ name: '', name_ar: '' })
+  const [newDept, setNewDept] = useState({ name: '', name_ar: '', sector_id: '' })
   // A buffer each: the two lists have their own ids, and the one button
   // below them saves both together.
   const sectorEdits = usePendingEdits()
@@ -48,11 +52,17 @@ export default function DepartmentsCard({ lookups, readOnly }) {
 
   function addSector(event) {
     event.preventDefault()
-    const name = newSector.trim()
+    const name = newSector.name.trim()
     if (!name) return
     act(`Added the ${name} sector.`, async () => {
-      await run(supabase.from('sectors').insert({ name, sort_order: nextOrder(sectors) }))
-      setNewSector('')
+      await run(
+        supabase.from('sectors').insert({
+          name,
+          name_ar: newSector.name_ar.trim() || null,
+          sort_order: nextOrder(sectors),
+        }),
+      )
+      setNewSector({ name: '', name_ar: '' })
     })
   }
 
@@ -68,11 +78,12 @@ export default function DepartmentsCard({ lookups, readOnly }) {
       await run(
         supabase.from('departments').insert({
           name,
+          name_ar: newDept.name_ar.trim() || null,
           sector_id: Number(newDept.sector_id),
           sort_order: nextOrder(departments),
         }),
       )
-      setNewDept({ name: '', sector_id: '' })
+      setNewDept({ name: '', name_ar: '', sector_id: '' })
     })
   }
 
@@ -100,11 +111,15 @@ export default function DepartmentsCard({ lookups, readOnly }) {
     const total = sectorChanges.length + deptChanges.length
     await act(`Saved ${total} change${total === 1 ? '' : 's'}.`, async () => {
       for (const { row, patch } of sectorChanges) {
-        await run(supabase.from('sectors').update({ name: patch.name.trim() }).eq('id', row.id))
+        const values = {}
+        if ('name' in patch) values.name = patch.name.trim()
+        if ('name_ar' in patch) values.name_ar = patch.name_ar.trim() || null
+        await run(supabase.from('sectors').update(values).eq('id', row.id))
       }
       for (const { row, patch } of deptChanges) {
         const values = {}
         if ('name' in patch) values.name = patch.name.trim()
+        if ('name_ar' in patch) values.name_ar = patch.name_ar.trim() || null
         if ('sector_id' in patch) values.sector_id = Number(patch.sector_id)
         await run(supabase.from('departments').update(values).eq('id', row.id))
       }
@@ -140,7 +155,14 @@ export default function DepartmentsCard({ lookups, readOnly }) {
         <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-3">Sectors</h3>
           <div className="max-h-80 overflow-auto rounded-lg border border-line">
-            <table className="w-full">
+            <table className="sticky-head w-full">
+              <thead>
+                <tr>
+                  <Th>Sector</Th>
+                  <Th>Arabic name</Th>
+                  <Th />
+                </tr>
+              </thead>
               <tbody className="divide-y divide-line">
                 {sectors.map((s) => (
                   <tr key={s.id}>
@@ -152,6 +174,19 @@ export default function DepartmentsCard({ lookups, readOnly }) {
                           sectorEdits.isEdited(s, 'name') ? 'border-edge-warning' : ''
                         }`}
                         onChange={(e) => sectorEdits.stage(s, { name: e.target.value })}
+                      />
+                    </Td>
+                    <Td>
+                      <Input
+                        dir="rtl"
+                        lang="ar"
+                        value={sectorEdits.valueOf(s, 'name_ar') ?? ''}
+                        placeholder="الاسم بالعربية"
+                        disabled={readOnly || busy}
+                        className={`py-1 text-sm ${
+                          sectorEdits.isEdited(s, 'name_ar') ? 'border-edge-warning' : ''
+                        }`}
+                        onChange={(e) => sectorEdits.stage(s, { name_ar: e.target.value })}
                       />
                     </Td>
                     <Td className="w-16 text-right">
@@ -167,14 +202,22 @@ export default function DepartmentsCard({ lookups, readOnly }) {
             </table>
           </div>
           {!readOnly && (
-            <form className="mt-2 flex gap-2" onSubmit={addSector}>
+            <form className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={addSector}>
               <Input
-                value={newSector}
-                onChange={(e) => setNewSector(e.target.value)}
+                value={newSector.name}
+                onChange={(e) => setNewSector((s) => ({ ...s, name: e.target.value }))}
                 placeholder="New sector name"
                 className="py-1.5 text-sm"
               />
-              <Button type="submit" size="sm" disabled={busy || !newSector.trim()}>
+              <Input
+                dir="rtl"
+                lang="ar"
+                value={newSector.name_ar}
+                onChange={(e) => setNewSector((s) => ({ ...s, name_ar: e.target.value }))}
+                placeholder="الاسم بالعربية"
+                className="py-1.5 text-sm"
+              />
+              <Button type="submit" size="sm" disabled={busy || !newSector.name.trim()}>
                 Add
               </Button>
             </form>
@@ -190,6 +233,7 @@ export default function DepartmentsCard({ lookups, readOnly }) {
               <thead>
                 <tr>
                   <Th>Department</Th>
+                  <Th>Arabic name</Th>
                   <Th>Sector</Th>
                   <Th />
                 </tr>
@@ -205,6 +249,19 @@ export default function DepartmentsCard({ lookups, readOnly }) {
                           deptEdits.isEdited(d, 'name') ? 'border-edge-warning' : ''
                         }`}
                         onChange={(e) => deptEdits.stage(d, { name: e.target.value })}
+                      />
+                    </Td>
+                    <Td>
+                      <Input
+                        dir="rtl"
+                        lang="ar"
+                        value={deptEdits.valueOf(d, 'name_ar') ?? ''}
+                        placeholder="الاسم بالعربية"
+                        disabled={readOnly || busy}
+                        className={`py-1 text-sm ${
+                          deptEdits.isEdited(d, 'name_ar') ? 'border-edge-warning' : ''
+                        } ${!(deptEdits.valueOf(d, 'name_ar') ?? '').trim() ? 'border-edge-danger' : ''}`}
+                        onChange={(e) => deptEdits.stage(d, { name_ar: e.target.value })}
                       />
                     </Td>
                     <Td>
@@ -238,11 +295,19 @@ export default function DepartmentsCard({ lookups, readOnly }) {
             </table>
           </div>
           {!readOnly && (
-            <form className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto_auto]" onSubmit={addDepartment}>
+            <form className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]" onSubmit={addDepartment}>
               <Input
                 value={newDept.name}
                 onChange={(e) => setNewDept((d) => ({ ...d, name: e.target.value }))}
                 placeholder="New department name"
+                className="py-1.5 text-sm"
+              />
+              <Input
+                dir="rtl"
+                lang="ar"
+                value={newDept.name_ar}
+                onChange={(e) => setNewDept((d) => ({ ...d, name_ar: e.target.value }))}
+                placeholder="الاسم بالعربية"
                 className="py-1.5 text-sm"
               />
               <Select
@@ -266,7 +331,9 @@ export default function DepartmentsCard({ lookups, readOnly }) {
       </div>
 
       <p className="px-5 pb-5 text-xs text-ink-4">
-        A department still holding employees, or a sector still holding departments, cannot be
+        The Arabic name is what the HR and employee forms print as the department; a department
+        without one (outlined in red) stops its forms from being saved until it is added. A
+        department still holding employees, or a sector still holding departments, cannot be
         deleted — move them first. Renaming is safe at any time: records point at the row, not the
         name.
       </p>
@@ -277,7 +344,7 @@ export default function DepartmentsCard({ lookups, readOnly }) {
           busy={busy}
           onSave={saveEdits}
           onDiscard={discardAll}
-          hint="Renames and sector moves are saved here. Add and Delete happen straight away."
+          hint="Renames, Arabic names and sector moves are saved here. Add and Delete happen straight away."
         />
       )}
     </Card>
