@@ -268,6 +268,41 @@ export function renewalValues(emp, d) {
   }
 }
 
+/* --- Termination notice (contract not renewed) ----------------------- */
+
+/* The notice is dated today unless the user sets it. The last working
+   day is the end of the contract on the record (contract_expiry, which
+   counts the renewals). The date of the last renewal letter is not on
+   the record, so it is typed, and the notice waits for it. */
+export function terminationDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+    renewalLetter: has(set, 'renewalLetter') ? set.renewalLetter : null,
+    lastDay: emp ? parseISO(emp.contract_expiry) : null,
+  }
+}
+
+/* The termination notice's blanks. (6)-(7) and (8)-(9) are the last
+   working day, in the company's letter and in the employee's
+   acknowledgement; (10) is the employee's name above the signature,
+   which is signed by hand. */
+export function terminationValues(emp, d) {
+  const name = emp?.arabic_name || ''
+  return {
+    1: arDate(d.today),
+    2: name,
+    3: toArabicDigits(emp?.national_id || ''),
+    4: arDate(d.hired),
+    5: arDate(d.renewalLetter),
+    6: arDay(d.lastDay),
+    7: arDate(d.lastDay),
+    8: arDay(d.lastDay),
+    9: arDate(d.lastDay),
+    10: name,
+  }
+}
+
 /* --- Hiring contract ------------------------------------------------- */
 
 /* The ID issue month comes from the employee record (id_issue_date, the
@@ -688,6 +723,31 @@ DOCUMENTS.push({
     ['manager', 'اعتماد مدير الإدارة', 'person', [7]],
     ['admin', 'اعتماد الشئون الإدارية', 'person', [9]],
   ],
+})
+DOCUMENTS.push({
+  id: 'termination-notice',
+  title: 'إخطار بعدم تجديد عقد العمل',
+  subtitle: 'Termination notice (contract not renewed)',
+  template: 'templates/termination-notice.docx?v=1',
+  fileName: 'إخطار بعدم تجديد عقد العمل',
+  fields: {
+    1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
+    5: 'تاريخ آخر خطاب تجديد', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد',
+    8: 'تاريخ انتهاء العقد', 9: 'تاريخ انتهاء العقد', 10: 'الاسم بالعربية',
+  },
+  dates: terminationDates,
+  values: terminationValues,
+  info: [
+    [3, 'الرقم القومي'],
+    [4, 'تاريخ العقد (التعيين)'],
+    [6, 'آخر يوم عمل'],
+    [7, 'تاريخ انتهاء العقد'],
+  ],
+  dateFields: [
+    ['today', 'تاريخ الإخطار', [1]],
+    ['renewalLetter', 'تاريخ آخر خطاب تجديد', [5]],
+  ],
+  inputs: [],
 })
 /* A form handed out empty, for the applicant to fill in by hand: no
    employee, no blanks, nothing to check. It prints on both sides of the
