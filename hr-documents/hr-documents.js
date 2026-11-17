@@ -495,6 +495,7 @@ export function resignationValues(emp, d, inputs = {}) {
                an employee box, the first blank is the name, the rest come
                from that employee's record
    optional    blanks that may be left empty (they print as nothing)
+   wrap        blanks of free text whose line may wrap onto more lines
    pool        whose form it is: 'active' employees (the default) or
                'resigned' ones, those with a notice date */
 const DOCUMENTS = [
@@ -969,8 +970,13 @@ function lineCount(p) {
    lines reflow as Word reflows them. The count is taken once, when the
    document is drawn, with the blanks still empty. */
 function rememberLines(root) {
+  // Blanks a document lists in `wrap` take free text of any length: the
+  // line they are on wraps as Word would wrap it, rather than squeezing.
+  const wrap = new Set((state.def?.wrap || []).map(String))
   for (const p of root.querySelectorAll('section.docx p')) {
-    if (p.querySelector('.hr-field')) p.dataset.lines = String(lineCount(p))
+    if (!p.querySelector('.hr-field')) continue
+    if ([...p.querySelectorAll('.hr-field')].some((f) => wrap.has(f.dataset.field))) continue
+    p.dataset.lines = String(lineCount(p))
   }
   /* In a section set in columns, every short line is one line in Word --
      the template lines its two columns up row by row -- so it is held to
