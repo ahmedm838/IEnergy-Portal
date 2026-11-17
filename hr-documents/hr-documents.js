@@ -347,6 +347,7 @@ export function socialStatusDates(emp, set = {}, today = todayUTC()) {
 /* Military service in the form's Arabic, in the employee's gender. */
 const MILITARY = {
   Served: ['أدى الخدمة', 'أدت الخدمة'],
+  'Served-Reserve Forces': ['أدى الخدمة (احتياط)', 'أدت الخدمة (احتياط)'],
   Postponed: ['مؤجل', 'مؤجلة'],
   Exempted: ['معفى', 'معفاة'],
 }

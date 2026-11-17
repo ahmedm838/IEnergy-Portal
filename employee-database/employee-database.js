@@ -289,9 +289,10 @@ const GROUPS = [
     fields: [
       /* Fixed at Exempted, and disabled, when the ID says female: see
          syncMilitary. */
-      { key: 'military_service', label: 'Military service', type: 'select', options: [['Served', 'Served'], ['Postponed', 'Postponed'], ['Exempted', 'Exempted']] },
-      /* When the certificate or the postponement runs out. Needed only
-         for Served and Postponed; blank and disabled otherwise. In
+      { key: 'military_service', label: 'Military service', type: 'select', options: [['Served', 'Served'], ['Served-Reserve Forces', 'Served-Reserve Forces'], ['Postponed', 'Postponed'], ['Exempted', 'Exempted']] },
+      /* When the reserve service or the postponement runs out. Needed
+         only for Served-Reserve Forces and Postponed; blank and disabled
+         otherwise -- plain Served does not expire. In
          OPTIONAL so the general required check leaves it alone --
          validate() has its own rule for it. */
       { key: 'military_service_expiry', label: 'Military service expiry', type: 'date' },
@@ -334,13 +335,13 @@ const OPTIONAL = new Set([
   // the number that actually reaches them.
   'email', 'office_number', 'company_mobile',
   'notice_date', 'resignation_date', 'resignation_reason',
-  // Required only when military service is Served or Postponed; validate()
+  // Required only for Served-Reserve Forces and Postponed; validate()
   // and syncMilitary() handle it.
   'military_service_expiry',
 ])
 
 /** Military service values that carry an expiry date. */
-const MILITARY_WITH_EXPIRY = ['Served', 'Postponed']
+const MILITARY_WITH_EXPIRY = ['Served-Reserve Forces', 'Postponed']
 
 const isRequired = (key) => !OPTIONAL.has(key)
 
@@ -1454,7 +1455,7 @@ let derivedSiTitle = null
  * Female (from the ID No.): the service is fixed at Exempted and the box
  * is disabled -- the value is still read and saved, because the social
  * status declaration prints it ("معفاة"). The expiry date is only open
- * for Served and Postponed; otherwise it is cleared and disabled, and its
+ * for Served-Reserve Forces and Postponed; otherwise it is cleared and disabled, and its
  * star shows only while it is required.
  */
 function syncMilitary() {
@@ -1606,6 +1607,8 @@ function renderForm(employee) {
   docs.appendChild(docGrid)
   form.appendChild(docs)
 
+  form.appendChild(employeePdfSection(employee))
+
   // Before the read-only lock below, which must have the last word.
   syncMilitary()
 
@@ -1620,6 +1623,156 @@ function renderForm(employee) {
     : 'New employee'
   $('editor').hidden = false
   $('editor').scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+/* ------------------------------------------------------------------ */
+/* Employee documents: one PDF per employee, kept on the cPanel server  */
+/* ------------------------------------------------------------------ */
+
+/* PHP on the same origin. It checks the caller is an admin with
+   Supabase, then keeps the file outside the web root -- so this only
+   works on the cPanel-hosted site, not on GitHub Pages. */
+const EMPLOYEE_FILE_API = '../api/employee-file.php'
+
+async function fileApiHeaders() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Your sign-in has expired. Sign in again on iEnergy Home.')
+  // Both: some Apache setups drop Authorization before PHP sees it.
+  return { Authorization: `Bearer ${session.access_token}`, 'X-Supabase-Token': session.access_token }
+}
+
+async function fileApiError(response) {
+  try {
+    const body = await response.json()
+    if (body?.error) return body.error
+  } catch { /* not JSON: the PHP never ran */ }
+  if (response.status === 404) return 'The documents service is not on this server yet.'
+  return `The server answered ${response.status}.`
+}
+
+/**
+ * Upload / Replace and View for the record that is open.
+ *
+ * One PDF holds the employee's documents. Upload becomes Replace once a
+ * file is there; replacing overwrites it. A new employee has no id yet,
+ * so the buttons wait until the record is saved.
+ */
+function employeePdfSection(employee) {
+  const section = document.createElement('fieldset')
+  section.className = 'db-group db-group-wide'
+  const legend = document.createElement('legend')
+  legend.textContent = 'Employee documents (PDF)'
+  section.appendChild(legend)
+
+  const row = document.createElement('div')
+  row.className = 'db-files'
+  const status = document.createElement('span')
+  status.className = 'db-files-status'
+  const picker = document.createElement('input')
+  picker.type = 'file'
+  picker.accept = 'application/pdf,.pdf'
+  picker.hidden = true
+  const upload = document.createElement('button')
+  upload.type = 'button'
+  upload.className = 'btn'
+  upload.textContent = 'Upload documents'
+  const view = document.createElement('button')
+  view.type = 'button'
+  view.className = 'btn'
+  view.textContent = 'View documents'
+  view.disabled = true
+  row.append(upload, view, status, picker)
+  section.appendChild(row)
+
+  const id = employee?.id
+  if (!id) {
+    upload.disabled = true
+    status.textContent = 'Save the new employee first, then upload the documents.'
+    return section
+  }
+  if (!mayEdit(me?.role)) upload.disabled = true
+
+  const url = (extra = '') => `${EMPLOYEE_FILE_API}?id=${encodeURIComponent(id)}${extra}`
+  const show = (info) => {
+    const has = !!info?.exists
+    upload.textContent = has ? 'Replace documents' : 'Upload documents'
+    view.disabled = !has
+    status.textContent = has
+      ? `PDF on file · ${(info.size / 1048576).toFixed(1)} MB · uploaded ${new Date(info.updated).toLocaleString()}`
+      : 'No PDF uploaded yet.'
+  }
+
+  status.textContent = 'Checking for a PDF…'
+  ;(async () => {
+    try {
+      const response = await fetch(url('&action=status'), { headers: await fileApiHeaders() })
+      if (current?.id !== id) return
+      if (!response.ok) throw new Error(await fileApiError(response))
+      show(await response.json())
+    } catch (err) {
+      if (current?.id === id) status.textContent = err.message || 'Could not check for a PDF.'
+    }
+  })()
+
+  upload.addEventListener('click', () => {
+    if (upload.textContent.startsWith('Replace') &&
+        !confirm('Replace the PDF on file for this employee? The current one will be overwritten.')) return
+    picker.value = ''
+    picker.click()
+  })
+
+  picker.addEventListener('change', async () => {
+    const file = picker.files?.[0]
+    if (!file) return
+    if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+      status.textContent = 'Only PDF files can be uploaded.'
+      return
+    }
+    if (file.size > 25 * 1048576) {
+      status.textContent = 'The file is larger than 25 MB.'
+      return
+    }
+    upload.disabled = true
+    view.disabled = true
+    status.textContent = `Uploading ${file.name}…`
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      const response = await fetch(url(), { method: 'POST', headers: await fileApiHeaders(), body })
+      if (!response.ok) throw new Error(await fileApiError(response))
+      if (current?.id === id) show(await response.json())
+    } catch (err) {
+      if (current?.id === id) {
+        status.textContent = `Upload failed: ${err.message || 'unknown error'}`
+        view.disabled = !upload.textContent.startsWith('Replace')
+      }
+    } finally {
+      upload.disabled = !mayEdit(me?.role)
+    }
+  })
+
+  view.addEventListener('click', async () => {
+    /* Opened now, inside the click, and filled in when the file arrives.
+       A window opened after an await is a popup, and gets blocked. */
+    const tab = window.open('', '_blank')
+    view.disabled = true
+    try {
+      const response = await fetch(url(), { headers: await fileApiHeaders() })
+      if (!response.ok) throw new Error(await fileApiError(response))
+      const blob = await response.blob()
+      const href = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+      if (tab) tab.location.href = href
+      else window.location.assign(href)
+      setTimeout(() => URL.revokeObjectURL(href), 60000)
+    } catch (err) {
+      if (tab) tab.close()
+      status.textContent = `Could not open the PDF: ${err.message || 'unknown error'}`
+    } finally {
+      view.disabled = false
+    }
+  })
+
+  return section
 }
 
 /**
@@ -2097,7 +2250,8 @@ function validate(v) {
     }
   }
 
-  /* Served and Postponed both run out, so they need the date it happens. */
+  /* Reserve service and a postponement both run out, so they need the
+     date it happens. Plain Served does not. */
   if (MILITARY_WITH_EXPIRY.includes(v.military_service) && blank(v.military_service_expiry)) {
     problems.push(`Military service expiry is required when military service is ${v.military_service}.`)
   }
@@ -2220,7 +2374,7 @@ function friendlyError(err) {
     employees_si_basic_wage_range: 'S.I. basic wage must be between 5,500 and 99,999.',
     employees_si_gross_wage_range: 'S.I. gross wage must be between 7,100 and 99,999.',
     employees_si_code_fkey: 'That S.I. code is not in the official list.',
-    employees_military_service_valid: 'Military service must be Served, Postponed or Exempted.',
+    employees_military_service_valid: 'Military service must be Served, Served-Reserve Forces, Postponed or Exempted.',
     employees_marital_status_valid: 'Marital status must be Single, Married or Divorced.',
     employees_religion_valid: 'Religion must be Muslim or Christian.',
     employees_name_unique_idx: 'Another employee already has that name.',

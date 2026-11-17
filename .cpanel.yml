@@ -34,3 +34,5 @@ deployment:
     - /bin/cp -R contacts-list salary-calculator company-policy $DEPLOYPATH
     - /bin/cp -R hr-documents employee-documents purchasing-request employee-database $DEPLOYPATH
     - /bin/cp -R annual-leaves-balance attendance-hours coming-soon.html $DEPLOYPATH
+    # PHP for the employee documents (PDFs kept outside the web root).
+    - /bin/cp -R api $DEPLOYPATH

@@ -746,6 +746,10 @@ body:has(#app) .container { max-width: 1500px; }
 
 /* Save and Cancel take the same size as every other button here. */
 
+/* Employee documents: Upload/Replace, View, and what is on file. */
+.db-files { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.db-files-status { color: var(--muted); font-size: 13px; }
+
 .db-print-value { display: none; }
 
 /* Print only the selected employee, through the native print dialog. */
@@ -756,7 +760,7 @@ body:has(#app) .container { max-width: 1500px; }
   .page-bar, .container > :not(#editor), .form-actions,
   #formError, #formNotice, #gate, #totalDialog,
   #employeeForm input, #employeeForm select, #employeeForm textarea,
-  .db-date-btn, .db-hint { display: none !important; }
+  .db-date-btn, .db-hint, .db-files { display: none !important; }
   .container { max-width: none; width: 100%; margin: 0; padding: 0; }
   #editor { border: 0; padding: 0; background: #fff; box-shadow: none; }
   #editor * { color: #000 !important; }
