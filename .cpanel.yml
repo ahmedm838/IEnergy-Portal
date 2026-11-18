@@ -28,7 +28,7 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH
 
     # The portal's own pages and assets.
-    - /bin/cp -R index.html auth.js dashboard.js theme.js home.css responsive.css $DEPLOYPATH
+    - /bin/cp -R index.html auth.js dashboard.js theme.js print-stamp.js home.css responsive.css $DEPLOYPATH
     - /bin/cp -R favicon.ico favicon.png logo.png logo-mark.png $DEPLOYPATH
     - /bin/cp -R .htaccess $DEPLOYPATH
     - /bin/cp -R contacts-list salary-calculator company-policy $DEPLOYPATH

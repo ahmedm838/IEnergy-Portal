@@ -123,7 +123,7 @@ const DOCUMENTS = [
     id: 'financial-grant',
     title: 'طلب صرف منحة مالية',
     subtitle: 'Financial grant request',
-    template: 'templates/financial-grant.docx?v=1',
+    template: 'templates/financial-grant.docx?v=2',
     fileName: 'طلب صرف منحة مالية',
     fields: {
       1: 'تاريخ الطلب', 2: 'نوع المنحة', 3: 'نوع المنحة', 4: 'نوع المنحة',
