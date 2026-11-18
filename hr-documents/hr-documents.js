@@ -414,6 +414,33 @@ export function clearanceValues(emp, d, inputs = {}, ctx = {}) {
   return v
 }
 
+/* --- Termination and final settlement (اتفاق إنهاء علاقة عمل والتسوية النهائية) */
+
+/* Dated today unless the user sets it. The end of employment is the
+   resignation date on the record, as on the resignation form; it cannot
+   be changed here. */
+export function settlementDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    lastDay: emp ? parseISO(emp.resignation_date) : null,
+  }
+}
+
+/* "انه في يوم (1) الموافق (2)": the agreement date; (3)-(5) the employee's
+   name, address on the record and national ID; "اعتبارًا من يوم (6)
+   الموافق (7)": the resignation date. */
+export function settlementValues(emp, d) {
+  return {
+    1: arDay(d.today),
+    2: arDate(d.today),
+    3: emp?.arabic_name || '',
+    4: emp?.address || '',
+    5: toArabicDigits(emp?.national_id || ''),
+    6: arDay(d.lastDay),
+    7: arDate(d.lastDay),
+  }
+}
+
 /* --- Social status declaration (إقرار الحالة الاجتماعية) ---------------- */
 
 /* Dated today unless the user sets it. */
@@ -828,6 +855,31 @@ DOCUMENTS.push({
     ['lastDay', 'آخر يوم عمل', [2, 3]],
   ],
   inputs: [['receiver', 'الموظف المستلم للأعمال', 'employee', [9, 10, 11, 12]]],
+})
+DOCUMENTS.push({
+  id: 'termination-settlement',
+  title: 'اتفاق إنهاء علاقة عمل والتسوية النهائية',
+  subtitle: 'Termination and final settlement',
+  template: 'templates/termination-settlement.docx?v=1',
+  fileName: 'اتفاق إنهاء علاقة عمل والتسوية النهائية',
+  // It rests on the employee's resignation.
+  pool: 'resigned',
+  // The address can run onto a second line.
+  wrap: [4],
+  fields: {
+    1: 'اليوم', 2: 'تاريخ الاتفاق', 3: 'الاسم بالعربية', 4: 'العنوان', 5: 'الرقم القومي',
+    6: 'تاريخ الاستقالة (آخر يوم عمل)', 7: 'تاريخ الاستقالة (آخر يوم عمل)',
+  },
+  dates: settlementDates,
+  values: settlementValues,
+  info: [
+    [5, 'الرقم القومي'],
+    [4, 'العنوان'],
+    [7, 'تاريخ إنهاء العلاقة (الاستقالة)'],
+    [6, 'اليوم'],
+  ],
+  dateFields: [['today', 'تاريخ الاتفاق', [1, 2]]],
+  inputs: [],
 })
 /* A form handed out empty, for the applicant to fill in by hand: no
    employee, no blanks, nothing to check. It prints on both sides of the
