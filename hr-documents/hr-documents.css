@@ -154,3 +154,27 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
 /* An optional blank left empty: dots on screen, nothing on paper. */
 .hr-field.is-optional.is-empty { background: #eef2f7; border-bottom-color: #9aa5b1; color: #9aa5b1; }
 .hr-preview.is-capturing .hr-field.is-optional.is-empty { color: transparent; background: none; border: 0; }
+
+/* A scanned form: the page is its picture, and each blank is written over
+   it where it sits (drawScan). */
+.hr-preview section.hr-scan { padding: 0; overflow: hidden; background: #fff; }
+.hr-scan-page {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; user-select: none; -webkit-user-select: none;
+}
+.hr-preview .hr-spot {
+  position: absolute; box-sizing: border-box; display: flex; align-items: flex-end;
+  white-space: nowrap; overflow: hidden; font-size: 17px; line-height: 1.1;
+  padding: 0 3px 3px; border-radius: 0; color: #000;
+}
+.hr-preview .hr-spot-cells,
+.hr-preview .hr-spot-mark { align-items: center; justify-content: center; padding: 0; border-bottom: 0; }
+.hr-preview .hr-spot-mark { font-size: 24px; font-weight: 700; }
+.hr-cell {
+  position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 700;
+}
+.hr-preview .hr-spot.is-empty { color: #c0392b; }
+.hr-preview.is-capturing .hr-spot.is-empty { color: transparent; }
+/* An English line (an email) ends at the line's right end too. */
+.hr-preview .hr-spot-line[dir="ltr"] { justify-content: flex-end; }

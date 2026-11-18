@@ -7,6 +7,7 @@ import DepartmentsCard from '../components/DepartmentsCard'
 import AccessCard from '../components/AccessCard'
 import BusRoutesCard from '../components/BusRoutesCard'
 import FinancialGrantsCard from '../components/FinancialGrantsCard'
+import CompanyDetailsCard from '../components/CompanyDetailsCard'
 import ChangeLogCard from '../components/ChangeLogCard'
 import SaveBar from '../components/SaveBar'
 import { usePendingEdits } from '../lib/usePendingEdits'
@@ -733,6 +734,8 @@ export default function Settings() {
       <BusRoutesCard lookups={lookups} readOnly={readOnly} />
 
       <FinancialGrantsCard lookups={lookups} readOnly={readOnly} />
+
+      <CompanyDetailsCard readOnly={readOnly} />
 
       <AccessCard readOnly={readOnly} />
 

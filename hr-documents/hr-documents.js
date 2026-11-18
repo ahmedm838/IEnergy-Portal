@@ -598,6 +598,99 @@ export function resignationValues(emp, d, inputs = {}) {
   }
 }
 
+/* --- Form 1 Social Insurance (طلب اشتراك مؤمن عليه) ------------------- */
+
+/* Dated today unless the user sets it ("تحريرًا في"); the subscription
+   starts on the social insurance date on the record. */
+export function form1Dates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    siStart: emp ? parseISO(emp.si_date) : null,
+  }
+}
+
+/* A date for a row of boxes: day, month and year, one part each. */
+const dmyParts = (d) => (d ? toArabicDigits(dmy(d)).split('/').join('|') : '')
+/* A date for its boxes digit by digit: the day's two boxes, the month's,
+   then the year's four. */
+const dmyDigits = (d) => (d ? toArabicDigits(dmy(d).replace(/\//g, '')) : '')
+/* A wage for its boxes: pounds (five boxes) and piasters (two). */
+const wagePounds = (a) => (a && a.pounds <= 99999 ? toArabicDigits(a.pounds) : '')
+const wagePiasters = (a) => (a && a.pounds <= 99999 ? toArabicDigits(String(a.piasters).padStart(2, '0')) : '')
+
+/* The employee's details come from the record, the company's from the
+   company details in the tracker's Settings, the three wages are typed. */
+export function form1Values(emp, d, inputs = {}, ctx = {}) {
+  const c = ctx.company || {}
+  const name = emp?.arabic_name || ''
+  const gov = emp?.governorate_code
+  return {
+    1: c.si_office || '',
+    2: emp ? '✓' : '',
+    3: toArabicDigits(c.establishment_no || ''),
+    4: c.name_ar || '',
+    5: toArabicDigits(emp?.si_no || ''),
+    6: toArabicDigits(emp?.national_id || ''),
+    7: name,
+    8: emp?.national_id ? (isFemale(emp) ? 'مصرية' : 'مصري') : '',
+    9: qualification(emp),
+    10: toArabicDigits(emp?.si_code || ''),
+    11: jobTitle(emp),
+    12: dmyDigits(d.siStart),
+    13: wagePounds(inputs.basicWage),
+    14: wagePiasters(inputs.basicWage),
+    15: wagePounds(inputs.subWage),
+    16: wagePiasters(inputs.subWage),
+    17: wagePounds(inputs.fullWage),
+    18: wagePiasters(inputs.fullWage),
+    19: emp?.address || '',
+    20: gov ? toArabicDigits(String(gov).padStart(2, '0')) : '',
+    21: phone(emp?.personal_mobile),
+    22: emp?.email || '',
+    23: dmyParts(d.today),
+    24: c.name_ar || '',
+    25: toArabicDigits(c.establishment_no || ''),
+    26: c.address_ar || '',
+    27: name,
+  }
+}
+
+/* Where each blank sits on the scan, in the pictures' pixels (1275 x
+   2100, 150 to the inch), measured off the form. Boxes are listed left
+   to right in the order their characters go. */
+const step = (...xs) => xs.slice(1).map((x, i) => [xs[i], x])
+const FORM1_SPOTS = [
+  { n: 1, kind: 'line', x: [929, 1176], y: [80, 104] },
+  { n: 2, kind: 'mark', x: [828, 869], y: [226, 267] },
+  { n: 3, kind: 'cells', cells: step(696, 737, 778, 820, 860, 901, 942, 984, 1025), y: [347, 388], align: 'end' },
+  { n: 4, kind: 'line', x: [123, 1032], y: [406, 430] },
+  { n: 5, kind: 'cells', cells: step(648, 690, 731, 772, 814, 855, 897, 938, 980, 1021), y: [531, 572], align: 'end' },
+  { n: 6, kind: 'cells', cells: step(440, 482, 524, 566, 607, 649, 690, 730, 771, 813, 854, 895, 937, 978, 1019), y: [588, 629] },
+  { n: 7, kind: 'line', x: [656, 1032], y: [644, 668] },
+  { n: 8, kind: 'line', x: [285, 474], y: [644, 668] },
+  { n: 9, kind: 'line', x: [901, 1114], y: [700, 724] },
+  { n: 10, kind: 'cells', cells: [...step(464, 506, 547, 588), ...step(619, 661, 702, 744)], y: [690, 732] },
+  { n: 11, kind: 'line', x: [138, 351], y: [700, 724] },
+  // Day, month, year -- right to left on the page, each read left to right.
+  { n: 12, kind: 'cells', cells: [...step(865, 901, 937), ...step(766, 802, 838), ...step(602, 638, 674, 710, 746)], y: [746, 782] },
+  { n: 13, kind: 'cells', cells: step(906, 931, 958, 984, 1010, 1035), y: [934, 968], align: 'end' },
+  { n: 14, kind: 'cells', cells: step(1035, 1065, 1098), y: [934, 968] },
+  { n: 15, kind: 'cells', cells: step(499, 522, 546, 570, 594, 618), y: [934, 968], align: 'end' },
+  { n: 16, kind: 'cells', cells: step(618, 647, 679), y: [934, 968] },
+  { n: 17, kind: 'cells', cells: step(106, 130, 154, 178, 202, 226), y: [934, 968], align: 'end' },
+  { n: 18, kind: 'cells', cells: step(226, 254, 287), y: [934, 968] },
+  { n: 19, kind: 'line', x: [645, 1080], y: [1348, 1371] },
+  { n: 20, kind: 'cells', cells: step(735, 777, 818), y: [1394, 1435] },
+  { n: 21, kind: 'line', x: [785, 1042], y: [1503, 1527] },
+  { n: 22, kind: 'line', x: [785, 1040], y: [1553, 1577], dir: 'ltr' },
+  // "تحريرًا في: / /": the day right of the slashes, the year left.
+  { n: 23, kind: 'cells', cells: [[1050, 1105], [1003, 1045], [925, 997]], y: [1602, 1630] },
+  { n: 24, kind: 'line', page: 2, x: [530, 1044], y: [1057, 1081] },
+  { n: 25, kind: 'line', page: 2, x: [93, 369], y: [1057, 1081] },
+  { n: 26, kind: 'line', page: 2, x: [68, 1044], y: [1110, 1134] },
+  { n: 27, kind: 'line', page: 2, x: [610, 1037], y: [1537, 1561] },
+]
+
 /* --- The list -------------------------------------------------------- */
 
 /* For each document:
@@ -910,6 +1003,51 @@ DOCUMENTS.push({
   dateFields: [],
   inputs: [],
 })
+/* The social insurance office's own form, kept as it is -- a scan of
+   both sides, legal size -- and written over (see drawScan). */
+DOCUMENTS.push({
+  id: 'form1-social-insurance',
+  title: 'Form 1 Social Insurance',
+  subtitle: 'طلب اشتراك مؤمن عليه · نموذج رقم ١',
+  fileName: 'Form 1 Social Insurance',
+  template: 'templates/form1-social-insurance-1.jpg?v=1',
+  scan: {
+    pages: ['templates/form1-social-insurance-1.jpg?v=1', 'templates/form1-social-insurance-2.jpg?v=1'],
+    size: [1275, 2100],
+    paper: 'legal',
+    spots: FORM1_SPOTS,
+  },
+  fields: {
+    1: 'مكتب التأمينات', 2: 'الفئة', 3: 'رقم المنشأة', 4: 'اسم المنشأة',
+    5: 'الرقم التأميني', 6: 'الرقم القومي', 7: 'الاسم بالعربية', 8: 'الجنسية (من الرقم القومي)',
+    9: 'المؤهل', 10: 'كود المهنة (كود التأمينات)', 11: 'الوظيفة (المسمى التأميني)',
+    12: 'تاريخ الاشتراك في التأمينات', 13: 'الأجر الأساسي', 14: 'الأجر الأساسي',
+    15: 'أجر الاشتراك', 16: 'أجر الاشتراك', 17: 'الأجر الشامل', 18: 'الأجر الشامل',
+    19: 'العنوان', 20: 'المحافظة (من الرقم القومي)', 21: 'الموبايل الشخصي', 22: 'البريد الإلكتروني',
+    23: 'تاريخ التحرير', 24: 'اسم المنشأة', 25: 'رقم المنشأة', 26: 'عنوان المنشأة', 27: 'الاسم بالعربية',
+  },
+  // From the company details in the tracker's Settings, not the employee.
+  companyFields: [1, 3, 4, 24, 25, 26],
+  // Not everyone has an email on record; the line is then left as it is.
+  optional: [22],
+  dates: form1Dates,
+  values: form1Values,
+  info: [
+    [5, 'الرقم التأميني'],
+    [10, 'كود المهنة'],
+    [11, 'المسمى'],
+    [12, 'تاريخ بدء الاشتراك'],
+    [20, 'كود المحافظة'],
+    [21, 'التليفون'],
+  ],
+  dateFields: [['today', 'تحريرًا في', [23]]],
+  inputs: [
+    ['basicWage', 'الأجر الأساسي (بالأرقام الإنجليزية)', 'amount', [13, 14], 'حتى 99999.99 — مثال: 8500 أو 8500.50'],
+    ['subWage', 'أجر / دخل الاشتراك (بالأرقام الإنجليزية)', 'amount', [15, 16]],
+    ['fullWage', 'الأجر الشامل (بالأرقام الإنجليزية)', 'amount', [17, 18]],
+  ],
+})
+
 for (const def of DOCUMENTS) def.blanks = Object.keys(def.fields).map(Number)
 
 /* Several forms as one: their templates drawn one after another, for one
@@ -1510,6 +1648,12 @@ async function drawDocument(def) {
   /* A form is one template, or several drawn one after another (parts),
      each in a box of its own with what was read from its template: its
      page border, tab stops and table directions. */
+  if (def.scan) {
+    drawScan(def, preview)
+    status.hidden = true
+    fitPreview()
+    return
+  }
   const parts = def.parts || [{ def, off: 0 }]
   for (const [i, part] of parts.entries()) {
     const t = await loadTemplate(part.def, part.off)
@@ -1549,6 +1693,110 @@ async function drawDocument(def) {
   }
   status.hidden = true
   fitPreview()
+}
+
+/* ------------------------------------------------------------------ */
+/* Scanned forms                                                        */
+/* ------------------------------------------------------------------ */
+
+/* A form that comes as a scan -- a picture of each page, with no text to
+   fill -- keeps the picture as it is, and each blank is written over it
+   where it sits on the page (def.scan.spots), measured in the picture's
+   own pixels (def.scan.size):
+     line   text on a dotted line, ending at its right end, as Arabic is
+            written; it is made smaller rather than run past the line
+     cells  one character to a box, the boxes listed in the order the
+            characters go in; align 'end' fills the last boxes first, so a
+            number shorter than its row still ends in the last box. A value
+            with "|" in it gives each box a part of its own (a date's day,
+            month and year).
+     mark   a tick in a box
+   The pages are A4 or legal (def.scan.paper) and print at that size. */
+export const PAPER = { a4: { w: 210, h: 297 }, legal: { w: 215.9, h: 355.6 } }
+
+function drawScan(def, preview) {
+  const { pages, size: [W, H], spots, paper = 'a4' } = def.scan
+  const box = document.createElement('div')
+  box.className = 'hr-part'
+  box.dataset.part = '0'
+  box._hr = { def, border: null }
+  const wrap = document.createElement('div')
+  wrap.className = 'docx-wrapper'
+  box.appendChild(wrap)
+  preview.appendChild(box)
+  const pct = (v, of) => `${((v / of) * 100).toFixed(4)}%`
+  const { w, h } = PAPER[paper]
+  pages.forEach((src, i) => {
+    const page = document.createElement('section')
+    page.className = 'docx hr-scan'
+    // Full size: 96 CSS pixels to the inch.
+    page.style.width = `${((w / 25.4) * 96).toFixed(2)}px`
+    page.style.height = `${((h / 25.4) * 96).toFixed(2)}px`
+    const img = document.createElement('img')
+    img.className = 'hr-scan-page'
+    img.src = src
+    img.alt = ''
+    img.draggable = false
+    page.appendChild(img)
+    for (const spot of spots.filter((sp) => (sp.page || 1) === i + 1)) {
+      const span = document.createElement('span')
+      span.className = `hr-field is-empty hr-spot hr-spot-${spot.kind}`
+      span.dataset.field = String(spot.n)
+      span.contentEditable = 'false'
+      const [x0, x1] = spot.kind === 'cells'
+        ? [Math.min(...spot.cells.map((c) => c[0])), Math.max(...spot.cells.map((c) => c[1]))]
+        : spot.x
+      const [y0, y1] = spot.y
+      Object.assign(span.style, { left: pct(x0, W), width: pct(x1 - x0, W), top: pct(y0, H), height: pct(y1 - y0, H) })
+      if (spot.kind === 'cells') {
+        span._cells = spot.cells.map(([a, b]) => {
+          const cell = document.createElement('span')
+          cell.className = 'hr-cell'
+          Object.assign(cell.style, { left: pct(a - x0, x1 - x0), width: pct(b - a, x1 - x0) })
+          return cell
+        })
+        span._align = spot.align || 'start'
+      } else {
+        span.dir = spot.dir || 'rtl'
+      }
+      span.textContent = '……'
+      page.appendChild(span)
+    }
+    wrap.appendChild(page)
+  })
+}
+
+/* A value written into a row of boxes. */
+function fillCells(span, v) {
+  const cells = span._cells
+  let parts = !v ? [] : String(v).includes('|') ? String(v).split('|') : [...String(v)]
+  if (span._align === 'end' && parts.length < cells.length) parts = [...Array(cells.length - parts.length).fill(''), ...parts]
+  span.textContent = ''
+  cells.forEach((cell, i) => {
+    cell.textContent = parts[i] || ''
+    span.appendChild(cell)
+  })
+  if (!v) span.appendChild(document.createTextNode('……'))
+}
+
+/* Text on a line is made smaller, as little as it takes, to stay on it. */
+function fitSpot(span) {
+  span.style.fontSize = ''
+  if (!span.classList.contains('hr-spot-line')) return
+  let size = parseFloat(getComputedStyle(span).fontSize)
+  /* The text's own width: scrollWidth misses text that runs out on the
+     left, which is where a line ending on the right overflows. */
+  const room = () => span.clientWidth - parseFloat(getComputedStyle(span).paddingLeft) - parseFloat(getComputedStyle(span).paddingRight)
+  const need = () => {
+    const range = document.createRange()
+    range.selectNodeContents(span)
+    const box = span.getBoundingClientRect()
+    return range.getBoundingClientRect().width * (box.width ? span.offsetWidth / box.width : 1)
+  }
+  while (need() > room() + 0.5 && size > 8) {
+    size -= 0.5
+    span.style.fontSize = `${size}px`
+  }
 }
 
 /* Word's numbered lists are drawn with a CSS counter that each item's
@@ -1610,7 +1858,9 @@ function fillFields(values) {
   const optional = new Set(state.def?.optional || [])
   for (const span of $('preview').querySelectorAll('.hr-field')) {
     const v = values[span.dataset.field]
-    span.textContent = v || '……'
+    if (span._cells) fillCells(span, v)
+    else span.textContent = v || '……'
+    if (span.classList.contains('hr-spot')) fitSpot(span)
     span.classList.toggle('is-empty', !v)
     // An optional blank left empty prints as nothing at all.
     span.classList.toggle('is-optional', optional.has(+span.dataset.field))
@@ -1675,10 +1925,10 @@ function cutPoints(page) {
 /* One A4 sheet: the page image, then the frame and the page number,
    drawn on the sheet itself so they sit in the same place on every
    sheet. */
-function sheet(width, draw, border, number, scale, stamp) {
+function sheet(width, draw, border, number, scale, stamp, ratio = 297 / 210) {
   const c = document.createElement('canvas')
   c.width = width
-  c.height = Math.round(width * (297 / 210))
+  c.height = Math.round(width * ratio)
   const ctx = c.getContext('2d')
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, c.width, c.height)
@@ -1738,7 +1988,9 @@ const LONG_PAGE = 1.2
 async function buildPdf({ print = false } = {}) {
   const preview = $('preview')
   const pages = Array.from(preview.querySelectorAll('section.docx'))
-  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true })
+  // A scanned form prints on its own paper size; every other form on A4.
+  const paper = PAPER[state.def?.scan?.paper || 'a4']
+  const pdf = new jsPDF({ unit: 'mm', format: [paper.w, paper.h], orientation: 'portrait', compress: true })
   // A two-sided form asks the print dialog for both sides, flipped on the
   // long edge, as a book turns.
   if (state.def?.duplex) pdf.viewerPreferences({ Duplex: 'DuplexFlipLongEdge' })
@@ -1773,7 +2025,7 @@ async function buildPdf({ print = false } = {}) {
       }
       const number = () => (numbered ? sheets.length - first + 1 : 0)
       const cssWidth = page.offsetWidth
-      const cssSheet = cssWidth * (297 / 210)
+      const cssSheet = cssWidth * (paper.h / paper.w)
       const padBottom = parseFloat(getComputedStyle(page).paddingBottom) || 48
       const needed = contentBottom(page) + padBottom
       /* The page is copied into an SVG image with its styles and drawn
@@ -1808,7 +2060,7 @@ async function buildPdf({ print = false } = {}) {
           sheets.push(sheet(canvas.width, (ctx) => {
             ctx.drawImage(canvas, 0, from * k, canvas.width, (to - from) * k,
               (canvas.width * (1 - f)) / 2, at * k, canvas.width * f, (to - from) * k * f)
-          }, border, number(), k, stamp))
+          }, border, number(), k, stamp, paper.h / paper.w))
         }
         continue
       }
@@ -1846,7 +2098,7 @@ async function buildPdf({ print = false } = {}) {
           sheets.push(sheet(canvas.width, (ctx) => {
             ctx.drawImage(canvas, 0, from * k, canvas.width, (cut - from) * k,
               (canvas.width * (1 - f)) / 2, at * k * f, canvas.width * f, (cut - from) * k * f)
-          }, border, number(), k, stamp))
+          }, border, number(), k, stamp, paper.h / paper.w))
         }
         continue
       }
@@ -1863,7 +2115,7 @@ async function buildPdf({ print = false } = {}) {
           ctx.drawImage(canvas, 0, 0, canvas.width, Math.min(canvas.height, needed * k),
             (canvas.width - w) / 2, 0, w, sheetHeight)
         }
-      }, border, number(), k, stamp))
+      }, border, number(), k, stamp, paper.h / paper.w))
     }
     const out = []
     runs.forEach(({ first: from, copies }, r) => {
@@ -1873,7 +2125,7 @@ async function buildPdf({ print = false } = {}) {
     if (!runs.length) out.push(...sheets)
     out.forEach((c, i) => {
       if (i) pdf.addPage()
-      pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297)
+      pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, paper.w, paper.h)
     })
   } finally {
     preview.classList.remove('is-capturing')
@@ -1931,14 +2183,15 @@ async function printPdf() {
 /* dateSet: dates the user has set by hand, by key. inputs: what the user
    has typed (the wage, the address), by key. Both are kept while the
    document is open, so changing the employee keeps them. */
-const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, capturing: false, busy: false, choices: {}, choiceLabel: {} }
+const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, capturing: false, busy: false, choices: {}, choiceLabel: {}, company: null }
 
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
   'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',
   'department_id', 'personal_mobile', 'gender', 'birth_date', 'governorate', 'religion',
   'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name',
   'secondary_contact_relation', 'secondary_contact_title',
-  'status_id', 'notice_date', 'resignation_date', 'resignation_reason']
+  'status_id', 'notice_date', 'resignation_date', 'resignation_reason',
+  'email', 'si_date', 'si_code', 'governorate_code']
 
 /* Department names by id, in Arabic where the department has one
    (departments.name_ar, from migration 20261112160001) and as stored
@@ -2466,7 +2719,7 @@ function refresh() {
   const emp = state.employee
   const dates = currentDates()
   const inputs = currentInputs()
-  const values = def.values(emp, dates, inputs, { find: findEmployee, choice: chosen })
+  const values = def.values(emp, dates, inputs, { find: findEmployee, choice: chosen, company: state.company })
   releaseLines($('preview'))
   fillFields(values)
   layoutTabs($('preview'))
@@ -2499,7 +2752,8 @@ function refresh() {
     const l = document.createElement('span')
     l.textContent = label
     const v = document.createElement('output')
-    v.textContent = values[n] || '—'
+    // Boxes filled part by part (a date) read with slashes here.
+    v.textContent = String(values[n] || '—').split('|').join('/')
     row.append(l, v)
     box.appendChild(row)
   }
@@ -2510,7 +2764,10 @@ function refresh() {
   const optional = new Set(def.optional || [])
   const empty = def.blanks.filter((n) => !values[n] && !optional.has(n))
   const names = (list) => [...new Set(list.map((n) => def.fields[n]))].join('، ')
-  const fromRecord = empty.filter((n) => !editable.has(n))
+  // Company details (def.companyFields) are kept in the tracker's Settings.
+  const ofCompany = new Set(def.companyFields || [])
+  const fromCompany = empty.filter((n) => ofCompany.has(n))
+  const fromRecord = empty.filter((n) => !editable.has(n) && !ofCompany.has(n))
   /* An employee box not yet chosen is one thing to do, not one per
      blank it fills: only its first blank, the name, is named. */
   const later = new Set(def.inputs.filter(([key, , kind]) => kind === 'employee' && !state.inputs[key])
@@ -2519,6 +2776,7 @@ function refresh() {
   const warn = $('fieldWarning')
   const notes = []
   if (emp && fromRecord.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${names(fromRecord)}. أكملها أولاً ثم أعد الاختيار.`)
+  if (emp && fromCompany.length) notes.push(`بيانات الشركة ناقصة في صفحة الإعدادات (Settings ← Company details): ${names(fromCompany)}.`)
   if (emp && toFill.length) notes.push(`أدخل ${names(toFill)}.`)
   if (notes.length) notes.push('لا يمكن الحفظ أو الطباعة قبل استكمال كل البيانات.')
   warn.hidden = !notes.length
@@ -2567,7 +2825,16 @@ function drawList() {
   })
 }
 
+/* The company's details (Settings in the tracker), for the forms that
+   print them: read once, when such a form is first opened. */
+async function loadCompany() {
+  const supabase = await IEnergyAuth.getClient()
+  const { data, error } = await supabase.from('company_details').select('*').eq('id', 1)
+  state.company = error ? {} : (data || [])[0] || {}
+}
+
 async function openDocument(def) {
+  if (def.companyFields && !state.company) loadCompany().then(() => refresh()).catch((err) => console.error(err))
   state.def = def
   state.employee = null
   state.dateSet = {}
