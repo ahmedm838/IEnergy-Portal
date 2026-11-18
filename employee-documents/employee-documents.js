@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=68'
+} from '../hr-documents/hr-documents.js?v=69'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -127,7 +127,6 @@ const DOCUMENTS = [
     title: 'طلب سلفة (بوجود ضامن)',
     subtitle: 'Salary advance request with a guarantor',
     template: 'templates/salary-advance.docx?v=2',
-    fileName: 'طلب سلفة',
     fields: {
       1: 'تاريخ الطلب', 2: 'قيمة السلفة', 3: 'عدد الأقساط', 4: 'قيمة القسط',
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة', 8: 'تاريخ التعيين',
@@ -156,7 +155,6 @@ const DOCUMENTS = [
     title: 'طلب صرف منحة مالية',
     subtitle: 'Financial grant request',
     template: 'templates/financial-grant.docx?v=2',
-    fileName: 'طلب صرف منحة مالية',
     fields: {
       1: 'تاريخ الطلب', 2: 'نوع المنحة', 3: 'نوع المنحة', 4: 'نوع المنحة',
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة',
@@ -185,7 +183,6 @@ const DOCUMENTS = [
     title: 'إخطار بشأن وقوع مخالفة',
     subtitle: 'Penalty notice',
     template: 'templates/penalty-notice.docx?v=3',
-    fileName: 'إخطار بشأن وقوع مخالفة',
     fields: { 1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة' },
     // The violations table is right to left in Word, its first column on
     // the right; the page keeps that.
@@ -204,7 +201,6 @@ const DOCUMENTS = [
     title: 'إقرار استلام عهدة',
     subtitle: 'Custody receipt',
     template: 'templates/custody.docx?v=1',
-    fileName: 'إقرار استلام عهدة',
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'شهر وسنة إصدار البطاقة',
       5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'مدير الإدارة المسئولة',

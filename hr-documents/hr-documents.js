@@ -690,13 +690,81 @@ const FORM1_LINES = [
   { n: 26, kind: 'line', page: 2, x: [68, 1044], y: [1110, 1134] },
   { n: 27, kind: 'line', page: 2, x: [610, 1037], y: [1537, 1561] },
 ]
-/* Each line's box reaches up 40 pixels from just under its dots, so the
-   large lettering fits in it whole, and sits 6 pixels lower, on the dots
-   rather than above them -- and 6 pixels (1 mm) to the left. */
+/* Spots are measured with a line's y at its dots. Each line's box then
+   reaches up 40 pixels from just under them, so the large lettering fits
+   in it whole, and sits 6 pixels lower, on the dots rather than above
+   them -- and 6 pixels (1 mm) to the left. For pictures at 150 to the
+   inch. */
 const MM = 150 / 25.4
-const FORM1_SPOTS = FORM1_LINES.map((sp) => (sp.kind === 'line'
+const onLines = (spots) => spots.map((sp) => (sp.kind === 'line'
   ? { ...sp, x: [sp.x[0] - MM, sp.x[1] - MM], y: [sp.y[1] + 6 - 40, sp.y[1] + 6] }
   : sp))
+const FORM1_SPOTS = onLines(FORM1_LINES)
+
+/* --- Form 6 Social Insurance (إخطار بانتهاء اشتراك مؤمن عليه) --------- */
+
+/* The subscription ends on the resignation date on the record. */
+export function form6Dates(emp) {
+  return { lastDay: emp ? parseISO(emp.resignation_date) : null }
+}
+
+/* The applicant (مقدم الطلب) is chosen from the employees: their name,
+   job title as their capacity, insurance number, mobile and national ID
+   from their record. The employee's details come from the record, the
+   company's from the company details, the reason is typed (it starts as
+   استقالة). */
+export function form6Values(emp, d, inputs = {}, ctx = {}) {
+  const c = ctx.company || {}
+  const a = ctx.find ? ctx.find(inputs.applicant) : null
+  const name = emp?.arabic_name || ''
+  const v = {
+    1: c.si_office || '',
+    7: toArabicDigits(emp?.si_no || ''),
+    8: name,
+    9: toArabicDigits(emp?.national_id || ''),
+    10: toArabicDigits(c.establishment_no || ''),
+    11: c.name_ar || '',
+    12: dmyDigits(d.lastDay),
+    13: inputs.reason || '',
+    14: c.name_ar || '',
+    15: toArabicDigits(c.establishment_no || ''),
+    16: c.address_ar || '',
+    17: name,
+    18: toArabicDigits(emp?.si_no || ''),
+  }
+  if (a) {
+    v[2] = a.arabic_name || ''
+    v[3] = jobTitle(a)
+    v[4] = toArabicDigits(a.si_no || '')
+    v[5] = phone(a.personal_mobile)
+    v[6] = toArabicDigits(a.national_id || '')
+  }
+  return v
+}
+
+/* Where each blank sits, in the pictures' pixels (1276 x 2101, 150 to
+   the inch); lines at their dots, boxes left to right. */
+const FORM6_SPOTS = onLines([
+  { n: 1, kind: 'line', x: [941, 1123], y: [0, 113] },
+  { n: 2, kind: 'line', x: [682, 1080], y: [0, 354] },
+  { n: 3, kind: 'line', x: [87, 491], y: [0, 354] },
+  { n: 4, kind: 'cells', cells: step(714, 756, 798, 838, 880, 922, 963, 1004, 1046, 1087), y: [389, 431], align: 'end' },
+  { n: 5, kind: 'line', x: [117, 552], y: [0, 415] },
+  { n: 6, kind: 'cells', cells: step(496, 538, 580, 622, 664, 704, 746, 786, 827, 868, 910, 951, 992, 1034, 1075), y: [476, 517] },
+  { n: 7, kind: 'cells', cells: step(720, 762, 803, 846, 886, 928, 968, 1010, 1051), y: [620, 662], align: 'end' },
+  { n: 8, kind: 'line', x: [111, 536], y: [0, 645] },
+  { n: 9, kind: 'cells', cells: step(472, 514, 556, 596, 638, 680, 720, 762, 804, 845, 886, 928, 969, 1010, 1052), y: [671, 713] },
+  { n: 10, kind: 'cells', cells: step(678, 720, 762, 802, 844, 886, 927, 968, 1010, 1051), y: [730, 772], align: 'end' },
+  { n: 11, kind: 'line', x: [108, 521], y: [0, 757] },
+  // Day, month, year -- right to left on the page, each read left to right.
+  { n: 12, kind: 'cells', cells: [...step(900, 942, 984), ...step(776, 818, 860), ...step(570, 612, 652, 694, 736)], y: [791, 836] },
+  { n: 13, kind: 'line', x: [108, 318], y: [0, 810] },
+  { n: 14, kind: 'line', page: 2, x: [658, 1041], y: [0, 696] },
+  { n: 15, kind: 'cells', page: 2, cells: step(82, 122, 164, 206, 248, 290, 330, 371, 412, 454), y: [670, 712], align: 'end' },
+  { n: 16, kind: 'line', page: 2, x: [87, 1050], y: [0, 777] },
+  { n: 17, kind: 'line', page: 2, x: [643, 959], y: [0, 841] },
+  { n: 18, kind: 'cells', page: 2, cells: step(81, 122, 164, 206, 248, 289, 330, 370, 412, 454), y: [817, 859], align: 'end' },
+])
 
 /* --- The list -------------------------------------------------------- */
 
@@ -730,7 +798,6 @@ const DOCUMENTS = [
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
     template: 'templates/hiring-contract.docx?v=15',
-    fileName: 'عقد عمل محدد المدة',
     fields: {
       1: 'اليوم', 2: 'تاريخ تحرير العقد', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
       5: 'شهر وسنة إصدار البطاقة', 6: 'العنوان', 7: 'المؤهل', 8: 'الرقم التأميني',
@@ -764,7 +831,6 @@ const DOCUMENTS = [
     title: 'اتفاق تجديد عقد عمل محدد المدة',
     subtitle: 'Contract renewal',
     template: 'templates/contract-renewal.docx?v=3',
-    fileName: 'تجديد عقد',
     fields: {
       1: 'اليوم', 2: 'تاريخ الاتفاق', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
       5: 'تاريخ التعيين', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد', 8: 'الاسم بالعربية',
@@ -786,7 +852,6 @@ const DOCUMENTS = [
     title: 'إقرار استلام عمل',
     subtitle: 'Work start acknowledgement',
     template: 'templates/work-start.docx?v=6',
-    fileName: 'إقرار استلام عمل',
     fields: {
       1: 'الاسم بالعربية', 2: 'الرقم القومي',
       5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'تاريخ الإقرار',
@@ -812,7 +877,6 @@ const DOCUMENTS = [
     title: 'إقرار الحالة الاجتماعية',
     subtitle: 'Social status declaration',
     template: 'templates/social-status.docx?v=8',
-    fileName: 'إقرار الحالة الاجتماعية',
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
       7: 'النوع (من الرقم القومي)', 8: 'الجنسية (من الرقم القومي)', 9: 'الديانة',
@@ -857,7 +921,6 @@ DOCUMENTS.push({
   title: 'إقرار سرية البيانات',
   subtitle: 'Confidentiality declaration',
   template: 'templates/confidentiality.docx?v=4',
-  fileName: 'إقرار سرية البيانات',
   // The signature line is left for the employee to sign by hand.
   fields: {
     1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
@@ -882,7 +945,6 @@ DOCUMENTS.push({
   title: 'استقالة مسببة',
   subtitle: 'Resignation',
   template: 'templates/resignation.docx?v=3',
-  fileName: 'استقالة مسببة',
   pool: 'resigned',
   fields: {
     1: 'تاريخ الاستقالة', 2: 'تاريخ الاستقالة (آخر يوم عمل)', 3: 'تاريخ الاستقالة (آخر يوم عمل)',
@@ -913,7 +975,6 @@ DOCUMENTS.push({
   title: 'إخطار بعدم تجديد عقد العمل',
   subtitle: 'Termination notice (contract not renewed)',
   template: 'templates/termination-notice.docx?v=1',
-  fileName: 'إخطار بعدم تجديد عقد العمل',
   fields: {
     1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
     5: 'تاريخ آخر خطاب تجديد', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد',
@@ -938,7 +999,6 @@ DOCUMENTS.push({
   title: 'إخلاء طرف',
   subtitle: 'Clearance notice',
   template: 'templates/clearance-notice.docx?v=1',
-  fileName: 'إخلاء طرف',
   // Its dates are the resignation's, so it is for those who have resigned.
   pool: 'resigned',
   // The delivered / not delivered boxes, the signatures and the line on
@@ -968,7 +1028,6 @@ DOCUMENTS.push({
   title: 'اتفاق إنهاء علاقة عمل والتسوية النهائية',
   subtitle: 'Termination and final settlement',
   template: 'templates/termination-settlement.docx?v=1',
-  fileName: 'اتفاق إنهاء علاقة عمل والتسوية النهائية',
   // It rests on the employee's resignation.
   pool: 'resigned',
   // The address can run onto a second line.
@@ -996,7 +1055,6 @@ DOCUMENTS.push({
   title: 'طلب توظيف',
   subtitle: 'Job application · blank form',
   template: 'templates/job-application.docx?v=1',
-  fileName: 'طلب توظيف',
   blankForm: true,
   duplex: true,
   ownDirection: true,
@@ -1014,9 +1072,8 @@ DOCUMENTS.push({
    both sides, legal size -- and written over (see drawScan). */
 DOCUMENTS.push({
   id: 'form1-social-insurance',
-  title: 'Form 1 Social Insurance',
-  subtitle: 'طلب اشتراك مؤمن عليه · نموذج رقم ١',
-  fileName: 'Form 1 Social Insurance',
+  title: 'نموذج ١ - طلب اشتراك مؤمن عليه',
+  subtitle: 'Form 1 Social Insurance',
   template: 'templates/form1-social-insurance-1.jpg?v=1',
   scan: {
     pages: ['templates/form1-social-insurance-1.jpg?v=1', 'templates/form1-social-insurance-2.jpg?v=1'],
@@ -1052,6 +1109,46 @@ DOCUMENTS.push({
     ['basicWage', 'الأجر الأساسي (بالأرقام الإنجليزية)', 'amount', [13, 14], 'حتى 99999.99 — مثال: 8500 أو 8500.50'],
     ['subWage', 'أجر / دخل الاشتراك (بالأرقام الإنجليزية)', 'amount', [15, 16]],
     ['fullWage', 'الأجر الشامل (بالأرقام الإنجليزية)', 'amount', [17, 18]],
+  ],
+})
+
+/* The office's notice that a subscription has ended, for an employee
+   who has resigned: kept as it is, legal size, both sides. */
+DOCUMENTS.push({
+  id: 'form6-social-insurance',
+  title: 'نموذج ٦ - إخطار بانتهاء اشتراك مؤمن عليه',
+  subtitle: 'Form 6 Social Insurance',
+  template: 'templates/form6-social-insurance-1.jpg?v=1',
+  scan: {
+    pages: ['templates/form6-social-insurance-1.jpg?v=1', 'templates/form6-social-insurance-2.jpg?v=1'],
+    size: [1276, 2101],
+    paper: 'legal',
+    spots: FORM6_SPOTS,
+  },
+  pool: 'resigned',
+  duplex: true,
+  fields: {
+    1: 'مكتب التأمينات', 2: 'مقدم الطلب', 3: 'صفة مقدم الطلب (وظيفته)', 4: 'الرقم التأميني لمقدم الطلب',
+    5: 'موبايل مقدم الطلب', 6: 'الرقم القومي لمقدم الطلب',
+    7: 'الرقم التأميني', 8: 'الاسم بالعربية', 9: 'الرقم القومي', 10: 'رقم المنشأة', 11: 'اسم المنشأة',
+    12: 'تاريخ الاستقالة (انتهاء الاشتراك)', 13: 'سبب انتهاء الاشتراك',
+    14: 'اسم المنشأة', 15: 'رقم المنشأة', 16: 'عنوان المنشأة', 17: 'الاسم بالعربية', 18: 'الرقم التأميني',
+  },
+  companyFields: [1, 10, 11, 14, 15, 16],
+  // The reason starts as a resignation; it can be changed.
+  defaults: () => ({ reason: 'استقالة' }),
+  dates: form6Dates,
+  values: form6Values,
+  info: [
+    [7, 'الرقم التأميني'],
+    [9, 'الرقم القومي'],
+    [12, 'تاريخ انتهاء الاشتراك'],
+    [3, 'صفة مقدم الطلب'],
+  ],
+  dateFields: [],
+  inputs: [
+    ['applicant', 'مقدم الطلب', 'employee', [2, 3, 4, 5, 6]],
+    ['reason', 'سبب انتهاء الاشتراك', 'text', [13]],
   ],
 })
 
@@ -1122,7 +1219,6 @@ pack({
   id: 'hiring-pack',
   title: 'مستندات التعيين',
   subtitle: 'Hiring papers · contract, work start, social status, confidentiality',
-  fileName: 'مستندات التعيين',
 }, ['hiring', 'work-start', 'social-status', 'confidentiality'], (p) => {
   // One date for all four.
   p.dateFields = p.dateFields.map(([key, label, ...rest]) => [key, key === 'today' ? 'تاريخ المستندات' : label, ...rest])
@@ -1140,7 +1236,6 @@ pack({
   id: 'leaving-pack',
   title: 'مستندات إنهاء الخدمة',
   subtitle: 'Leaving papers · resignation, non-renewal notice, clearance, settlement',
-  fileName: 'مستندات إنهاء الخدمة',
   pool: 'resigned',
 }, ['resignation', 'termination-notice', 'clearance', 'termination-settlement'], (p) => {
   // The notice and the agreement share one date.
@@ -2144,11 +2239,11 @@ async function buildPdf({ print = false } = {}) {
   return pdf.output('blob')
 }
 
+/* A saved PDF is named for the form, by its Arabic title, and for the
+   employee: "عقد عمل محدد المدة - محمد أحمد.pdf". */
 function pdfName(def, emp) {
-  const d = new Date()
-  const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  const safe = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').trim()
-  return emp ? `${safe(def.fileName)} - ${safe(emp.arabic_name)} - ${stamp}.pdf` : `${safe(def.fileName)} - ${stamp}.pdf`
+  const safe = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return emp ? `${safe(def.title)} - ${safe(emp.arabic_name)}.pdf` : `${safe(def.title)}.pdf`
 }
 
 async function savePdf() {
