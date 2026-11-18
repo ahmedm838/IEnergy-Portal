@@ -343,12 +343,14 @@ export function hiringValues(emp, d, inputs = {}) {
 
 /* --- Work start acknowledgement (إقرار استلام عمل) --------------------- */
 
-/* The acknowledgement is dated today unless the user sets it; the work
-   start date is the hiring date. */
+/* The acknowledgement is dated today unless the user sets it, at the top
+   and at the bottom alike; the work start date is the hiring date, and
+   the ID issue month the one on the record. */
 export function workStartDates(emp, set = {}, today = todayUTC()) {
   return {
     today: has(set, 'today') ? set.today : today,
     hired: emp ? parseISO(emp.hired_on) : null,
+    idIssued: emp ? parseISO(emp.id_issue_date) : null,
   }
 }
 
@@ -357,15 +359,59 @@ export function workStartValues(emp, d, inputs = {}) {
   return {
     1: name,
     2: toArabicDigits(emp?.national_id || ''),
-    3: phone(emp?.personal_mobile),
-    // No 4: the current address line was taken off the form.
+    // No 3 or 4: the mobile and current address lines were taken off the form.
     5: jobTitle(emp),
     6: department(emp),
     7: arDate(d.hired),
     8: name,
     9: arDate(d.today),
     10: inputs.admin || '',
+    11: arDate(d.today),
+    // "صادرة بتاريخ": the card's issue month, as the hiring contract prints it.
+    12: arMonth(d.idIssued),
+    13: toArabicDigits(emp?.si_no || ''),
   }
+}
+
+/* --- Clearance notice (إخلاء طرف) -------------------------------------- */
+
+/* Dated today unless the user sets it. The last working day is the
+   resignation date on the record when there is one; otherwise it starts
+   empty and is set here. Either way the user can change it. */
+export function clearanceDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    lastDay: has(set, 'lastDay') ? set.lastDay : (emp ? parseISO(emp.resignation_date) : null),
+    hired: emp ? parseISO(emp.hired_on) : null,
+  }
+}
+
+/* The clearance notice's blanks. (2) is the weekday of the last working
+   day, "يوم (2) الموافق (3)"; (8) is the employee's own department, in the
+   first row of the table. (9)-(12) are the employee who takes over the
+   work, chosen from the list: name, job, department and hiring date from
+   that employee's record. (13) is the name above the employee's signature. */
+export function clearanceValues(emp, d, inputs = {}, ctx = {}) {
+  const name = emp?.arabic_name || ''
+  const r = ctx.find ? ctx.find(inputs.receiver) : null
+  const v = {
+    1: arDate(d.today),
+    2: arDay(d.lastDay),
+    3: arDate(d.lastDay),
+    4: name,
+    5: jobTitle(emp),
+    6: department(emp),
+    7: arDate(d.hired),
+    8: department(emp),
+    13: name,
+  }
+  if (r) {
+    v[9] = r.arabic_name || ''
+    v[10] = jobTitle(r)
+    v[11] = department(r)
+    v[12] = arDate(parseISO(r.hired_on))
+  }
+  return v
 }
 
 /* --- Social status declaration (إقرار الحالة الاجتماعية) ---------------- */
@@ -543,8 +589,9 @@ export function resignationValues(emp, d, inputs = {}) {
                fills is the box's to fill
    optional    blanks that may be left empty (they print as nothing)
    wrap        blanks of free text whose line may wrap onto more lines
-   pool        whose form it is: 'active' employees (the default) or
-               'resigned' ones, those with a notice date */
+   pool        whose form it is: 'active' employees (the default),
+               'resigned' ones, those with a notice date, or 'leaving',
+               both */
 const DOCUMENTS = [
   {
     id: 'hiring',
@@ -606,23 +653,25 @@ const DOCUMENTS = [
     id: 'work-start',
     title: 'إقرار استلام عمل',
     subtitle: 'Work start acknowledgement',
-    template: 'templates/work-start.docx?v=5',
+    template: 'templates/work-start.docx?v=6',
     fileName: 'إقرار استلام عمل',
     fields: {
-      1: 'الاسم بالعربية', 2: 'الرقم القومي', 3: 'الموبايل الشخصي',
+      1: 'الاسم بالعربية', 2: 'الرقم القومي',
       5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'تاريخ الإقرار',
-      10: 'الشئون الإدارية',
+      10: 'الشئون الإدارية', 11: 'تاريخ الإقرار', 12: 'شهر وسنة إصدار البطاقة',
+      13: 'الرقم التأميني',
     },
     dates: workStartDates,
     values: workStartValues,
     info: [
       [2, 'الرقم القومي'],
-      [3, 'الموبايل'],
+      [12, 'تاريخ إصدار البطاقة'],
+      [13, 'الرقم التأميني'],
       [5, 'الوظيفة'],
       [6, 'الإدارة'],
       [7, 'تاريخ استلام العمل'],
     ],
-    dateFields: [['today', 'تاريخ الإقرار', [9]]],
+    dateFields: [['today', 'تاريخ الإقرار', [11, 9]]],
     // Who signs for administrative affairs, chosen from the employees.
     inputs: [['admin', 'الشئون الإدارية', 'person', [10]]],
   },
@@ -748,6 +797,37 @@ DOCUMENTS.push({
     ['renewalLetter', 'تاريخ آخر خطاب تجديد', [5]],
   ],
   inputs: [],
+})
+DOCUMENTS.push({
+  id: 'clearance',
+  title: 'إخلاء طرف',
+  subtitle: 'Clearance notice',
+  template: 'templates/clearance-notice.docx?v=1',
+  fileName: 'إخلاء طرف',
+  // Those still working here and those who have resigned.
+  pool: 'leaving',
+  // The delivered / not delivered boxes, the signatures and the line on
+  // unfinished work are filled in by hand.
+  fields: {
+    1: 'تاريخ الإخطار', 2: 'آخر يوم عمل', 3: 'آخر يوم عمل', 4: 'الاسم بالعربية',
+    5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الإدارة',
+    9: 'الموظف المستلم للأعمال', 10: 'وظيفة الموظف المستلم', 11: 'إدارة الموظف المستلم',
+    12: 'تاريخ تعيين الموظف المستلم', 13: 'الاسم بالعربية',
+  },
+  dates: clearanceDates,
+  values: clearanceValues,
+  info: [
+    [5, 'الوظيفة'],
+    [6, 'الإدارة'],
+    [7, 'تاريخ التعيين'],
+    [2, 'اليوم'],
+  ],
+  dateFields: [
+    ['today', 'تاريخ الإخطار', [1]],
+    // The resignation date on the record, when there is one.
+    ['lastDay', 'آخر يوم عمل', [2, 3]],
+  ],
+  inputs: [['receiver', 'الموظف المستلم للأعمال', 'employee', [9, 10, 11, 12]]],
 })
 /* A form handed out empty, for the applicant to fill in by hand: no
    employee, no blanks, nothing to check. It prints on both sides of the
@@ -1678,10 +1758,12 @@ async function loadStatuses(supabase) {
 
 /* The employees a form is for: those working here, or, for the
    resignation, those who have handed in their notice -- a notice date
-   saved on the record. */
+   saved on the record -- or, for the clearance notice, either. */
 const isResigned = (e) => !!e.notice_date
 function pool(def = state.def) {
-  return def?.pool === 'resigned' ? state.employees.filter(isResigned) : state.employees.filter((e) => e.is_active)
+  if (def?.pool === 'resigned') return state.employees.filter(isResigned)
+  if (def?.pool === 'leaving') return state.employees.filter((e) => e.is_active || isResigned(e))
+  return state.employees.filter((e) => e.is_active)
 }
 
 function showPoolHint() {
