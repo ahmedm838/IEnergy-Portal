@@ -375,13 +375,13 @@ export function workStartValues(emp, d, inputs = {}) {
 
 /* --- Clearance notice (إخلاء طرف) -------------------------------------- */
 
-/* Dated today unless the user sets it. The last working day is the
-   resignation date on the record when there is one; otherwise it starts
-   empty and is set here. Either way the user can change it. */
-export function clearanceDates(emp, set = {}, today = todayUTC()) {
+/* Both dates come from the record, as on the resignation form, and
+   cannot be changed here: the notice is dated on the notice date, and
+   the last working day is the resignation date. */
+export function clearanceDates(emp) {
   return {
-    today: has(set, 'today') ? set.today : today,
-    lastDay: has(set, 'lastDay') ? set.lastDay : (emp ? parseISO(emp.resignation_date) : null),
+    noticed: emp ? parseISO(emp.notice_date) : null,
+    lastDay: emp ? parseISO(emp.resignation_date) : null,
     hired: emp ? parseISO(emp.hired_on) : null,
   }
 }
@@ -395,7 +395,7 @@ export function clearanceValues(emp, d, inputs = {}, ctx = {}) {
   const name = emp?.arabic_name || ''
   const r = ctx.find ? ctx.find(inputs.receiver) : null
   const v = {
-    1: arDate(d.today),
+    1: arDate(d.noticed),
     2: arDay(d.lastDay),
     3: arDate(d.lastDay),
     4: name,
@@ -616,9 +616,8 @@ export function resignationValues(emp, d, inputs = {}) {
                fills is the box's to fill
    optional    blanks that may be left empty (they print as nothing)
    wrap        blanks of free text whose line may wrap onto more lines
-   pool        whose form it is: 'active' employees (the default),
-               'resigned' ones, those with a notice date, or 'leaving',
-               both */
+   pool        whose form it is: 'active' employees (the default) or
+               'resigned' ones, those with a notice date */
 const DOCUMENTS = [
   {
     id: 'hiring',
@@ -831,12 +830,12 @@ DOCUMENTS.push({
   subtitle: 'Clearance notice',
   template: 'templates/clearance-notice.docx?v=1',
   fileName: 'إخلاء طرف',
-  // Those still working here and those who have resigned.
-  pool: 'leaving',
+  // Its dates are the resignation's, so it is for those who have resigned.
+  pool: 'resigned',
   // The delivered / not delivered boxes, the signatures and the line on
   // unfinished work are filled in by hand.
   fields: {
-    1: 'تاريخ الإخطار', 2: 'آخر يوم عمل', 3: 'آخر يوم عمل', 4: 'الاسم بالعربية',
+    1: 'تاريخ إشعار الاستقالة', 2: 'تاريخ الاستقالة (آخر يوم عمل)', 3: 'تاريخ الاستقالة (آخر يوم عمل)', 4: 'الاسم بالعربية',
     5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الإدارة',
     9: 'الموظف المستلم للأعمال', 10: 'وظيفة الموظف المستلم', 11: 'إدارة الموظف المستلم',
     12: 'تاريخ تعيين الموظف المستلم', 13: 'الاسم بالعربية',
@@ -847,13 +846,12 @@ DOCUMENTS.push({
     [5, 'الوظيفة'],
     [6, 'الإدارة'],
     [7, 'تاريخ التعيين'],
+    // From the record, not set here.
+    [1, 'تاريخ إشعار الاستقالة'],
+    [3, 'آخر يوم عمل'],
     [2, 'اليوم'],
   ],
-  dateFields: [
-    ['today', 'تاريخ الإخطار', [1]],
-    // The resignation date on the record, when there is one.
-    ['lastDay', 'آخر يوم عمل', [2, 3]],
-  ],
+  dateFields: [],
   inputs: [['receiver', 'الموظف المستلم للأعمال', 'employee', [9, 10, 11, 12]]],
 })
 DOCUMENTS.push({
@@ -1810,11 +1808,10 @@ async function loadStatuses(supabase) {
 
 /* The employees a form is for: those working here, or, for the
    resignation, those who have handed in their notice -- a notice date
-   saved on the record -- or, for the clearance notice, either. */
+   saved on the record. */
 const isResigned = (e) => !!e.notice_date
 function pool(def = state.def) {
   if (def?.pool === 'resigned') return state.employees.filter(isResigned)
-  if (def?.pool === 'leaving') return state.employees.filter((e) => e.is_active || isResigned(e))
   return state.employees.filter((e) => e.is_active)
 }
 
