@@ -692,8 +692,11 @@ const FORM1_LINES = [
 ]
 /* Each line's box reaches up 40 pixels from just under its dots, so the
    large lettering fits in it whole, and sits 6 pixels lower, on the dots
-   rather than above them. */
-const FORM1_SPOTS = FORM1_LINES.map((sp) => (sp.kind === 'line' ? { ...sp, y: [sp.y[1] + 6 - 40, sp.y[1] + 6] } : sp))
+   rather than above them -- and 6 pixels (1 mm) to the left. */
+const MM = 150 / 25.4
+const FORM1_SPOTS = FORM1_LINES.map((sp) => (sp.kind === 'line'
+  ? { ...sp, x: [sp.x[0] - MM, sp.x[1] - MM], y: [sp.y[1] + 6 - 40, sp.y[1] + 6] }
+  : sp))
 
 /* --- The list -------------------------------------------------------- */
 
