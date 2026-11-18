@@ -659,7 +659,7 @@ export function form1Values(emp, d, inputs = {}, ctx = {}) {
    2100, 150 to the inch), measured off the form. Boxes are listed left
    to right in the order their characters go. */
 const step = (...xs) => xs.slice(1).map((x, i) => [xs[i], x])
-const FORM1_SPOTS = [
+const FORM1_LINES = [
   { n: 1, kind: 'line', x: [929, 1176], y: [80, 104] },
   { n: 2, kind: 'mark', x: [828, 869], y: [226, 267] },
   { n: 3, kind: 'cells', cells: step(696, 737, 778, 820, 860, 901, 942, 984, 1025), y: [347, 388], align: 'end' },
@@ -690,6 +690,10 @@ const FORM1_SPOTS = [
   { n: 26, kind: 'line', page: 2, x: [68, 1044], y: [1110, 1134] },
   { n: 27, kind: 'line', page: 2, x: [610, 1037], y: [1537, 1561] },
 ]
+/* Each line's box reaches up 40 pixels from just under its dots, so the
+   large lettering fits in it whole, and sits 6 pixels lower, on the dots
+   rather than above them. */
+const FORM1_SPOTS = FORM1_LINES.map((sp) => (sp.kind === 'line' ? { ...sp, y: [sp.y[1] + 6 - 40, sp.y[1] + 6] } : sp))
 
 /* --- The list -------------------------------------------------------- */
 
