@@ -71,6 +71,24 @@ export function grantValues(emp, d, inputs = {}, ctx = {}) {
   }
 }
 
+/* --- Penalty notice (إخطار بشأن وقوع مخالفة) --------------------------- */
+
+/* Dated today unless the user sets it. */
+export function penaltyDates(emp, set = {}, today = todayUTC()) {
+  return { today: has(set, 'today') ? set.today : today }
+}
+
+/* Only the heading is filled: the date and who the notice is about.
+   The violations are ticked, explained, signed and decided on by hand. */
+export function penaltyValues(emp, d) {
+  return {
+    1: arDate(d.today),
+    2: emp?.arabic_name || '',
+    3: jobTitle(emp),
+    4: department(emp),
+  }
+}
+
 const DOCUMENTS = [
   {
     id: 'salary-advance',
@@ -129,6 +147,25 @@ const DOCUMENTS = [
       ['grant', 'نوع المنحة', 'choice', [2, 3, 4], 'السبب والقيمة والمرفقات تُملأ تلقائيًا من جدول المنح المالية.',
         { table: 'financial_grants', label: 'name' }],
     ],
+  },
+  {
+    id: 'penalty-notice',
+    title: 'إخطار بشأن وقوع مخالفة',
+    subtitle: 'Penalty notice',
+    template: 'templates/penalty-notice.docx?v=1',
+    fileName: 'إخطار بشأن وقوع مخالفة',
+    fields: { 1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة' },
+    // The violations table is right to left in Word, its first column on
+    // the right; the page keeps that.
+    ownDirection: true,
+    dates: penaltyDates,
+    values: penaltyValues,
+    info: [
+      [3, 'الوظيفة'],
+      [4, 'الإدارة'],
+    ],
+    dateFields: [['today', 'تاريخ الإخطار', [1]]],
+    inputs: [],
   },
 ]
 
