@@ -623,7 +623,7 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=14',
+    template: 'templates/hiring-contract.docx?v=15',
     fileName: 'عقد عمل محدد المدة',
     fields: {
       1: 'اليوم', 2: 'تاريخ تحرير العقد', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
@@ -705,7 +705,7 @@ const DOCUMENTS = [
     id: 'social-status',
     title: 'إقرار الحالة الاجتماعية',
     subtitle: 'Social status declaration',
-    template: 'templates/social-status.docx?v=7',
+    template: 'templates/social-status.docx?v=8',
     fileName: 'إقرار الحالة الاجتماعية',
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
@@ -950,24 +950,47 @@ export function combine(head, parts) {
   }
 }
 
+/* Forms put together as one (combine), in the list where the first of
+   them was; the single forms leave the list. */
+function pack(head, ids, fix = (p) => p) {
+  const at = DOCUMENTS.findIndex((d) => d.id === ids[0])
+  const p = fix(combine(head, ids.map((id) => DOCUMENTS.find((d) => d.id === id))))
+  p.template = p.parts[0].def.template
+  p.blanks = Object.keys(p.fields).map(Number)
+  for (let i = DOCUMENTS.length - 1; i >= 0; i--) if (ids.includes(DOCUMENTS[i].id)) DOCUMENTS.splice(i, 1)
+  DOCUMENTS.splice(Math.min(at, DOCUMENTS.length), 0, p)
+}
+
 /* The hiring papers, signed together on the first day: the contract,
    the work start acknowledgement, the social status declaration and the
    confidentiality declaration. One form in place of the four. */
-{
-  const ids = ['hiring', 'work-start', 'social-status', 'confidentiality']
-  const pack = combine({
-    id: 'hiring-pack',
-    title: 'مستندات التعيين',
-    subtitle: 'Hiring papers · contract, work start, social status, confidentiality',
-    fileName: 'مستندات التعيين',
-  }, ids.map((id) => DOCUMENTS.find((d) => d.id === id)))
+pack({
+  id: 'hiring-pack',
+  title: 'مستندات التعيين',
+  subtitle: 'Hiring papers · contract, work start, social status, confidentiality',
+  fileName: 'مستندات التعيين',
+}, ['hiring', 'work-start', 'social-status', 'confidentiality'], (p) => {
   // One date for all four.
-  pack.dateFields = pack.dateFields.map(([key, label, ...rest]) => [key, key === 'today' ? 'تاريخ المستندات' : label, ...rest])
-  pack.template = pack.parts[0].def.template
-  pack.blanks = Object.keys(pack.fields).map(Number)
-  for (let i = DOCUMENTS.length - 1; i >= 0; i--) if (ids.includes(DOCUMENTS[i].id)) DOCUMENTS.splice(i, 1)
-  DOCUMENTS.unshift(pack)
-}
+  p.dateFields = p.dateFields.map(([key, label, ...rest]) => [key, key === 'today' ? 'تاريخ المستندات' : label, ...rest])
+  return p
+})
+
+/* The leaving papers, for an employee with a resignation on record: the
+   resignation, the notice that the contract is not renewed, the
+   clearance notice and the termination and final settlement agreement.
+   Each keeps its own dates: the resignation's from the record, the
+   notice's own date and its contract expiry. */
+pack({
+  id: 'leaving-pack',
+  title: 'مستندات إنهاء الخدمة',
+  subtitle: 'Leaving papers · resignation, non-renewal notice, clearance, settlement',
+  fileName: 'مستندات إنهاء الخدمة',
+  pool: 'resigned',
+}, ['resignation', 'termination-notice', 'clearance', 'termination-settlement'], (p) => {
+  // The notice and the agreement share one date.
+  p.dateFields = p.dateFields.map(([key, label, ...rest]) => [key, key === 'today' ? 'تاريخ الإخطار والاتفاق' : label, ...rest])
+  return p
+})
 
 /* ------------------------------------------------------------------ */
 /* Template preparation                                                 */
