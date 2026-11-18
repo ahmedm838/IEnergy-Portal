@@ -2220,7 +2220,7 @@ function drawList() {
     btn.disabled = !def.template
     const num = document.createElement('span')
     num.className = 'hr-doc-num'
-    num.textContent = String(i + 1)
+    num.textContent = toArabicDigits(i + 1)
     const text = document.createElement('span')
     text.className = 'hr-doc-text'
     const t = document.createElement('span')

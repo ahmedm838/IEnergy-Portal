@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount,
-} from '../hr-documents/hr-documents.js?v=46'
+} from '../hr-documents/hr-documents.js?v=47'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -94,7 +94,7 @@ const DOCUMENTS = [
     id: 'salary-advance',
     title: 'طلب سلفة (بوجود ضامن)',
     subtitle: 'Salary advance request with a guarantor',
-    template: 'templates/salary-advance.docx?v=1',
+    template: 'templates/salary-advance.docx?v=2',
     fileName: 'طلب سلفة',
     fields: {
       1: 'تاريخ الطلب', 2: 'قيمة السلفة', 3: 'عدد الأقساط', 4: 'قيمة القسط',
