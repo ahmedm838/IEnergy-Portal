@@ -550,10 +550,8 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=6',
+    template: 'templates/hiring-contract.docx?v=7',
     fileName: 'عقد عمل محدد المدة',
-    // Two pages, as in Word: the second starts at the fifth article.
-    pageStarts: ['البند الخامس'],
     fields: {
       1: 'اليوم', 2: 'تاريخ تحرير العقد', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
       5: 'شهر وسنة إصدار البطاقة', 6: 'العنوان', 7: 'المؤهل', 8: 'الرقم التأميني',
