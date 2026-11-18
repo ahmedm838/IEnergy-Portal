@@ -907,6 +907,13 @@ export function mergeParagraphBorders(xml) {
   return xml
 }
 
+/* For every table in the body, in document order (nested ones too),
+   whether Word lays it out right to left (bidiVisual: the first column
+   on the right). The renderer does not read it, so it is turned here. */
+export function readTableDirections(xml) {
+  return [...xml.matchAll(/<w:tbl>\s*<w:tblPr>([\s\S]*?)<\/w:tblPr>/g)].map((m) => /<w:bidiVisual(?:\s+w:val="(?:1|true|on)")?\s*\/>/.test(m[1]))
+}
+
 const templateCache = new Map()
 async function loadTemplate(def) {
   const url = def.template
@@ -918,6 +925,7 @@ async function loadTemplate(def) {
       let xml = await zip.file('word/document.xml').async('string')
       const border = pageBorder(xml)
       const tabStops = readTabStops(xml)
+      const rtlTables = readTableDirections(xml)
       const settings = zip.file('word/settings.xml') ? await zip.file('word/settings.xml').async('string') : ''
       const defaultTab = +(/<w:defaultTabStop w:val="(\d+)"/.exec(settings)?.[1] || 720) / 20
       // Kashida justification is how Word justifies Arabic; the renderer
@@ -929,7 +937,7 @@ async function loadTemplate(def) {
           zip.file(name, useArabicRunProps(await zip.file(name).async('string')))
         }
       }
-      return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab }
+      return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab, rtlTables }
     })())
   }
   return templateCache.get(url)
@@ -1179,7 +1187,7 @@ function lockBlanks(root) {
    justified paragraphs keep their alignment; a justified paragraph's
    last line now ends on the right. The signature table keeps its column
    order, the company on the right. */
-function rightToLeft(root) {
+function rightToLeft(root, rtlTables = []) {
   /* A section in columns fills them from the right, as Word does in a
      right-to-left document: CSS columns follow the direction of the
      element that holds them. Tables inside keep the column order they
@@ -1189,6 +1197,10 @@ function rightToLeft(root) {
     article.dir = 'rtl'
     for (const table of article.querySelectorAll('table')) table.dir = 'ltr'
   }
+  /* A table set right to left in Word keeps its first column on the
+     right, as in Word. */
+  const tables = [...root.querySelectorAll('section.docx article table')]
+  if (tables.length === rtlTables.length) tables.forEach((t, i) => { if (rtlTables[i]) t.dir = 'rtl' })
   for (const p of root.querySelectorAll('section.docx p')) {
     p.dir = 'rtl'
     const align = getComputedStyle(p).textAlign
@@ -1257,7 +1269,7 @@ async function drawDocument(def) {
   preview.innerHTML = ''
   status.hidden = false
   status.textContent = 'Loading document…'
-  const { blob, border, tabStops, defaultTab } = await loadTemplate(def)
+  const { blob, border, tabStops, defaultTab, rtlTables } = await loadTemplate(def)
   state.border = border
   state.tabStops = tabStops
   state.defaultTab = defaultTab
@@ -1281,7 +1293,7 @@ async function drawDocument(def) {
   lockBlanks(preview)
   matchFieldSize(preview)
   if (def.ownDirection) keepDirection(preview)
-  else rightToLeft(preview)
+  else rightToLeft(preview, rtlTables)
   frame(preview, border)
   numberPages(preview)
   layoutTabs(preview)
