@@ -121,6 +121,29 @@ export function custodyValues(emp, d, inputs = {}) {
   }
 }
 
+/* --- Hiring request (طلب تعيين) --------------------------------------- */
+
+/* Dated today unless the user sets it; the hiring date asked for starts
+   empty and is set here. */
+export function hiringRequestDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    wanted: has(set, 'wanted') ? set.wanted : null,
+  }
+}
+
+/* The employee chosen at the top is the one asking: the requesting
+   department is theirs. The job asked for is typed. The ticks, the
+   requirements and the signatures are filled in by hand. */
+export function hiringRequestValues(emp, d, inputs = {}) {
+  return {
+    1: arDate(d.today),
+    2: department(emp),
+    3: inputs.jobTitle || '',
+    4: arDate(d.wanted),
+  }
+}
+
 const DOCUMENTS = [
   {
     id: 'salary-advance',
@@ -216,6 +239,21 @@ const DOCUMENTS = [
     ],
     dateFields: [['today', 'تاريخ الإقرار', [1]]],
     inputs: [['manager', 'مدير الإدارة المسئولة', 'person', [9]]],
+  },
+  {
+    id: 'hiring-request',
+    title: 'طلب تعيين',
+    subtitle: 'Hiring request',
+    template: 'templates/hiring-request.docx?v=1',
+    fields: { 1: 'تاريخ الطلب', 2: 'الإدارة الطالبة (إدارة مقدم الطلب)', 3: 'المسمى الوظيفي المطلوب', 4: 'تاريخ التعيين المطلوب' },
+    dates: hiringRequestDates,
+    values: hiringRequestValues,
+    info: [[2, 'الإدارة الطالبة']],
+    dateFields: [
+      ['today', 'تاريخ الطلب', [1]],
+      ['wanted', 'تاريخ التعيين المطلوب', [4]],
+    ],
+    inputs: [['jobTitle', 'المسمى الوظيفي المطلوب', 'text', [3]]],
   },
 ]
 
