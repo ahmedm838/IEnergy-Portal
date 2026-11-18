@@ -550,7 +550,7 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=5',
+    template: 'templates/hiring-contract.docx?v=6',
     fileName: 'عقد عمل محدد المدة',
     // Two pages, as in Word: the second starts at the fifth article.
     pageStarts: ['البند الخامس'],
