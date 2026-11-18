@@ -167,6 +167,9 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
   white-space: nowrap; overflow: hidden; font-size: 17px; line-height: 1.1;
   padding: 0 3px 3px; border-radius: 0; color: #000;
 }
+/* Text on a line is set as large and bold as the form's own lettering,
+   so it reads as clearly as the printed labels beside it. */
+.hr-preview .hr-spot-line { font-size: 21px; font-weight: 700; padding-bottom: 1px; }
 .hr-preview .hr-spot-cells,
 .hr-preview .hr-spot-mark { align-items: center; justify-content: center; padding: 0; border-bottom: 0; }
 .hr-preview .hr-spot-mark { font-size: 24px; font-weight: 700; }
@@ -176,5 +179,5 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
 }
 .hr-preview .hr-spot.is-empty { color: #c0392b; }
 .hr-preview.is-capturing .hr-spot.is-empty { color: transparent; }
-/* An English line (an email) ends at the line's right end too. */
+/* An English line ends at the line's right end too. */
 .hr-preview .hr-spot-line[dir="ltr"] { justify-content: flex-end; }

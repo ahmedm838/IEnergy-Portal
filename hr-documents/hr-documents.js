@@ -646,7 +646,7 @@ export function form1Values(emp, d, inputs = {}, ctx = {}) {
     19: emp?.address || '',
     20: gov ? toArabicDigits(String(gov).padStart(2, '0')) : '',
     21: phone(emp?.personal_mobile),
-    22: emp?.email || '',
+    // No 22: the email line is left as it is, never filled.
     23: dmyParts(d.today),
     24: c.name_ar || '',
     25: toArabicDigits(c.establishment_no || ''),
@@ -670,7 +670,8 @@ const FORM1_SPOTS = [
   { n: 8, kind: 'line', x: [285, 474], y: [644, 668] },
   { n: 9, kind: 'line', x: [901, 1114], y: [700, 724] },
   { n: 10, kind: 'cells', cells: [...step(464, 506, 547, 588), ...step(619, 661, 702, 744)], y: [690, 732] },
-  { n: 11, kind: 'line', x: [138, 351], y: [700, 724] },
+  // The title runs left past the dots, to the margin, rather than shrink.
+  { n: 11, kind: 'line', x: [66, 351], y: [700, 724] },
   // Day, month, year -- right to left on the page, each read left to right.
   { n: 12, kind: 'cells', cells: [...step(865, 901, 937), ...step(766, 802, 838), ...step(602, 638, 674, 710, 746)], y: [746, 782] },
   { n: 13, kind: 'cells', cells: step(906, 931, 958, 984, 1010, 1035), y: [934, 968], align: 'end' },
@@ -682,7 +683,6 @@ const FORM1_SPOTS = [
   { n: 19, kind: 'line', x: [645, 1080], y: [1348, 1371] },
   { n: 20, kind: 'cells', cells: step(735, 777, 818), y: [1394, 1435] },
   { n: 21, kind: 'line', x: [785, 1042], y: [1503, 1527] },
-  { n: 22, kind: 'line', x: [785, 1040], y: [1553, 1577], dir: 'ltr' },
   // "تحريرًا في: / /": the day right of the slashes, the year left.
   { n: 23, kind: 'cells', cells: [[1050, 1105], [1003, 1045], [925, 997]], y: [1602, 1630] },
   { n: 24, kind: 'line', page: 2, x: [530, 1044], y: [1057, 1081] },
@@ -1023,13 +1023,13 @@ DOCUMENTS.push({
     9: 'المؤهل', 10: 'كود المهنة (كود التأمينات)', 11: 'الوظيفة (المسمى التأميني)',
     12: 'تاريخ الاشتراك في التأمينات', 13: 'الأجر الأساسي', 14: 'الأجر الأساسي',
     15: 'أجر الاشتراك', 16: 'أجر الاشتراك', 17: 'الأجر الشامل', 18: 'الأجر الشامل',
-    19: 'العنوان', 20: 'المحافظة (من الرقم القومي)', 21: 'الموبايل الشخصي', 22: 'البريد الإلكتروني',
+    19: 'العنوان', 20: 'المحافظة (من الرقم القومي)', 21: 'الموبايل الشخصي',
     23: 'تاريخ التحرير', 24: 'اسم المنشأة', 25: 'رقم المنشأة', 26: 'عنوان المنشأة', 27: 'الاسم بالعربية',
   },
   // From the company details in the tracker's Settings, not the employee.
   companyFields: [1, 3, 4, 24, 25, 26],
-  // Not everyone has an email on record; the line is then left as it is.
-  optional: [22],
+  // Front and back of one sheet.
+  duplex: true,
   dates: form1Dates,
   values: form1Values,
   info: [
@@ -1994,6 +1994,8 @@ async function buildPdf({ print = false } = {}) {
   // A two-sided form asks the print dialog for both sides, flipped on the
   // long edge, as a book turns.
   if (state.def?.duplex) pdf.viewerPreferences({ Duplex: 'DuplexFlipLongEdge' })
+  // Scaled to the paper in the print dialog, as far as a PDF can ask it.
+  pdf.viewerPreferences({ PrintScaling: 'AppDefault' })
   // One time for the whole PDF, the same on every page.
   const stamp = printStamp()
   state.capturing = true
