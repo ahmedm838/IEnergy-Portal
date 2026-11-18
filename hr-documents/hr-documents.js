@@ -972,6 +972,8 @@ pack({
 }, ['hiring', 'work-start', 'social-status', 'confidentiality'], (p) => {
   // One date for all four.
   p.dateFields = p.dateFields.map(([key, label, ...rest]) => [key, key === 'today' ? 'تاريخ المستندات' : label, ...rest])
+  // The contract is signed in four copies: Print gives it four times.
+  p.parts[0].copies = 4
   return p
 })
 
@@ -1505,7 +1507,7 @@ async function drawDocument(def) {
     const box = document.createElement('div')
     box.className = 'hr-part'
     box.dataset.part = String(i)
-    box._hr = { ...t, def: part.def }
+    box._hr = { ...t, def: part.def, copies: part.copies || 1 }
     preview.appendChild(box)
     await renderAsync(t.blob, box, null, {
       className: 'docx',
@@ -1699,7 +1701,10 @@ export function printStamp(now = new Date()) {
    shrunk: a fifth. */
 const LONG_PAGE = 1.2
 
-async function buildPdf() {
+/* print: the PDF sent to the printer, where a part that is signed in
+   several copies (copies, on the part) comes out that many times, one
+   copy after another. Save PDF keeps one of each. */
+async function buildPdf({ print = false } = {}) {
   const preview = $('preview')
   const pages = Array.from(preview.querySelectorAll('section.docx'))
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true })
@@ -1721,12 +1726,15 @@ async function buildPdf() {
   let numbered = false
   let border = null
   let def = null
+  // Where each part's sheets start, and how many copies it prints in.
+  const runs = []
   try {
     for (const page of pages) {
       const box = page.closest('.hr-part')
       if (box !== part) {
         part = box
         first = sheets.length
+        runs.push({ first, copies: (print && box?._hr?.copies) || 1 })
         border = box?._hr?.border || null
         def = box?._hr?.def || state.def
         numbered = [...(box || preview).querySelectorAll('section.docx')]
@@ -1826,7 +1834,13 @@ async function buildPdf() {
         }
       }, border, number(), k, stamp))
     }
-    sheets.forEach((c, i) => {
+    const out = []
+    runs.forEach(({ first: from, copies }, r) => {
+      const run = sheets.slice(from, r + 1 < runs.length ? runs[r + 1].first : sheets.length)
+      for (let c = 0; c < copies; c++) out.push(...run)
+    })
+    if (!runs.length) out.push(...sheets)
+    out.forEach((c, i) => {
       if (i) pdf.addPage()
       pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297)
     })
@@ -1858,11 +1872,12 @@ async function savePdf() {
 }
 
 /* The PDF is loaded into a hidden frame and printed from there, so what
-   comes out of the printer is exactly the file Save PDF writes. Where a
-   browser will not print a PDF from a frame, it opens in a new tab with
-   its own print button. */
+   comes out of the printer is the file Save PDF writes -- with a part
+   signed in several copies (the hiring contract) repeated that many
+   times. Where a browser will not print a PDF from a frame, it opens in
+   a new tab with its own print button. */
 async function printPdf() {
-  const blob = await buildPdf()
+  const blob = await buildPdf({ print: true })
   const url = URL.createObjectURL(blob)
   const frame = $('printFrame')
   const done = () => setTimeout(() => URL.revokeObjectURL(url), 120000)
