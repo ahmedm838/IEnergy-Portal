@@ -152,7 +152,7 @@ const DOCUMENTS = [
     id: 'penalty-notice',
     title: 'إخطار بشأن وقوع مخالفة',
     subtitle: 'Penalty notice',
-    template: 'templates/penalty-notice.docx?v=1',
+    template: 'templates/penalty-notice.docx?v=2',
     fileName: 'إخطار بشأن وقوع مخالفة',
     fields: { 1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة' },
     // The violations table is right to left in Word, its first column on
