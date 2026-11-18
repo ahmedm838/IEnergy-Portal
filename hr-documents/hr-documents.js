@@ -1525,6 +1525,7 @@ async function drawDocument(def) {
       renderHeaders: true,
       renderFooters: true,
     })
+    countLists(box)
     if (parts.length > 1) scopeStyles(box)
     markTabs(box)
     lockBlanks(box)
@@ -1539,6 +1540,27 @@ async function drawDocument(def) {
   }
   status.hidden = true
   fitPreview()
+}
+
+/* Word's numbered lists are drawn with a CSS counter that each item's
+   marker (::before) steps on. The browser does not carry a count made in
+   one item's marker over to the next item, so every item came out "1.".
+   The step is moved to the item itself, which does carry over; the
+   marker still shows the count. */
+function countLists(box) {
+  for (const style of box.querySelectorAll('style')) {
+    const sheet = style.sheet
+    if (!sheet) continue
+    const add = []
+    for (const rule of sheet.cssRules) {
+      const sel = rule.selectorText || ''
+      const step = rule.style?.counterIncrement
+      if (!/::?before$/.test(sel) || !step || step === 'none') continue
+      add.push(`${sel.replace(/::?before$/, '')} { counter-increment: ${step}; }`)
+      rule.style.counterIncrement = 'none'
+    }
+    for (const text of add) sheet.insertRule(text, sheet.cssRules.length)
+  }
 }
 
 /* Each template's styles are named alike -- docx_heading1 in one is not

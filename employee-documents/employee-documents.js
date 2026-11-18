@@ -8,8 +8,8 @@
 */
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
-  amountDigits, installment, jobTitle, department, parseAmount,
-} from '../hr-documents/hr-documents.js?v=62'
+  amountDigits, installment, jobTitle, department, parseAmount, arMonth,
+} from '../hr-documents/hr-documents.js?v=63'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -86,6 +86,38 @@ export function penaltyValues(emp, d) {
     2: emp?.arabic_name || '',
     3: jobTitle(emp),
     4: department(emp),
+  }
+}
+
+/* --- Custody receipt (إقرار استلام عهدة) ------------------------------- */
+
+/* Dated today unless the user sets it; the hiring date and the ID issue
+   month are the ones on the record. */
+export function custodyDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+    idIssued: emp ? parseISO(emp.id_issue_date) : null,
+  }
+}
+
+/* The employee's details at the top and their name above the signature;
+   (9) is the manager of the department responsible, chosen from the
+   employees. The equipment table and both signatures are filled in by
+   hand. */
+export function custodyValues(emp, d, inputs = {}) {
+  const name = emp?.arabic_name || ''
+  return {
+    1: arDate(d.today),
+    2: name,
+    3: toArabicDigits(emp?.national_id || ''),
+    // "صادرة بتاريخ": the card's issue month, as the hiring contract prints it.
+    4: arMonth(d.idIssued),
+    5: jobTitle(emp),
+    6: department(emp),
+    7: arDate(d.hired),
+    8: name,
+    9: inputs.manager || '',
   }
 }
 
@@ -166,6 +198,28 @@ const DOCUMENTS = [
     ],
     dateFields: [['today', 'تاريخ الإخطار', [1]]],
     inputs: [],
+  },
+  {
+    id: 'custody',
+    title: 'إقرار استلام عهدة',
+    subtitle: 'Custody receipt',
+    template: 'templates/custody.docx?v=1',
+    fileName: 'إقرار استلام عهدة',
+    fields: {
+      1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'شهر وسنة إصدار البطاقة',
+      5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'مدير الإدارة المسئولة',
+    },
+    dates: custodyDates,
+    values: custodyValues,
+    info: [
+      [3, 'الرقم القومي'],
+      [4, 'تاريخ إصدار البطاقة'],
+      [5, 'الوظيفة'],
+      [6, 'الإدارة'],
+      [7, 'تاريخ التعيين'],
+    ],
+    dateFields: [['today', 'تاريخ الإقرار', [1]]],
+    inputs: [['manager', 'مدير الإدارة المسئولة', 'person', [9]]],
   },
 ]
 
