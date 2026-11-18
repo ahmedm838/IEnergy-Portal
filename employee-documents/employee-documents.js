@@ -132,13 +132,14 @@ export function hiringRequestDates(emp, set = {}, today = todayUTC()) {
   }
 }
 
-/* The employee chosen at the top is the one asking: the requesting
-   department is theirs. The job asked for is typed. The ticks, the
-   requirements and the signatures are filled in by hand. */
-export function hiringRequestValues(emp, d, inputs = {}) {
+/* The requesting department is picked from the departments, by its
+   Arabic name (Settings in the tracker); the job asked for is typed. The
+   ticks, the requirements and the signatures are filled in by hand. */
+export function hiringRequestValues(emp, d, inputs = {}, ctx = {}) {
+  const dept = ctx.choice ? ctx.choice('department') : null
   return {
     1: arDate(d.today),
-    2: department(emp),
+    2: dept?.name_ar || '',
     3: inputs.jobTitle || '',
     4: arDate(d.wanted),
   }
@@ -245,15 +246,18 @@ const DOCUMENTS = [
     title: 'طلب تعيين',
     subtitle: 'Hiring request',
     template: 'templates/hiring-request.docx?v=1',
-    fields: { 1: 'تاريخ الطلب', 2: 'الإدارة الطالبة (إدارة مقدم الطلب)', 3: 'المسمى الوظيفي المطلوب', 4: 'تاريخ التعيين المطلوب' },
+    fields: { 1: 'تاريخ الطلب', 2: 'الإدارة الطالبة', 3: 'المسمى الوظيفي المطلوب', 4: 'تاريخ التعيين المطلوب' },
     dates: hiringRequestDates,
     values: hiringRequestValues,
-    info: [[2, 'الإدارة الطالبة']],
+    info: [],
     dateFields: [
       ['today', 'تاريخ الطلب', [1]],
       ['wanted', 'تاريخ التعيين المطلوب', [4]],
     ],
-    inputs: [['jobTitle', 'المسمى الوظيفي المطلوب', 'text', [3]]],
+    inputs: [
+      ['department', 'الإدارة الطالبة', 'choice', [2], null, { table: 'departments', label: 'name_ar' }],
+      ['jobTitle', 'المسمى الوظيفي المطلوب', 'text', [3]],
+    ],
   },
 ]
 
