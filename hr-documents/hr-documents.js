@@ -550,8 +550,10 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=4',
+    template: 'templates/hiring-contract.docx?v=5',
     fileName: 'عقد عمل محدد المدة',
+    // Two pages, as in Word: the second starts at the fifth article.
+    pageStarts: ['البند الخامس'],
     fields: {
       1: 'اليوم', 2: 'تاريخ تحرير العقد', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
       5: 'شهر وسنة إصدار البطاقة', 6: 'العنوان', 7: 'المؤهل', 8: 'الرقم التأميني',
@@ -1468,6 +1470,30 @@ async function buildPdf() {
         style: { margin: '0', boxShadow: 'none' },
       })
       const k = canvas.width / cssWidth
+      /* A document that names where its pages start (pageStarts: the
+         opening words of the paragraph that begins each page after the
+         first) keeps Word's pages: the page is split there and each part
+         drawn on one sheet, smaller if it has to be, never cut further. */
+      const starts = (state.def?.pageStarts || [])
+        .map((words) => [...page.querySelectorAll('p')].find((p) => !p.closest('footer, header, td') &&
+          p.textContent.replace(/\u200b/g, '').trim().startsWith(words)))
+        .filter(Boolean)
+        .map((p) => Math.floor(p.getBoundingClientRect().top - page.getBoundingClientRect().top))
+      if (starts.length) {
+        const padTop = parseFloat(getComputedStyle(page).paddingTop) || 48
+        const edges = [0, ...starts, needed - padBottom]
+        for (let i = 0; i < edges.length - 1; i++) {
+          const from = edges[i]
+          const to = edges[i + 1]
+          const at = i ? padTop : 0
+          const f = Math.min(1, (cssSheet - padBottom - at) / (to - from))
+          sheets.push(sheet(canvas.width, (ctx) => {
+            ctx.drawImage(canvas, 0, from * k, canvas.width, (to - from) * k,
+              (canvas.width * (1 - f)) / 2, at * k, canvas.width * f, (to - from) * k * f)
+          }, border, numbered ? sheets.length + 1 : 0, k, stamp))
+        }
+        continue
+      }
       if (needed > cssSheet * LONG_PAGE) {
         const padTop = parseFloat(getComputedStyle(page).paddingTop) || 48
         const cuts = cutPoints(page)
