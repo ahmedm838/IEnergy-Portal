@@ -550,7 +550,7 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=10',
+    template: 'templates/hiring-contract.docx?v=11',
     fileName: 'عقد عمل محدد المدة',
     fields: {
       1: 'اليوم', 2: 'تاريخ تحرير العقد', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
