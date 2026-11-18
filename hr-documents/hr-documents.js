@@ -541,6 +541,7 @@ export function confidentialityDates(emp, set = {}, today = todayUTC()) {
   return {
     today: has(set, 'today') ? set.today : today,
     hired: emp ? parseISO(emp.hired_on) : null,
+    idIssued: emp ? parseISO(emp.id_issue_date) : null,
   }
 }
 
@@ -555,6 +556,11 @@ export function confidentialityValues(emp, d) {
     6: department(emp),
     7: name,
     8: arDate(d.today),
+    // "صادرة بتاريخ": the card's issue month, as the hiring contract prints it.
+    9: arMonth(d.idIssued),
+    10: toArabicDigits(emp?.si_no || ''),
+    // "المقيم في": the address on the record.
+    11: emp?.address || '',
   }
 }
 
@@ -750,13 +756,16 @@ DOCUMENTS.push({
   id: 'confidentiality',
   title: 'إقرار سرية البيانات',
   subtitle: 'Confidentiality declaration',
-  template: 'templates/confidentiality.docx?v=3',
+  template: 'templates/confidentiality.docx?v=4',
   fileName: 'إقرار سرية البيانات',
   // The signature line is left for the employee to sign by hand.
   fields: {
     1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
     5: 'الوظيفة', 6: 'الإدارة', 7: 'الاسم بالعربية', 8: 'تاريخ الإقرار',
+    9: 'شهر وسنة إصدار البطاقة', 10: 'الرقم التأميني', 11: 'العنوان',
   },
+  // The address can run onto a second line.
+  wrap: [11],
   dates: confidentialityDates,
   values: confidentialityValues,
   info: [
