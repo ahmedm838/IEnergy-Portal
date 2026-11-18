@@ -903,6 +903,72 @@ DOCUMENTS.push({
 })
 for (const def of DOCUMENTS) def.blanks = Object.keys(def.fields).map(Number)
 
+/* Several forms as one: their templates drawn one after another, for one
+   employee, with what they have in common chosen once. Part i's blanks
+   are numbered from (i + 1) * 100 -- blank (3) of the first part is 103
+   -- and each part is still filled by its own form's rules. Dates and
+   values the user gives are shared by key: one date "today", one admin,
+   whichever parts use them. */
+export function combine(head, parts) {
+  const at = parts.map((def, i) => ({ def, off: (i + 1) * 100 }))
+  const move = (off, list) => list.map((n) => off + n)
+  const merged = (pick) => {
+    const out = new Map()
+    for (const { def, off } of at) {
+      for (const [key, label, ...rest] of pick(def)) {
+        const fields = move(off, Array.isArray(rest[0]) ? rest[0] : rest[1])
+        const was = out.get(key)
+        if (was) was.fields.push(...fields)
+        else out.set(key, { key, label, rest, fields })
+      }
+    }
+    return [...out.values()]
+  }
+  const ref = at.find(({ def }) => def.refTable)
+  return {
+    ...head,
+    parts: at,
+    fields: Object.assign({}, ...at.map(({ def, off }) =>
+      Object.fromEntries(Object.entries(def.fields).map(([n, label]) => [off + +n, label])))),
+    optional: at.flatMap(({ def, off }) => move(off, def.optional || [])),
+    wrap: at.flatMap(({ def, off }) => move(off, def.wrap || [])),
+    // Each label once, at its first place.
+    info: at.flatMap(({ def, off }) => def.info.map(([n, label]) => [off + n, label]))
+      .filter(([, label], i, all) => all.findIndex(([, l]) => l === label) === i),
+    dateFields: merged((def) => def.dateFields).map(({ key, label, rest, fields }) => [key, label, fields, ...rest.slice(1)]),
+    inputs: merged((def) => def.inputs).map(({ key, label, rest, fields }) => [key, label, rest[0], fields, ...rest.slice(2)]),
+    refTable: ref ? { ...ref.def.refTable, first: ref.def.refTable.first + ref.off } : undefined,
+    defaults: (emp) => Object.assign({}, ...at.map(({ def }) => def.defaults?.(emp) || {})),
+    dates: (emp, set) => {
+      const each = at.map(({ def }) => def.dates(emp, set))
+      return Object.assign({}, ...each, { parts: each })
+    },
+    values: (emp, d, inputs, ctx) => Object.assign({}, ...at.map(({ def, off }, i) => {
+      const v = def.values(emp, d.parts[i], inputs, ctx)
+      return Object.fromEntries(Object.entries(v).map(([n, x]) => [off + +n, x]))
+    })),
+  }
+}
+
+/* The hiring papers, signed together on the first day: the contract,
+   the work start acknowledgement, the social status declaration and the
+   confidentiality declaration. One form in place of the four. */
+{
+  const ids = ['hiring', 'work-start', 'social-status', 'confidentiality']
+  const pack = combine({
+    id: 'hiring-pack',
+    title: 'مستندات التعيين',
+    subtitle: 'Hiring papers · contract, work start, social status, confidentiality',
+    fileName: 'مستندات التعيين',
+  }, ids.map((id) => DOCUMENTS.find((d) => d.id === id)))
+  // One date for all four.
+  pack.dateFields = pack.dateFields.map(([key, label, ...rest]) => [key, key === 'today' ? 'تاريخ المستندات' : label, ...rest])
+  pack.template = pack.parts[0].def.template
+  pack.blanks = Object.keys(pack.fields).map(Number)
+  for (let i = DOCUMENTS.length - 1; i >= 0; i--) if (ids.includes(DOCUMENTS[i].id)) DOCUMENTS.splice(i, 1)
+  DOCUMENTS.unshift(pack)
+}
+
 /* ------------------------------------------------------------------ */
 /* Template preparation                                                 */
 /* ------------------------------------------------------------------ */
@@ -915,12 +981,14 @@ const XML_NS = 'http://www.w3.org/XML/1998/namespace'
    accepted on either side. */
 const BLANK = /[()]\s*(\d{1,2})\s*[()]/g
 const MARK = (n) => `⟦${n}⟧` // ⟦n⟧
-const MARK_RE = /⟦(\d{1,2})⟧/g
+const MARK_RE = /⟦(\d{1,4})⟧/g
 
 /* Rewrite every blank in document.xml as a single ⟦n⟧ inside one run,
    keeping that run's formatting, so it can be found again once the
-   document is drawn. */
-export function markBlanks(xml, blanks) {
+   document is drawn. In a form made of several templates (parts), each
+   template's blanks are moved up by its part's offset -- blank (3) of
+   the second part is ⟦203⟧ -- so no two parts share a number. */
+export function markBlanks(xml, blanks, off = 0) {
   const allowed = new Set(blanks.map(String))
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   for (const p of Array.from(doc.getElementsByTagNameNS(W_NS, 'p'))) {
@@ -942,7 +1010,7 @@ export function markBlanks(xml, blanks) {
         if (b <= from || a >= to) continue
         const keepBefore = s.slice(0, Math.max(0, from - a))
         const keepAfter = s.slice(Math.max(0, to - a))
-        t.textContent = first ? keepBefore + MARK(+m[1]) + keepAfter : keepBefore + keepAfter
+        t.textContent = first ? keepBefore + MARK(off + +m[1]) + keepAfter : keepBefore + keepAfter
         t.setAttributeNS(XML_NS, 'xml:space', 'preserve')
         first = false
       }
@@ -1045,10 +1113,11 @@ export function readTableDirections(xml) {
 }
 
 const templateCache = new Map()
-async function loadTemplate(def) {
+async function loadTemplate(def, off = 0) {
   const url = def.template
-  if (!templateCache.has(url)) {
-    templateCache.set(url, (async () => {
+  const key = `${url}|${off}`
+  if (!templateCache.has(key)) {
+    templateCache.set(key, (async () => {
       const res = await fetch(url, { cache: 'no-cache' })
       if (!res.ok) throw new Error(`Template not found (${res.status})`)
       const zip = await JSZip.loadAsync(await res.arrayBuffer())
@@ -1061,7 +1130,7 @@ async function loadTemplate(def) {
       // Kashida justification is how Word justifies Arabic; the renderer
       // does not know it and would leave those paragraphs unaligned.
       xml = xml.replace(/(<w:jc w:val=")(?:low|medium|high)Kashida(")/g, '$1both$2')
-      zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(mergeParagraphBorders(xml))), def.blanks))
+      zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(mergeParagraphBorders(xml))), def.blanks, off))
       for (const name of Object.keys(zip.files)) {
         if (/^word\/(styles|header\d*|footer\d*)\.xml$/.test(name)) {
           zip.file(name, useArabicRunProps(await zip.file(name).async('string')))
@@ -1070,7 +1139,7 @@ async function loadTemplate(def) {
       return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab, rtlTables }
     })())
   }
-  return templateCache.get(url)
+  return templateCache.get(key)
 }
 
 /* ------------------------------------------------------------------ */
@@ -1115,7 +1184,12 @@ function markTabs(root) {
    stop, an "end" stop ends it there, any other starts it there. Past the
    last stop, stops fall every defaultTab points. */
 function layoutTabs(root) {
-  const stopsList = state.tabStops
+  const parts = root.classList.contains('hr-part') ? [root] : [...root.querySelectorAll('.hr-part')]
+  for (const part of parts) layoutPartTabs(part, part._hr || {})
+}
+
+/* One template's tabs: its tab stops and default tab, as read from it. */
+function layoutPartTabs(root, { tabStops: stopsList, defaultTab = 36 }) {
   if (!stopsList) return
   const paras = [...root.querySelectorAll('section.docx article p')].filter((p) => p.querySelector('.docx-tab-stop'))
   if (paras.length !== stopsList.length) return // not the paragraphs we read; leave them be
@@ -1138,7 +1212,7 @@ function layoutTabs(root) {
     const scale = pb0.width ? p.offsetWidth / pb0.width : 1 // undoes any zoom on the preview
     const stops = [...stopsList[i]]
     const last = stops.length ? stops[stops.length - 1].pos : 0
-    for (let pos = last + state.defaultTab; pos < 1000; pos += state.defaultTab) stops.push({ type: 'start', pos })
+    for (let pos = last + defaultTab; pos < 1000; pos += defaultTab) stops.push({ type: 'start', pos })
     tabs.forEach((tab, k) => {
       const pb = p.getBoundingClientRect()
       const right = pb.right - parseFloat(getComputedStyle(p).paddingRight) / scale
@@ -1399,38 +1473,65 @@ async function drawDocument(def) {
   preview.innerHTML = ''
   status.hidden = false
   status.textContent = 'Loading document…'
-  const { blob, border, tabStops, defaultTab, rtlTables } = await loadTemplate(def)
-  state.border = border
-  state.tabStops = tabStops
-  state.defaultTab = defaultTab
-  await renderAsync(blob, preview, null, {
-    className: 'docx',
-    inWrapper: true,
-    ignoreWidth: false,
-    ignoreHeight: false,
-    breakPages: true,
-    // Start a new page where Word last did when the template was saved,
-    // so a contract of several pages splits where it does in Word.
-    ignoreLastRenderedPageBreak: false,
-    // Off: its only effect is the renderer's own tab layout, which
-    // measures from the left and runs again half a second after drawing,
-    // over the right-to-left layout done here (layoutTabs).
-    experimental: false,
-    renderHeaders: true,
-    renderFooters: true,
-  })
-  markTabs(preview)
-  lockBlanks(preview)
-  matchFieldSize(preview)
-  if (def.ownDirection) keepDirection(preview)
-  else rightToLeft(preview, rtlTables)
-  frame(preview, border)
-  numberPages(preview)
-  layoutTabs(preview)
-  rememberLines(preview)
-  splitColumns(preview)
+  /* A form is one template, or several drawn one after another (parts),
+     each in a box of its own with what was read from its template: its
+     page border, tab stops and table directions. */
+  const parts = def.parts || [{ def, off: 0 }]
+  for (const [i, part] of parts.entries()) {
+    const t = await loadTemplate(part.def, part.off)
+    const box = document.createElement('div')
+    box.className = 'hr-part'
+    box.dataset.part = String(i)
+    box._hr = { ...t, def: part.def }
+    preview.appendChild(box)
+    await renderAsync(t.blob, box, null, {
+      className: 'docx',
+      inWrapper: true,
+      ignoreWidth: false,
+      ignoreHeight: false,
+      breakPages: true,
+      // Start a new page where Word last did when the template was saved,
+      // so a contract of several pages splits where it does in Word.
+      ignoreLastRenderedPageBreak: false,
+      // Off: its only effect is the renderer's own tab layout, which
+      // measures from the left and runs again half a second after drawing,
+      // over the right-to-left layout done here (layoutTabs).
+      experimental: false,
+      renderHeaders: true,
+      renderFooters: true,
+    })
+    if (parts.length > 1) scopeStyles(box)
+    markTabs(box)
+    lockBlanks(box)
+    matchFieldSize(box)
+    if (part.def.ownDirection) keepDirection(box)
+    else rightToLeft(box, t.rtlTables)
+    frame(box, t.border)
+    numberPages(box)
+    layoutTabs(box)
+    rememberLines(box)
+    splitColumns(box)
+  }
   status.hidden = true
   fitPreview()
+}
+
+/* Each template's styles are named alike -- docx_heading1 in one is not
+   docx_heading1 in another -- and the renderer writes them for the whole
+   page. With several templates on the page, each one's styles are kept
+   to its own box. */
+function scopeStyles(box) {
+  const scope = `.hr-part[data-part="${box.dataset.part}"]`
+  const walk = (rules) => {
+    for (const rule of rules) {
+      if (rule.selectorText) {
+        rule.selectorText = rule.selectorText.split(',').map((sel) => `${scope} ${sel.trim()}`).join(', ')
+      } else if (rule.cssRules) {
+        walk(rule.cssRules)
+      }
+    }
+  }
+  for (const style of box.querySelectorAll('style')) if (style.sheet) walk(style.sheet.cssRules)
 }
 
 /* A filled blank takes the size of the text around it, so the document
@@ -1587,13 +1688,28 @@ async function buildPdf() {
   state.capturing = true
   preview.style.zoom = ''
   if (document.activeElement && preview.contains(document.activeElement)) document.activeElement.blur()
-  // The template numbers its pages in the footer.
-  const numbered = pages.some((p) => /\d|[٠-٩]/.test(p.querySelector('footer')?.textContent || ''))
-  const border = state.border
   preview.classList.add('is-capturing')
   const sheets = []
+  /* Each part keeps what its own template sets: its page border, whether
+     it numbers its pages (in the footer) -- counted from one in each
+     part -- and how its pages are kept. */
+  let part = null
+  let first = 0
+  let numbered = false
+  let border = null
+  let def = null
   try {
     for (const page of pages) {
+      const box = page.closest('.hr-part')
+      if (box !== part) {
+        part = box
+        first = sheets.length
+        border = box?._hr?.border || null
+        def = box?._hr?.def || state.def
+        numbered = [...(box || preview).querySelectorAll('section.docx')]
+          .some((p) => /\d|[٠-٩]/.test(p.querySelector('footer')?.textContent || ''))
+      }
+      const number = () => (numbered ? sheets.length - first + 1 : 0)
       const cssWidth = page.offsetWidth
       const cssSheet = cssWidth * (297 / 210)
       const padBottom = parseFloat(getComputedStyle(page).paddingBottom) || 48
@@ -1614,7 +1730,7 @@ async function buildPdf() {
          opening words of the paragraph that begins each page after the
          first) keeps Word's pages: the page is split there and each part
          drawn on one sheet, smaller if it has to be, never cut further. */
-      const starts = (state.def?.pageStarts || [])
+      const starts = (def?.pageStarts || [])
         .map((words) => [...page.querySelectorAll('p')].find((p) => !p.closest('footer, header, td') &&
           p.textContent.replace(/\u200b/g, '').trim().startsWith(words)))
         .filter(Boolean)
@@ -1630,7 +1746,7 @@ async function buildPdf() {
           sheets.push(sheet(canvas.width, (ctx) => {
             ctx.drawImage(canvas, 0, from * k, canvas.width, (to - from) * k,
               (canvas.width * (1 - f)) / 2, at * k, canvas.width * f, (to - from) * k * f)
-          }, border, numbered ? sheets.length + 1 : 0, k, stamp))
+          }, border, number(), k, stamp))
         }
         continue
       }
@@ -1657,7 +1773,7 @@ async function buildPdf() {
            one more sheet: as many sheets as its length in A4 pages. */
         let f = 1
         let pieces = plan(cssSheet)
-        if (state.def?.shrinkPages) {
+        if (def?.shrinkPages) {
           const target = Math.ceil(needed / cssSheet)
           while (pieces.length > target && f > 0.8) {
             f = Math.round((f - 0.01) * 100) / 100
@@ -1668,7 +1784,7 @@ async function buildPdf() {
           sheets.push(sheet(canvas.width, (ctx) => {
             ctx.drawImage(canvas, 0, from * k, canvas.width, (cut - from) * k,
               (canvas.width * (1 - f)) / 2, at * k * f, canvas.width * f, (cut - from) * k * f)
-          }, border, numbered ? sheets.length + 1 : 0, k, stamp))
+          }, border, number(), k, stamp))
         }
         continue
       }
@@ -1685,7 +1801,7 @@ async function buildPdf() {
           ctx.drawImage(canvas, 0, 0, canvas.width, Math.min(canvas.height, needed * k),
             (canvas.width - w) / 2, 0, w, sheetHeight)
         }
-      }, border, numbered ? sheets.length + 1 : 0, k, stamp))
+      }, border, number(), k, stamp))
     }
     sheets.forEach((c, i) => {
       if (i) pdf.addPage()
@@ -1746,7 +1862,7 @@ async function printPdf() {
 /* dateSet: dates the user has set by hand, by key. inputs: what the user
    has typed (the wage, the address), by key. Both are kept while the
    document is open, so changing the employee keeps them. */
-const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, border: null, tabStops: null, defaultTab: 36, capturing: false, busy: false, choices: {}, choiceLabel: {} }
+const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, capturing: false, busy: false, choices: {}, choiceLabel: {} }
 
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
   'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',

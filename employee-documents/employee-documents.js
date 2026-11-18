@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount,
-} from '../hr-documents/hr-documents.js?v=59'
+} from '../hr-documents/hr-documents.js?v=60'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
