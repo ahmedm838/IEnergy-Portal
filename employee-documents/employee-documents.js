@@ -282,7 +282,7 @@ const DOCUMENTS = [
     id: 'purchase-request',
     title: 'طلب شراء',
     subtitle: 'Purchase request',
-    template: 'templates/purchase-request.docx?v=1',
+    template: 'templates/purchase-request.docx?v=2',
     fields: { 1: 'تاريخ الطلب', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التوريد المطلوب' },
     // The supply date is written by hand: dots on screen, room on paper.
     optional: [5],
