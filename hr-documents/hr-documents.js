@@ -1296,6 +1296,158 @@ DOCUMENTS.push({
   ],
 })
 
+/* --- Leave balance acknowledgement (إقرار برصيد الإجازات) -------------- */
+
+/* Dated today unless the user sets it; the period runs from the start
+   of the year to today unless the user sets it, as the opening balances
+   on the employee record are the year's. */
+export function leaveBalanceDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+    from: has(set, 'from') ? set.from : new Date(Date.UTC(today.getUTCFullYear(), 0, 1)),
+    to: has(set, 'to') ? set.to : today,
+  }
+}
+
+/* The days that count against the balance, by the effect of their type:
+   اعتيادي (planned), عارضة (un-planned) and بدل راحة (taken from the
+   added days). */
+const LEAVE_KINDS = { annual: 'اعتيادي', unplanned: 'عارضة', added_days: 'بدل راحة' }
+
+/* The employee's attendance in the period: every day's date, the effect
+   of its type, and whether it was added to the balance. */
+async function loadLeaveDays(supabase, emp, d) {
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('work_date, add_to_leave_balance, attendance_types!inner(effect)')
+    .eq('employee_id', emp.id)
+    .gte('work_date', isoOf(d.from))
+    .lte('work_date', isoOf(d.to))
+    .order('work_date')
+  if (error) throw error
+  return (data || []).map((r) => ({ date: parseISO(r.work_date), effect: r.attendance_types.effect, added: !!r.add_to_leave_balance }))
+}
+
+/* The balance, as the database keeps it: the total is the planned and
+   un-planned opening balances on the record plus the days added to the
+   balance in the period; the days used are those taken as planned,
+   un-planned or a rest day (بدل راحة). */
+export function leaveBalance(emp, records = []) {
+  const planned = Number(emp?.annual_leave_balance) || 0
+  const unplanned = Number(emp?.unplanned_leave_balance) || 0
+  const added = records.filter((r) => r.added).length
+  const used = records.filter((r) => LEAVE_KINDS[r.effect])
+  const total = planned + unplanned + added
+  return { planned, unplanned, added, total, used, remaining: total - used.length }
+}
+
+/* A number of days in Arabic digits, with a decimal comma when there is
+   a half day: 21 -> ٢١, 1.5 -> ١٫٥. */
+const arDays = (n) => toArabicDigits(String(Math.round(n * 100) / 100)).replace('.', '٫').replace('-', '‏-')
+
+/* The table of days used: 45 rows, type then date, in date order. */
+const LEAVE_CELLS = 45
+const LEAVE_TYPE_FIRST = 12
+const LEAVE_DATE_FIRST = 57
+
+export function leaveBalanceValues(emp, d, inputs = {}, ctx = {}) {
+  const v = {
+    1: arDate(d.today),
+    2: emp?.arabic_name || '',
+    3: jobTitle(emp),
+    4: department(emp),
+    5: arDate(d.hired),
+    6: arDate(d.from),
+    7: arDate(d.to),
+    8: inputs.manager || '',
+    102: emp?.arabic_name || '',
+    103: arDate(d.today),
+  }
+  if (!emp || !ctx.fetched) return v
+  const b = leaveBalance(emp, ctx.fetched)
+  // Shown beside the document (info), not printed.
+  v.planned = arDays(b.planned)
+  v.unplanned = arDays(b.unplanned)
+  v.added = arDays(b.added)
+  // More days than the table holds: the blanks stay empty and the form
+  // says why (leaveBalanceCheck).
+  if (b.used.length > LEAVE_CELLS) return v
+  v[9] = arDays(b.total)
+  v[10] = arDays(b.used.length)
+  v[11] = arDays(b.remaining)
+  b.used.forEach((r, i) => {
+    v[LEAVE_TYPE_FIRST + i] = LEAVE_KINDS[r.effect]
+    v[LEAVE_DATE_FIRST + i] = arDate(r.date)
+  })
+  return v
+}
+
+/* What stops the form beyond an empty blank: the records still loading
+   or not read, too many days for the table, or a period that ends
+   before it starts. */
+export function leaveBalanceCheck(emp, d, inputs = {}, ctx = {}) {
+  if (!emp) return ''
+  if (d.from && d.to && d.to < d.from) return 'تاريخ نهاية الفترة قبل تاريخ بدايتها.'
+  if (ctx.fetchError) return `تعذر تحميل سجل الحضور: ${ctx.fetchError}`
+  if (!ctx.fetched) return d.from && d.to ? 'جارٍ تحميل الإجازات من سجل الحضور…' : ''
+  const n = leaveBalance(emp, ctx.fetched).used.length
+  if (n > LEAVE_CELLS) {
+    return `عدد أيام الإجازات المستخدمة في الفترة ${toArabicDigits(n)} يومًا، والجدول يتسع لـ ${toArabicDigits(LEAVE_CELLS)} يومًا فقط. اختر فترة أقصر.`
+  }
+  return ''
+}
+
+const LEAVE_TABLE = Array.from({ length: LEAVE_CELLS * 2 }, (_, i) => LEAVE_TYPE_FIRST + i)
+
+/* The employee's acknowledgement of their annual leave balance. The
+   balances come from the employee record and the days used and added
+   from the attendance records; the signature is by hand. */
+DOCUMENTS.push({
+  id: 'leave-balance',
+  title: 'إقرار برصيد الإجازات',
+  subtitle: 'Leave balance acknowledgement',
+  template: 'templates/leave-balance.docx?v=1',
+  fields: {
+    1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
+    6: 'بداية الفترة', 7: 'نهاية الفترة', 8: 'المدير المباشر',
+    9: 'رصيد الإجازات المستحق', 10: 'إجمالي الإجازات المستخدمة', 11: 'الرصيد المتبقي',
+    ...Object.fromEntries(Array.from({ length: LEAVE_CELLS }, (_, i) => [LEAVE_TYPE_FIRST + i, 'نوع الإجازة'])),
+    ...Object.fromEntries(Array.from({ length: LEAVE_CELLS }, (_, i) => [LEAVE_DATE_FIRST + i, 'تاريخ الإجازة'])),
+    102: 'الاسم بالعربية', 103: 'تاريخ الإقرار',
+  },
+  // From the attendance records, not the employee record.
+  fetchedFields: [9, 10, 11, ...LEAVE_TABLE],
+  // The table has room for 45 days; those past the days used stay empty.
+  optional: LEAVE_TABLE,
+  fetch: {
+    key: (emp, d) => (emp && d.from && d.to && d.from <= d.to ? `${emp.id}|${isoOf(d.from)}|${isoOf(d.to)}` : ''),
+    load: loadLeaveDays,
+  },
+  check: leaveBalanceCheck,
+  dates: leaveBalanceDates,
+  values: leaveBalanceValues,
+  info: [
+    [3, 'الوظيفة'],
+    [4, 'الإدارة'],
+    [5, 'تاريخ التعيين'],
+    ['planned', 'رصيد اعتيادي'],
+    ['unplanned', 'رصيد عارضة'],
+    ['added', 'أيام بدل راحة مضافة'],
+    [9, 'إجمالي الرصيد المستحق'],
+    [10, 'الإجازات المستخدمة'],
+    [11, 'الرصيد المتبقي'],
+  ],
+  dateFields: [
+    ['today', 'تاريخ الإقرار', [1, 103]],
+    ['from', 'بداية الفترة', [6]],
+    ['to', 'نهاية الفترة', [7]],
+  ],
+  inputs: [
+    ['manager', 'المدير المباشر', 'person', [8]],
+  ],
+})
+
 /* A warning to an employee absent without leave, under article 166 of
    the labour law. The days absent come from the attendance records. The
    employee's acknowledgement at the foot is printed only when the box
@@ -1446,8 +1598,10 @@ const XML_NS = 'http://www.w3.org/XML/1998/namespace'
 /* A blank as typed in the template: a number in brackets. Word often
    stores "(", "3" and ")" as three separate runs, and one of the
    template's brackets is typed backwards, so either bracket is
-   accepted on either side. */
-const BLANK = /[()]\s*(\d{1,2})\s*[()]/g
+   accepted on either side. Up to three digits: the leave balance
+   acknowledgement has more than 99 blanks (it is never part of a pack,
+   whose parts are numbered by hundreds). */
+const BLANK = /[()]\s*(\d{1,3})\s*[()]/g
 const MARK = (n) => `⟦${n}⟧` // ⟦n⟧
 const MARK_RE = /⟦(\d{1,4})⟧/g
 
@@ -2520,7 +2674,7 @@ async function printPdf() {
 const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, capturing: false, busy: false, choices: {}, choiceLabel: {}, company: null, fetched: { key: '' }, fetching: '' }
 
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
-  'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',
+  'si_no', 'si_title', 'title', 'annual_leave_balance', 'unplanned_leave_balance', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',
   'department_id', 'personal_mobile', 'gender', 'birth_date', 'governorate', 'religion',
   'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name',
   'secondary_contact_relation', 'secondary_contact_title',
