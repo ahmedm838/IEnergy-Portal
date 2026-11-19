@@ -591,6 +591,34 @@ export function bankAccountValues(emp, d, inputs = {}) {
   }
 }
 
+/* --- Employment certificate (إفادة عمل) ------------------------------- */
+
+/* A letter, at the employee's request, stating that they work here: to
+   whom it is addressed is typed, the rest is from the record, and the
+   total salary is typed like the bank letter's. The company's address is
+   written in the template. Signed and stamped by hand. */
+export function employmentCertificateDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    idIssued: emp ? parseISO(emp.id_issue_date) : null,
+    hired: emp ? parseISO(emp.hired_on) : null,
+  }
+}
+
+export function employmentCertificateValues(emp, d, inputs = {}) {
+  const wage = inputs.salary || null
+  return {
+    1: arDate(d.today),
+    2: (inputs.addressee || '').trim(),
+    3: emp?.arabic_name || '',
+    4: toArabicDigits(emp?.national_id || ''),
+    5: arMonth(d.idIssued),
+    6: jobTitle(emp),
+    7: arDate(d.hired),
+    8: wage ? `${amountDigits(wage)} جنيه مصري` : '',
+  }
+}
+
 /* --- Resignation (استقالة مسببة) --------------------------------------- */
 
 /* The resignation date (1) is the notice date on the record and the last
@@ -1128,6 +1156,30 @@ DOCUMENTS.push({
   dateFields: [['today', 'تاريخ الخطاب', [1]]],
   inputs: [
     ['salary', 'الأجر الشهري (بالأرقام الإنجليزية)', 'amount', [6], 'مثال: 8500 أو 8500.50'],
+  ],
+})
+/* Third in the list, after the contract renewal. */
+DOCUMENTS.splice(DOCUMENTS.findIndex((d) => d.id === 'renewal') + 1, 0, {
+  id: 'employment-certificate',
+  title: 'إفادة عمل',
+  subtitle: 'Employment certificate',
+  template: 'templates/employment-certificate.docx?v=1',
+  fields: {
+    1: 'تاريخ الإفادة', 2: 'الجهة الموجه إليها', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
+    5: 'شهر وسنة إصدار البطاقة', 6: 'الوظيفة', 7: 'تاريخ التعيين', 8: 'الراتب الشامل',
+  },
+  dates: employmentCertificateDates,
+  values: employmentCertificateValues,
+  info: [
+    [4, 'الرقم القومي'],
+    [5, 'تاريخ إصدار البطاقة'],
+    [6, 'الوظيفة'],
+    [7, 'تاريخ التعيين'],
+  ],
+  dateFields: [['today', 'تاريخ الإفادة', [1]]],
+  inputs: [
+    ['addressee', 'إلى السادة (الجهة الموجه إليها الإفادة)', 'text', [2], 'مثال: البنك الأهلي المصري'],
+    ['salary', 'الراتب الشامل (بالأرقام الإنجليزية)', 'amount', [8], 'مثال: 8500 أو 8500.50'],
   ],
 })
 DOCUMENTS.push({
