@@ -595,8 +595,9 @@ export function bankAccountValues(emp, d, inputs = {}) {
 
 /* A letter, at the employee's request, stating that they work here: to
    whom it is addressed is typed, the rest is from the record, and the
-   total salary is typed like the bank letter's. The company's address is
-   written in the template. Signed and stamped by hand. */
+   total salary is typed in English digits: (8) shows it in Arabic digits,
+   (10) in Arabic words after "فقط", as in the hiring contract. The
+   company's address is written in the template. Signed and stamped by hand. */
 export function employmentCertificateDates(emp, set = {}, today = todayUTC()) {
   return {
     today: has(set, 'today') ? set.today : today,
@@ -615,7 +616,9 @@ export function employmentCertificateValues(emp, d, inputs = {}) {
     5: arMonth(d.idIssued),
     6: jobTitle(emp),
     7: arDate(d.hired),
-    8: wage ? `${amountDigits(wage)} جنيه مصري` : '',
+    8: amountDigits(wage),
+    9: department(emp),
+    10: amountWords(wage),
   }
 }
 
@@ -1163,10 +1166,11 @@ DOCUMENTS.splice(DOCUMENTS.findIndex((d) => d.id === 'renewal') + 1, 0, {
   id: 'employment-certificate',
   title: 'إفادة عمل',
   subtitle: 'Employment certificate',
-  template: 'templates/employment-certificate.docx?v=2',
+  template: 'templates/employment-certificate.docx?v=3',
   fields: {
     1: 'تاريخ الإفادة', 2: 'الجهة الموجه إليها', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
     5: 'شهر وسنة إصدار البطاقة', 6: 'الوظيفة', 7: 'تاريخ التعيين', 8: 'الراتب الشامل',
+    9: 'الإدارة', 10: 'الراتب الشامل',
   },
   dates: employmentCertificateDates,
   values: employmentCertificateValues,
@@ -1174,12 +1178,13 @@ DOCUMENTS.splice(DOCUMENTS.findIndex((d) => d.id === 'renewal') + 1, 0, {
     [4, 'الرقم القومي'],
     [5, 'تاريخ إصدار البطاقة'],
     [6, 'الوظيفة'],
+    [9, 'الإدارة'],
     [7, 'تاريخ التعيين'],
   ],
   dateFields: [['today', 'تاريخ الإفادة', [1]]],
   inputs: [
     ['addressee', 'إلى السادة (الجهة الموجه إليها الإفادة)', 'text', [2], 'مثال: البنك الأهلي المصري'],
-    ['salary', 'الراتب الشامل (بالأرقام الإنجليزية)', 'amount', [8], 'مثال: 8500 أو 8500.50'],
+    ['salary', 'الراتب الشامل (بالأرقام الإنجليزية)', 'amount', [8, 10], 'مثال: 8500 أو 8500.50'],
   ],
 })
 DOCUMENTS.push({
