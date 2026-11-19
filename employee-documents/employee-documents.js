@@ -343,6 +343,10 @@ const DOCUMENTS = [
     // Its two pages print front and back of one sheet, flipped on the
     // short edge, and are scaled to the paper.
     duplex: 'short',
+    // Prints exactly the two pages the preview shows, as laid out
+    // there: each on its own sheet, smaller only if it runs past A4,
+    // never cut onto a third.
+    fitPages: true,
     // The score tables are right to left in Word, their first column on
     // the right; the page keeps that.
     ownDirection: true,
