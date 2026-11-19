@@ -616,7 +616,8 @@ export function employmentCertificateValues(emp, d, inputs = {}) {
     5: arMonth(d.idIssued),
     6: jobTitle(emp),
     7: arDate(d.hired),
-    8: amountDigits(wage),
+    // The thousands separator is a plain comma here: ٨,٥٠٠.
+    8: amountDigits(wage).replace(/٬/g, ','),
     9: department(emp),
     10: amountWords(wage),
   }
@@ -1166,7 +1167,7 @@ DOCUMENTS.splice(DOCUMENTS.findIndex((d) => d.id === 'renewal') + 1, 0, {
   id: 'employment-certificate',
   title: 'إفادة عمل',
   subtitle: 'Employment certificate',
-  template: 'templates/employment-certificate.docx?v=3',
+  template: 'templates/employment-certificate.docx?v=4',
   fields: {
     1: 'تاريخ الإفادة', 2: 'الجهة الموجه إليها', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
     5: 'شهر وسنة إصدار البطاقة', 6: 'الوظيفة', 7: 'تاريخ التعيين', 8: 'الراتب الشامل',
