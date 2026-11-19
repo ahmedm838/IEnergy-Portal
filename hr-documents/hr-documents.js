@@ -790,34 +790,67 @@ const FORM6_SPOTS = onLines([
   { n: 18, kind: 'cells', page: 2, cells: step(81, 122, 164, 206, 248, 289, 330, 370, 412, 454), y: [817, 859], align: 'end' },
 ])
 
-/* --- Absence warning (إخطار بالغياب دون إذن) ---------------------------- */
+/* --- Absence warning (إخطار رسمي بشأن الغياب عن العمل) ----------------- */
 
-/* Dated today unless the user sets it. The absence period's two ends are
-   not on the record: they start empty and must be set. */
+/* Dated today unless the user sets it. The period runs from the start
+   of the year to today unless the user sets it: the law counts scattered
+   absences within one year. */
 export function absenceDates(emp, set = {}, today = todayUTC()) {
-  const d = (k) => (has(set, k) ? set[k] : null)
   return {
     today: has(set, 'today') ? set.today : today,
     idIssued: emp ? parseISO(emp.id_issue_date) : null,
     hired: emp ? parseISO(emp.hired_on) : null,
-    from: d('from'),
-    to: d('to'),
+    from: has(set, 'from') ? set.from : new Date(Date.UTC(today.getUTCFullYear(), 0, 1)),
+    to: has(set, 'to') ? set.to : today,
   }
 }
 
-/* A count of days that may be nought, in Arabic digits; empty until typed. */
-const days = (n) => (n === '' || n == null ? '' : toArabicDigits(n))
+/* The employee's attendance in the period, from the attendance records:
+   every day's date and the code and effect of its type. */
+async function loadAttendance(supabase, emp, d) {
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('work_date, attendance_types!inner(code, effect)')
+    .eq('employee_id', emp.id)
+    .gte('work_date', isoOf(d.from))
+    .lte('work_date', isoOf(d.to))
+    .order('work_date')
+  if (error) throw error
+  return (data || []).map((r) => ({ date: parseISO(r.work_date), code: r.attendance_types.code, effect: r.attendance_types.effect }))
+}
 
-/* The dates absent, as typed: each dd/mm/yyyy in it laid out like the
-   form's other dates, right to left, in Arabic digits. */
-const absenceDateList = (text) => toArabicDigits(String(text || '').replace(
-  /[0-9٠-٩]{1,2}\s*[/\-.]\s*[0-9٠-٩]{1,2}\s*[/\-.]\s*[0-9٠-٩]{4}/g,
-  (m) => { const d = parseDMY(m); return d ? arDate(d) : m }))
+/* Days that do not break a run of absences: a weekly rest or a holiday
+   between two days absent leaves them one continuous absence. */
+const RUN_KEEPS = new Set(['weekly_rest', 'holiday'])
 
-/* The employee's details come from the record; the two counts of days
-   and the dates absent are typed. */
-export function absenceValues(emp, d, inputs = {}) {
-  return {
+/* The days absent and the longest run of them. Two days absent are one
+   run when every day between them is recorded as a rest day or a
+   holiday; any other day between -- worked, on leave, or not recorded --
+   ends the run. */
+export function absenceDays(records = []) {
+  const byDay = new Map(records.map((r) => [isoOf(r.date), r]))
+  const days = records.filter((r) => r.effect === 'absence').map((r) => r.date)
+  let longest = days.length ? 1 : 0
+  let run = 1
+  for (let i = 1; i < days.length; i++) {
+    let joined = true
+    for (let d = addDays(days[i - 1], 1); d < days[i]; d = addDays(d, 1)) {
+      if (!RUN_KEEPS.has(byDay.get(isoOf(d))?.code)) { joined = false; break }
+    }
+    run = joined ? run + 1 : 1
+    longest = Math.max(longest, run)
+  }
+  return { days, longest }
+}
+
+/* The table of days absent: two columns of eleven, the right one first. */
+const ABSENCE_CELLS = 22
+const ABSENCE_FIRST = 14
+
+/* The employee's details come from the record; the counts and the days
+   absent from the attendance records in the period (ctx.fetched). */
+export function absenceValues(emp, d, inputs = {}, ctx = {}) {
+  const v = {
     1: arDate(d.today),
     2: emp?.arabic_name || '',
     3: toArabicDigits(emp?.national_id || ''),
@@ -830,10 +863,32 @@ export function absenceValues(emp, d, inputs = {}) {
     9: department(emp),
     10: arDate(d.from),
     11: arDate(d.to),
-    12: days(inputs.scattered),
-    13: days(inputs.straight),
-    14: absenceDateList(inputs.dates),
   }
+  if (!ctx.fetched) return v
+  const { days, longest } = absenceDays(ctx.fetched)
+  // No day absent, or more than the table holds: the blanks stay empty
+  // and the form says why (absenceCheck).
+  if (!days.length || days.length > ABSENCE_CELLS) return v
+  v[12] = toArabicDigits(days.length)
+  v[13] = toArabicDigits(longest)
+  days.forEach((day, i) => { v[ABSENCE_FIRST + i] = arDate(day) })
+  return v
+}
+
+/* What stops the form beyond an empty blank: the records still loading
+   or not read, no day absent, too many for the table, or a period that
+   ends before it starts. */
+export function absenceCheck(emp, d, inputs = {}, ctx = {}) {
+  if (!emp) return ''
+  if (d.from && d.to && d.to < d.from) return 'تاريخ نهاية الفترة قبل تاريخ بدايتها.'
+  if (ctx.fetchError) return `تعذر تحميل سجل الحضور: ${ctx.fetchError}`
+  if (!ctx.fetched) return d.from && d.to ? 'جارٍ تحميل أيام الغياب من سجل الحضور…' : ''
+  const n = absenceDays(ctx.fetched).days.length
+  if (!n) return 'لا يوجد غياب مسجل لهذا الموظف في سجل الحضور خلال الفترة المحددة.'
+  if (n > ABSENCE_CELLS) {
+    return `عدد أيام الغياب في الفترة ${toArabicDigits(n)} يومًا، والجدول يتسع لـ ${toArabicDigits(ABSENCE_CELLS)} يومًا فقط. اختر فترة أقصر.`
+  }
+  return ''
 }
 
 /* --- The list -------------------------------------------------------- */
@@ -848,8 +903,7 @@ export function absenceValues(emp, d, inputs = {}) {
                month ones are month and year only
    inputs      [key, label, kind, blanks, hint] values the user types;
                kind is text, longtext, amount (English digits, shown in
-               Arabic digits and words), count (a whole number from 1),
-               days (a whole number from 0), year,
+               Arabic digits and words), count (a whole number), year,
                person (an employee chosen from the list, by Arabic name)
                or employee (an employee chosen from the list, other than
                the one the form is for; its id is kept, and values() reads
@@ -868,7 +922,13 @@ export function absenceValues(emp, d, inputs = {}) {
    duplex      printed on both sides: true flips on the long edge,
                'short' on the short edge
    pool        whose form it is: 'active' employees (the default) or
-               'resigned' ones, those with a notice date */
+               'resigned' ones, those with a notice date
+   fetch       { key(emp, dates), load(supabase, emp, dates) }: more data
+               to read for the employee, given to values() as ctx.fetched
+               (see fetchFor)
+   fetchedFields  the blanks filled from that data
+   check       (emp, dates, inputs, ctx) -> a message that stops saving and
+               printing, or '' */
 const DOCUMENTS = [
   {
     id: 'hiring',
@@ -1233,41 +1293,48 @@ DOCUMENTS.push({
 })
 
 /* A warning to an employee absent without leave, under article 166 of
-   the labour law. The acknowledgement at the foot is signed by hand. */
+   the labour law. The days absent come from the attendance records; the
+   acknowledgement's boxes, the signatures and the date are by hand. */
 DOCUMENTS.push({
   id: 'absence-warning',
-  title: 'إخطار بالغياب دون إذن',
+  title: 'إخطار رسمي بشأن الغياب عن العمل',
   subtitle: 'Absence warning',
-  template: 'templates/absence-warning.docx?v=1',
+  template: 'templates/absence-warning.docx?v=2',
   fields: {
     1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'شهر وسنة إصدار البطاقة',
     5: 'الرقم التأميني', 6: 'العنوان', 7: 'تاريخ التعيين', 8: 'الوظيفة', 9: 'الإدارة',
-    10: 'بداية فترة الغياب', 11: 'نهاية فترة الغياب',
-    12: 'عدد أيام الغياب المتقطعة', 13: 'عدد أيام الغياب المتصلة', 14: 'أيام الغياب بالتواريخ',
+    10: 'بداية الفترة', 11: 'نهاية الفترة',
+    12: 'عدد أيام الغياب المتقطعة', 13: 'عدد أيام الغياب المتصلة',
+    ...Object.fromEntries(Array.from({ length: ABSENCE_CELLS }, (_, i) => [ABSENCE_FIRST + i, 'أيام الغياب'])),
   },
-  // The address and the list of dates can run onto more lines.
-  wrap: [6, 14],
+  // From the attendance records, not the employee record.
+  fetchedFields: [12, 13, ...Array.from({ length: ABSENCE_CELLS }, (_, i) => ABSENCE_FIRST + i)],
+  // The table has room for 22 days; those past the days absent stay empty.
+  optional: Array.from({ length: ABSENCE_CELLS - 1 }, (_, i) => ABSENCE_FIRST + 1 + i),
+  // The address can run onto a second line.
+  wrap: [6],
+  fetch: {
+    key: (emp, d) => (emp && d.from && d.to && d.from <= d.to ? `${emp.id}|${isoOf(d.from)}|${isoOf(d.to)}` : ''),
+    load: loadAttendance,
+  },
+  check: absenceCheck,
   dates: absenceDates,
   values: absenceValues,
   info: [
     [3, 'الرقم القومي'],
-    [4, 'تاريخ إصدار البطاقة'],
     [5, 'الرقم التأميني'],
-    [6, 'العنوان'],
     [7, 'تاريخ التعيين'],
     [8, 'الوظيفة'],
     [9, 'الإدارة'],
+    [12, 'أيام الغياب في الفترة'],
+    [13, 'أطول غياب متصل'],
   ],
   dateFields: [
     ['today', 'تاريخ الإخطار', [1]],
-    ['from', 'فترة الغياب من', [10]],
-    ['to', 'فترة الغياب إلى', [11]],
+    ['from', 'بداية الفترة', [10]],
+    ['to', 'نهاية الفترة', [11]],
   ],
-  inputs: [
-    ['scattered', 'عدد أيام الغياب المتقطعة خلال السنة', 'days', [12], 'بالأرقام الإنجليزية، صفر أو أكثر'],
-    ['straight', 'عدد أيام الغياب المتصلة', 'days', [13], 'بالأرقام الإنجليزية، صفر أو أكثر'],
-    ['dates', 'أيام الغياب بالتواريخ', 'longtext', [14], 'مثال: 3/11/2026، 5/11/2026، من 10/11/2026 إلى 14/11/2026'],
-  ],
+  inputs: [],
 })
 
 for (const def of DOCUMENTS) def.blanks = Object.keys(def.fields).map(Number)
@@ -2437,7 +2504,7 @@ async function printPdf() {
 /* dateSet: dates the user has set by hand, by key. inputs: what the user
    has typed (the wage, the address), by key. Both are kept while the
    document is open, so changing the employee keeps them. */
-const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, capturing: false, busy: false, choices: {}, choiceLabel: {}, company: null }
+const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, capturing: false, busy: false, choices: {}, choiceLabel: {}, company: null, fetched: { key: '' }, fetching: '' }
 
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
   'si_no', 'si_title', 'title', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',
@@ -2782,16 +2849,15 @@ function buildInputs(def) {
     input.className = 'hr-input'
     input.type = 'text'
     input.autocomplete = 'off'
-    if (kind === 'count' || kind === 'days') {
-      // A whole number from 1 (days: from 0), in English digits; shown in
-      // Arabic digits.
+    if (kind === 'count') {
+      // A whole number from 1, in English digits; shown in Arabic digits.
       input.dir = 'ltr'
       input.inputMode = 'numeric'
       input.maxLength = 3
       input.placeholder = '0'
       input.addEventListener('input', () => {
         const v = input.value.replace(/[٠-٩]/g, (d) => AR_DIGITS.indexOf(d)).trim()
-        const ok = (kind === 'days' ? /^(0|[1-9]\d{0,2})$/ : /^[1-9]\d{0,2}$/).test(v)
+        const ok = /^[1-9]\d{0,2}$/.test(v)
         input.classList.toggle('is-invalid', !!v && !ok)
         state.inputs[key] = ok ? +v : ''
         refresh()
@@ -2968,13 +3034,39 @@ function focusDateFor(field) {
 
 /* Fill the document and the read-only list beside it, and decide whether
    the document is complete enough to be issued. */
+/* A form that reads more than the employee record (def.fetch): what it
+   read for this employee and these dates, as ctx.fetched, or
+   ctx.fetchError. Read once for each employee and set of dates, then kept
+   until either changes; the form is drawn again when it arrives. */
+function fetchFor(def, emp, dates) {
+  if (!def.fetch || !emp) return {}
+  const key = def.fetch.key(emp, dates)
+  if (!key) return {}
+  const full = `${def.id}|${key}`
+  if (state.fetched.key === full) return { fetched: state.fetched.data, fetchError: state.fetched.error }
+  if (state.fetching !== full) {
+    state.fetching = full
+    IEnergyAuth.getClient()
+      .then((supabase) => def.fetch.load(supabase, emp, dates))
+      .then((data) => ({ data }), (err) => ({ error: err.message || String(err) }))
+      .then((got) => {
+        if (state.fetching !== full) return
+        state.fetching = ''
+        state.fetched = { key: full, ...got }
+        if (state.def === def) refresh()
+      })
+  }
+  return {}
+}
+
 function refresh() {
   const def = state.def
   if (!def) return
   const emp = state.employee
   const dates = currentDates()
   const inputs = currentInputs()
-  const values = def.values(emp, dates, inputs, { find: findEmployee, choice: chosen, company: state.company })
+  const ctx = { find: findEmployee, choice: chosen, company: state.company, ...fetchFor(def, emp, dates) }
+  const values = def.values(emp, dates, inputs, ctx)
   releaseLines($('preview'))
   fillFields(values)
   layoutTabs($('preview'))
@@ -3022,7 +3114,9 @@ function refresh() {
   // Company details (def.companyFields) are kept in the tracker's Settings.
   const ofCompany = new Set(def.companyFields || [])
   const fromCompany = empty.filter((n) => ofCompany.has(n))
-  const fromRecord = empty.filter((n) => !editable.has(n) && !ofCompany.has(n))
+  // Blanks read from other tables (def.fetch) are def.check's to explain.
+  const ofFetch = new Set(def.fetchedFields || [])
+  const fromRecord = empty.filter((n) => !editable.has(n) && !ofCompany.has(n) && !ofFetch.has(n))
   /* An employee box not yet chosen is one thing to do, not one per
      blank it fills: only its first blank, the name, is named. */
   const later = new Set(def.inputs.filter(([key, , kind]) => kind === 'employee' && !state.inputs[key])
@@ -3033,11 +3127,13 @@ function refresh() {
   if (emp && fromRecord.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${names(fromRecord)}. أكملها أولاً ثم أعد الاختيار.`)
   if (emp && fromCompany.length) notes.push(`بيانات الشركة ناقصة في صفحة الإعدادات (Settings ← Company details): ${names(fromCompany)}.`)
   if (emp && toFill.length) notes.push(`أدخل ${names(toFill)}.`)
+  const problem = def.check ? def.check(emp, dates, inputs, ctx) : ''
+  if (problem) notes.push(problem)
   if (notes.length) notes.push('لا يمكن الحفظ أو الطباعة قبل استكمال كل البيانات.')
   warn.hidden = !notes.length
   warn.textContent = notes.join(' ')
 
-  const ready = (!!emp || !!def.blankForm) && !empty.length && !state.busy
+  const ready = (!!emp || !!def.blankForm) && !empty.length && !problem && !state.busy
   $('savePdfBtn').disabled = !ready
   $('printBtn').disabled = !ready
 }
