@@ -609,86 +609,101 @@ export function form1Dates(emp, set = {}, today = todayUTC()) {
   }
 }
 
-/* A date for a row of boxes: day, month and year, one part each. */
-const dmyParts = (d) => (d ? toArabicDigits(dmy(d)).split('/').join('|') : '')
 /* A date for its boxes digit by digit: the day's two boxes, the month's,
    then the year's four. */
 const dmyDigits = (d) => (d ? toArabicDigits(dmy(d).replace(/\//g, '')) : '')
-/* A wage for its boxes: pounds (five boxes) and piasters (two). */
-const wagePounds = (a) => (a && a.pounds <= 99999 ? toArabicDigits(a.pounds) : '')
-const wagePiasters = (a) => (a && a.pounds <= 99999 ? toArabicDigits(String(a.piasters).padStart(2, '0')) : '')
+/* A wage for its six boxes, in whole pounds: the 2026 form has no
+   piasters. An amount with piasters, or past 999999, is left blank, so
+   the form cannot be saved until it is put right. */
+const wagePounds = (a) => (a && !a.piasters && a.pounds <= 999999 ? toArabicDigits(a.pounds) : '')
 
-/* The employee's details come from the record, the company's from the
-   company details in the tracker's Settings, the three wages are typed. */
+/* The 2026 form. The applicant (مقدم الطلب) is chosen from the employees:
+   their name, job title as their capacity, insurance number, mobile and
+   national ID from their record. The employee's details come from the
+   record, the company's from the company details in the tracker's
+   Settings, the two wages are typed. The category is "working for
+   others" and the establishment type "standard" (نمطي). Left as they
+   are, for the office or the signer: sector, period type, subscription
+   code, disability, the first medical check, the house number, village
+   and district, the signatures and the signature check. */
 export function form1Values(emp, d, inputs = {}, ctx = {}) {
   const c = ctx.company || {}
+  const a = ctx.find ? ctx.find(inputs.applicant) : null
   const name = emp?.arabic_name || ''
-  const gov = emp?.governorate_code
-  return {
+  const v = {
     1: c.si_office || '',
     2: emp ? '✓' : '',
-    3: toArabicDigits(c.establishment_no || ''),
-    4: c.name_ar || '',
-    5: toArabicDigits(emp?.si_no || ''),
-    6: toArabicDigits(emp?.national_id || ''),
-    7: name,
-    8: emp?.national_id ? (isFemale(emp) ? 'مصرية' : 'مصري') : '',
-    9: qualification(emp),
-    10: toArabicDigits(emp?.si_code || ''),
-    11: jobTitle(emp),
-    12: dmyDigits(d.siStart),
-    13: wagePounds(inputs.basicWage),
-    14: wagePiasters(inputs.basicWage),
+    8: toArabicDigits(emp?.si_no || ''),
+    9: name,
+    10: toArabicDigits(emp?.national_id || ''),
+    11: emp?.national_id ? (isFemale(emp) ? 'مصرية' : 'مصري') : '',
+    12: qualification(emp),
+    13: jobTitle(emp),
+    14: dmyDigits(d.siStart),
     15: wagePounds(inputs.subWage),
-    16: wagePiasters(inputs.subWage),
-    17: wagePounds(inputs.fullWage),
-    18: wagePiasters(inputs.fullWage),
-    19: emp?.address || '',
-    20: gov ? toArabicDigits(String(gov).padStart(2, '0')) : '',
-    21: phone(emp?.personal_mobile),
-    // No 22: the email line is left as it is, never filled.
-    23: dmyParts(d.today),
+    16: wagePounds(inputs.fullWage),
+    17: emp ? '✓' : '',
+    18: c.name_ar || '',
+    19: toArabicDigits(c.establishment_no || ''),
+    20: emp?.address || '',
+    21: emp?.governorate || '',
+    22: phone(emp?.personal_mobile),
+    23: d.today ? toArabicDigits(dmy(d.today)).split('/').join('|') : '',
     24: c.name_ar || '',
     25: toArabicDigits(c.establishment_no || ''),
     26: c.address_ar || '',
     27: name,
   }
+  if (a) {
+    v[3] = a.arabic_name || ''
+    v[4] = jobTitle(a)
+    v[5] = toArabicDigits(a.si_no || '')
+    v[6] = phone(a.personal_mobile)
+    v[7] = toArabicDigits(a.national_id || '')
+  }
+  return v
 }
 
-/* Where each blank sits on the scan, in the pictures' pixels (1275 x
-   2100, 150 to the inch), measured off the form. Boxes are listed left
-   to right in the order their characters go. */
+/* Where each blank sits on the 2026 scan, in the pictures' pixels (1275
+   x 2100, 150 to the inch), measured off the form: lines at their dots,
+   boxes left to right in the order their characters go. */
 const step = (...xs) => xs.slice(1).map((x, i) => [xs[i], x])
 const FORM1_LINES = [
-  { n: 1, kind: 'line', x: [929, 1176], y: [80, 104] },
-  { n: 2, kind: 'mark', x: [828, 869], y: [226, 267] },
-  { n: 3, kind: 'cells', cells: step(696, 737, 778, 820, 860, 901, 942, 984, 1025), y: [347, 388], align: 'end' },
-  { n: 4, kind: 'line', x: [123, 1032], y: [406, 430] },
-  { n: 5, kind: 'cells', cells: step(648, 690, 731, 772, 814, 855, 897, 938, 980, 1021), y: [531, 572], align: 'end' },
-  { n: 6, kind: 'cells', cells: step(440, 482, 524, 566, 607, 649, 690, 730, 771, 813, 854, 895, 937, 978, 1019), y: [588, 629] },
-  { n: 7, kind: 'line', x: [656, 1032], y: [644, 668] },
-  { n: 8, kind: 'line', x: [285, 474], y: [644, 668] },
-  { n: 9, kind: 'line', x: [901, 1114], y: [700, 724] },
-  { n: 10, kind: 'cells', cells: [...step(464, 506, 547, 588), ...step(619, 661, 702, 744)], y: [690, 732] },
-  // The title runs left past the dots, to the margin, rather than shrink.
-  { n: 11, kind: 'line', x: [66, 351], y: [700, 724] },
+  { n: 1, kind: 'line', x: [920, 1159], y: [0, 103] },
+  { n: 2, kind: 'mark', x: [827, 868], y: [228, 268] },
+  // The applicant.
+  { n: 3, kind: 'line', x: [683, 1086], y: [0, 436] },
+  { n: 4, kind: 'line', x: [89, 496], y: [0, 436] },
+  { n: 5, kind: 'cells', cells: step(714, 756, 798, 838, 880, 922, 963, 1004, 1046, 1087), y: [472, 513], align: 'end' },
+  { n: 6, kind: 'line', x: [94, 536], y: [0, 498] },
+  { n: 7, kind: 'cells', cells: step(514, 554, 597, 639, 680, 722, 763, 802, 844, 886, 926, 968, 1010, 1050, 1092), y: [538, 579] },
+  // The insured.
+  { n: 8, kind: 'cells', cells: step(648, 688, 730, 772, 813, 854, 896, 937, 978, 1020), y: [679, 720], align: 'end' },
+  { n: 9, kind: 'line', x: [82, 459], y: [0, 709] },
+  { n: 10, kind: 'cells', cells: step(440, 481, 523, 566, 606, 648, 690, 729, 770, 812, 853, 894, 936, 977, 1018), y: [736, 778] },
+  { n: 11, kind: 'line', x: [84, 271], y: [0, 762] },
+  { n: 12, kind: 'line', x: [690, 1101], y: [0, 816] },
+  { n: 13, kind: 'line', x: [280, 636], y: [0, 816] },
   // Day, month, year -- right to left on the page, each read left to right.
-  { n: 12, kind: 'cells', cells: [...step(865, 901, 937), ...step(766, 802, 838), ...step(602, 638, 674, 710, 746)], y: [746, 782] },
-  { n: 13, kind: 'cells', cells: step(906, 931, 958, 984, 1010, 1035), y: [934, 968], align: 'end' },
-  { n: 14, kind: 'cells', cells: step(1035, 1065, 1098), y: [934, 968] },
-  { n: 15, kind: 'cells', cells: step(499, 522, 546, 570, 594, 618), y: [934, 968], align: 'end' },
-  { n: 16, kind: 'cells', cells: step(618, 647, 679), y: [934, 968] },
-  { n: 17, kind: 'cells', cells: step(106, 130, 154, 178, 202, 226), y: [934, 968], align: 'end' },
-  { n: 18, kind: 'cells', cells: step(226, 254, 287), y: [934, 968] },
-  { n: 19, kind: 'line', x: [645, 1080], y: [1348, 1371] },
-  { n: 20, kind: 'cells', cells: step(735, 777, 818), y: [1394, 1435] },
-  { n: 21, kind: 'line', x: [785, 1042], y: [1503, 1527] },
+  { n: 14, kind: 'cells', cells: [...step(864, 900, 935), ...step(765, 800, 836), ...step(602, 637, 672, 708, 743)], y: [838, 873] },
+  // The wages' boxes, under their "جنيه" heading.
+  { n: 15, kind: 'cells', cells: step(686, 731, 775, 819, 863, 908, 952), y: [977, 1008], align: 'end' },
+  { n: 16, kind: 'cells', cells: step(230, 274, 319, 363, 407, 451, 491), y: [981, 1013], align: 'end' },
+  // The establishment.
+  { n: 17, kind: 'mark', x: [962, 1004], y: [1259, 1300] },
+  { n: 18, kind: 'line', x: [720, 1087], y: [0, 1348] },
+  { n: 19, kind: 'cells', cells: step(116, 156, 198, 240, 280, 322, 364, 405, 446, 488), y: [1320, 1360], align: 'end' },
+  // Residence: the address on the street line, the governorate by name.
+  { n: 20, kind: 'line', x: [496, 853], y: [0, 1496] },
+  { n: 21, kind: 'line', x: [574, 793], y: [0, 1550] },
+  { n: 22, kind: 'line', x: [781, 1033], y: [0, 1747] },
   // "تحريرًا في: / /": the day right of the slashes, the year left.
-  { n: 23, kind: 'cells', cells: [[1050, 1105], [1003, 1045], [925, 997]], y: [1602, 1630] },
-  { n: 24, kind: 'line', page: 2, x: [530, 1044], y: [1057, 1081] },
-  { n: 25, kind: 'line', page: 2, x: [93, 369], y: [1057, 1081] },
-  { n: 26, kind: 'line', page: 2, x: [68, 1044], y: [1110, 1134] },
-  { n: 27, kind: 'line', page: 2, x: [610, 1037], y: [1537, 1561] },
+  { n: 23, kind: 'cells', cells: [[1056, 1110], [1008, 1043], [925, 997]], y: [1772, 1800] },
+  // The back: the declaration.
+  { n: 24, kind: 'line', page: 2, x: [568, 1030], y: [0, 881] },
+  { n: 25, kind: 'line', page: 2, x: [65, 322], y: [0, 881] },
+  { n: 26, kind: 'line', page: 2, x: [64, 1028], y: [0, 934] },
+  { n: 27, kind: 'line', page: 2, x: [872, 1098], y: [0, 1303] },
 ]
 /* Spots are measured with a line's y at its dots. Each line's box then
    reaches up 40 pixels from just under them, so the large lettering fits
@@ -1076,41 +1091,43 @@ DOCUMENTS.push({
   id: 'form1-social-insurance',
   title: 'نموذج ١ - طلب اشتراك مؤمن عليه',
   subtitle: 'Form 1 Social Insurance',
-  template: 'templates/form1-social-insurance-1.jpg?v=1',
+  template: 'templates/form1-social-insurance-1.jpg?v=2',
   scan: {
-    pages: ['templates/form1-social-insurance-1.jpg?v=1', 'templates/form1-social-insurance-2.jpg?v=1'],
+    pages: ['templates/form1-social-insurance-1.jpg?v=2', 'templates/form1-social-insurance-2.jpg?v=2'],
     size: [1275, 2100],
     paper: 'legal',
     spots: FORM1_SPOTS,
   },
   fields: {
-    1: 'مكتب التأمينات', 2: 'الفئة', 3: 'رقم المنشأة', 4: 'اسم المنشأة',
-    5: 'الرقم التأميني', 6: 'الرقم القومي', 7: 'الاسم بالعربية', 8: 'الجنسية (من الرقم القومي)',
-    9: 'المؤهل', 10: 'كود المهنة (كود التأمينات)', 11: 'الوظيفة (المسمى التأميني)',
-    12: 'تاريخ الاشتراك في التأمينات', 13: 'الأجر الأساسي', 14: 'الأجر الأساسي',
-    15: 'أجر الاشتراك', 16: 'أجر الاشتراك', 17: 'الأجر الشامل', 18: 'الأجر الشامل',
-    19: 'العنوان', 20: 'المحافظة (من الرقم القومي)', 21: 'الموبايل الشخصي',
-    23: 'تاريخ التحرير', 24: 'اسم المنشأة', 25: 'رقم المنشأة', 26: 'عنوان المنشأة', 27: 'الاسم بالعربية',
+    1: 'مكتب التأمينات', 2: 'الفئة (عاملين لدى الغير)',
+    3: 'مقدم الطلب', 4: 'صفة مقدم الطلب (وظيفته)', 5: 'الرقم التأميني لمقدم الطلب',
+    6: 'موبايل مقدم الطلب', 7: 'الرقم القومي لمقدم الطلب',
+    8: 'الرقم التأميني', 9: 'الاسم بالعربية', 10: 'الرقم القومي', 11: 'الجنسية (من الرقم القومي)',
+    12: 'المؤهل', 13: 'المهنة (المسمى التأميني)', 14: 'تاريخ الاشتراك في التأمينات',
+    15: 'أجر / دخل الاشتراك', 16: 'الأجر الشامل',
+    17: 'نوع المنشأة (نمطي)', 18: 'اسم المنشأة', 19: 'رقم المنشأة',
+    20: 'العنوان', 21: 'المحافظة', 22: 'الموبايل الشخصي', 23: 'تاريخ التحرير',
+    24: 'اسم المنشأة', 25: 'رقم المنشأة', 26: 'عنوان المنشأة', 27: 'الاسم بالعربية',
   },
   // From the company details in the tracker's Settings, not the employee.
-  companyFields: [1, 3, 4, 24, 25, 26],
+  companyFields: [1, 18, 19, 24, 25, 26],
   // Front and back of one sheet.
   duplex: true,
   dates: form1Dates,
   values: form1Values,
   info: [
-    [5, 'الرقم التأميني'],
-    [10, 'كود المهنة'],
-    [11, 'المسمى'],
-    [12, 'تاريخ بدء الاشتراك'],
-    [20, 'كود المحافظة'],
-    [21, 'التليفون'],
+    [8, 'الرقم التأميني'],
+    [13, 'المهنة'],
+    [14, 'تاريخ بدء الاشتراك'],
+    [21, 'المحافظة'],
+    [22, 'التليفون'],
+    [4, 'صفة مقدم الطلب'],
   ],
   dateFields: [['today', 'تحريرًا في', [23]]],
   inputs: [
-    ['basicWage', 'الأجر الأساسي (بالأرقام الإنجليزية)', 'amount', [13, 14], 'حتى 99999.99 — مثال: 8500 أو 8500.50'],
-    ['subWage', 'أجر / دخل الاشتراك (بالأرقام الإنجليزية)', 'amount', [15, 16]],
-    ['fullWage', 'الأجر الشامل (بالأرقام الإنجليزية)', 'amount', [17, 18]],
+    ['applicant', 'مقدم الطلب', 'employee', [3, 4, 5, 6, 7]],
+    ['subWage', 'أجر / دخل الاشتراك (بالأرقام الإنجليزية)', 'amount', [15], 'بالجنيه الصحيح، حتى 999999 — مثال: 8500'],
+    ['fullWage', 'الأجر الشامل (بالأرقام الإنجليزية)', 'amount', [16], 'بالجنيه الصحيح، حتى 999999'],
   ],
 })
 
