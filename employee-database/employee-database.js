@@ -2222,6 +2222,9 @@ function readForm() {
     // between two names is invisible and makes the name fail every test
     // that counts words.
     if (key === 'name' || key === 'arabic_name') raw = raw.replace(/\s+/g, ' ')
+    // The education field too, and the invisible joiners an Arabic
+    // keyboard can leave between words go with them.
+    if (key === 'education_field') raw = raw.replace(/[\u200b-\u200f\u061c]/g, '').replace(/\s+/g, ' ').trim()
     out[key] = raw === '' ? null : raw
   }
   // Numbers and foreign keys must not cross as strings.
@@ -2305,9 +2308,15 @@ function validate(v) {
     problems.push('Job title must be English letters only.')
   }
 
+  /* Arabic, as it prints on the forms -- but a field of study is often
+     written with more than bare letters: "هندسة - اتصالات", "تجارة / محاسبة",
+     "علوم (كيمياء)", a hamza or madda form, a Persian-keyboard ی or ک, a
+     tatweel. The old rule allowed only the core letters split by single
+     spaces and refused all of those. What matters is that it is Arabic:
+     at least one Arabic letter and no Latin letters. */
   if (v.education_field && touched('education_field', v.education_field) &&
-      !/^[ء-ْ]+( [ء-ْ]+)*$/.test(v.education_field)) {
-    problems.push('Education field must be Arabic letters only.')
+      (/[A-Za-z]/.test(v.education_field) || !/[\u0621-\u064a\u0671-\u06d3]/.test(v.education_field))) {
+    problems.push('Education field must be written in Arabic.')
   }
 
   /* Arabic, with the digits and punctuation an address needs -- building
