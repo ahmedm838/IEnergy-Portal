@@ -8,9 +8,9 @@ import { Alert, Card, CardHeader, Field, Input } from './ui'
  *
  * What the forms print about the company. Form 1 Social Insurance (طلب
  * اشتراك مؤمن عليه) in the portal's HR Documents takes the office, the
- * establishment number, the Arabic name and the address from here, so
- * they are written as the form should print them: in Arabic, the number
- * in digits.
+ * establishment number, the Arabic name, the address, the sector, the
+ * subscription code and the period type from here, so they are written
+ * as the form should print them: in Arabic, the number in digits.
  *
  * One row (id 1). Everyone signed in reads it; only a super admin can
  * change it, which the database enforces as well.
@@ -20,6 +20,9 @@ const FIELDS = [
   ['si_office', 'Social insurance office (مكتب)', 'The office the company is registered with.'],
   ['establishment_no', 'Establishment number (رقم المنشأة)', 'Its insurance number: up to 8 digits.'],
   ['address_ar', 'Company address (Arabic)', 'العنوان, as printed on the back of Form 1.'],
+  ['si_sector', 'Sector (القطاع)', 'As printed on Form 1, beside the subscription start date.'],
+  ['si_subscription_code', 'Subscription code (كود الاشتراك)', 'As printed on Form 1.'],
+  ['si_period_type', 'Period type (نوع المدة)', 'As printed on Form 1, beside the subscription code.'],
 ]
 
 export default function CompanyDetailsCard({ readOnly }) {
@@ -80,7 +83,7 @@ export default function CompanyDetailsCard({ readOnly }) {
     <Card>
       <CardHeader
         title="Company details"
-        subtitle="Printed on Form 1 Social Insurance in HR Documents: the office, the establishment number, the company name and its address."
+        subtitle="Printed on Form 1 Social Insurance in HR Documents: the office, the establishment number, the company name, its address, the sector, the subscription code and the period type."
       />
       <div className="px-5">
         {readOnly && (

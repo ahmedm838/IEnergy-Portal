@@ -622,10 +622,11 @@ const wagePounds = (a) => (a && !a.piasters && a.pounds <= 999999 ? toArabicDigi
    national ID from their record. The employee's details come from the
    record, the company's from the company details in the tracker's
    Settings, the two wages are typed. The category is "working for
-   others" and the establishment type "standard" (نمطي). Left as they
-   are, for the office or the signer: sector, period type, subscription
-   code, disability, the first medical check, the house number, village
-   and district, the signatures and the signature check. */
+   others" and the establishment type "standard" (نمطي). The sector, the
+   subscription code and the period type are the company's, from the same
+   Settings. Left as they are, for the office or the signer: disability,
+   the first medical check, the house number, village and district, the
+   signatures and the signature check. */
 export function form1Values(emp, d, inputs = {}, ctx = {}) {
   const c = ctx.company || {}
   const a = ctx.find ? ctx.find(inputs.applicant) : null
@@ -653,6 +654,9 @@ export function form1Values(emp, d, inputs = {}, ctx = {}) {
     25: toArabicDigits(c.establishment_no || ''),
     26: c.address_ar || '',
     27: name,
+    28: c.si_sector || '',
+    29: toArabicDigits(c.si_subscription_code || ''),
+    30: c.si_period_type || '',
   }
   if (a) {
     v[3] = a.arabic_name || ''
@@ -689,6 +693,11 @@ const FORM1_LINES = [
   // The wages' boxes, under their "جنيه" heading.
   { n: 15, kind: 'cells', cells: step(686, 731, 775, 819, 863, 908, 952), y: [977, 1008], align: 'end' },
   { n: 16, kind: 'cells', cells: step(230, 274, 319, 363, 407, 451, 491), y: [981, 1013], align: 'end' },
+  // Beside the start date and under it: the company's sector,
+  // subscription code and period type.
+  { n: 28, kind: 'line', x: [280, 511], y: [0, 870] },
+  { n: 29, kind: 'line', x: [893, 1071], y: [0, 924] },
+  { n: 30, kind: 'line', x: [557, 755], y: [0, 924] },
   // The establishment.
   { n: 17, kind: 'mark', x: [962, 1004], y: [1259, 1300] },
   { n: 18, kind: 'line', x: [720, 1087], y: [0, 1348] },
@@ -1108,9 +1117,10 @@ DOCUMENTS.push({
     17: 'نوع المنشأة (نمطي)', 18: 'اسم المنشأة', 19: 'رقم المنشأة',
     20: 'العنوان', 21: 'المحافظة', 22: 'الموبايل الشخصي', 23: 'تاريخ التحرير',
     24: 'اسم المنشأة', 25: 'رقم المنشأة', 26: 'عنوان المنشأة', 27: 'الاسم بالعربية',
+    28: 'القطاع', 29: 'كود الاشتراك', 30: 'نوع المدة',
   },
   // From the company details in the tracker's Settings, not the employee.
-  companyFields: [1, 18, 19, 24, 25, 26],
+  companyFields: [1, 18, 19, 24, 25, 26, 28, 29, 30],
   // Front and back of one sheet.
   duplex: true,
   dates: form1Dates,
