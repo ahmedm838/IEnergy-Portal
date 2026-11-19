@@ -1407,7 +1407,7 @@ DOCUMENTS.push({
   id: 'leave-balance',
   title: 'إقرار برصيد الإجازات',
   subtitle: 'Leave balance acknowledgement',
-  template: 'templates/leave-balance.docx?v=1',
+  template: 'templates/leave-balance.docx?v=2',
   fields: {
     1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
     6: 'بداية الفترة', 7: 'نهاية الفترة', 8: 'المدير المباشر',
