@@ -145,6 +145,25 @@ export function hiringRequestValues(emp, d, inputs = {}, ctx = {}) {
   }
 }
 
+/* --- Purchase request (طلب شراء) ------------------------------------- */
+
+/* Dated today unless the user sets it. */
+export function purchaseDates(emp, set = {}, today = todayUTC()) {
+  return { today: has(set, 'today') ? set.today : today }
+}
+
+/* Only the heading is filled: the date and who is asking. The items
+   table, the purpose, the supply date (5), the priority and the
+   signatures are filled in by hand. */
+export function purchaseValues(emp, d) {
+  return {
+    1: arDate(d.today),
+    2: emp?.arabic_name || '',
+    3: jobTitle(emp),
+    4: department(emp),
+  }
+}
+
 const DOCUMENTS = [
   {
     id: 'salary-advance',
@@ -258,6 +277,26 @@ const DOCUMENTS = [
       ['department', 'الإدارة الطالبة', 'choice', [2], null, { table: 'departments', label: 'name_ar' }],
       ['jobTitle', 'المسمى الوظيفي المطلوب', 'text', [3]],
     ],
+  },
+  {
+    id: 'purchase-request',
+    title: 'طلب شراء',
+    subtitle: 'Purchase request',
+    template: 'templates/purchase-request.docx?v=1',
+    fields: { 1: 'تاريخ الطلب', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التوريد المطلوب' },
+    // The supply date is written by hand: dots on screen, room on paper.
+    optional: [5],
+    // The items table is right to left in Word, its first column on the
+    // right; the page keeps that.
+    ownDirection: true,
+    dates: purchaseDates,
+    values: purchaseValues,
+    info: [
+      [3, 'الوظيفة'],
+      [4, 'الإدارة'],
+    ],
+    dateFields: [['today', 'تاريخ الطلب', [1]]],
+    inputs: [],
   },
 ]
 
