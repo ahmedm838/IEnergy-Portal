@@ -928,7 +928,11 @@ export function absenceCheck(emp, d, inputs = {}, ctx = {}) {
                (see fetchFor)
    fetchedFields  the blanks filled from that data
    check       (emp, dates, inputs, ctx) -> a message that stops saving and
-               printing, or '' */
+               printing, or ''
+   sections    [{ input, from }]: from the paragraph starting with the text
+               `from` to the end of the page, shown -- on screen, in the PDF
+               and in print -- only while the flag input `input` is ticked.
+               A flag is a box to tick; it fills no blank and starts unticked */
 const DOCUMENTS = [
   {
     id: 'hiring',
@@ -1293,13 +1297,14 @@ DOCUMENTS.push({
 })
 
 /* A warning to an employee absent without leave, under article 166 of
-   the labour law. The days absent come from the attendance records; the
-   acknowledgement's boxes, the signatures and the date are by hand. */
+   the labour law. The days absent come from the attendance records. The
+   employee's acknowledgement at the foot is printed only when the box
+   for it is ticked; the signatures and the date are by hand. */
 DOCUMENTS.push({
   id: 'absence-warning',
   title: 'إخطار رسمي بشأن الغياب عن العمل',
   subtitle: 'Absence warning',
-  template: 'templates/absence-warning.docx?v=2',
+  template: 'templates/absence-warning.docx?v=3',
   fields: {
     1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'شهر وسنة إصدار البطاقة',
     5: 'الرقم التأميني', 6: 'العنوان', 7: 'تاريخ التعيين', 8: 'الوظيفة', 9: 'الإدارة',
@@ -1334,7 +1339,11 @@ DOCUMENTS.push({
     ['from', 'بداية الفترة', [10]],
     ['to', 'نهاية الفترة', [11]],
   ],
-  inputs: [],
+  inputs: [
+    ['acknowledge', 'الموظف سيوقع بالاستلام (طباعة إقرار الموظف)', 'flag', []],
+  ],
+  // From the acknowledgement to the end of the page.
+  sections: [{ input: 'acknowledge', from: 'أقر أنا الموقع أدناه' }],
 })
 
 for (const def of DOCUMENTS) def.blanks = Object.keys(def.fields).map(Number)
@@ -2816,6 +2825,22 @@ function buildInputs(def) {
     l.className = 'hr-label'
     l.htmlFor = `input-${key}`
     l.textContent = label
+    if (kind === 'flag') {
+      // A box to tick, its label beside it. Starts unticked.
+      const box2 = document.createElement('input')
+      box2.type = 'checkbox'
+      box2.id = `input-${key}`
+      box2.className = 'hr-check'
+      l.classList.add('hr-check-label')
+      l.prepend(box2)
+      box2.addEventListener('change', () => {
+        state.inputs[key] = box2.checked
+        refresh()
+      })
+      row.append(l)
+      box.appendChild(row)
+      continue
+    }
     if (kind === 'person' || kind === 'employee' || kind === 'choice' || kind === 'longtext') {
       const box2 = kind === 'longtext' ? document.createElement('textarea') : document.createElement('select')
       box2.id = `input-${key}`
@@ -3034,6 +3059,20 @@ function focusDateFor(field) {
 
 /* Fill the document and the read-only list beside it, and decide whether
    the document is complete enough to be issued. */
+/* The parts of a form shown only while their box is ticked
+   (def.sections): hidden, they take no room and are not in the PDF. */
+function showSections(def, inputs) {
+  if (!def.sections) return
+  for (const page of $('preview').querySelectorAll('section.docx')) {
+    const paras = Array.from(page.querySelectorAll('p'))
+    for (const { input, from } of def.sections) {
+      const at = paras.findIndex((p) => p.textContent.trim().startsWith(from))
+      if (at < 0) continue
+      for (const p of paras.slice(at)) p.style.display = inputs[input] ? '' : 'none'
+    }
+  }
+}
+
 /* A form that reads more than the employee record (def.fetch): what it
    read for this employee and these dates, as ctx.fetched, or
    ctx.fetchError. Read once for each employee and set of dates, then kept
@@ -3069,6 +3108,7 @@ function refresh() {
   const values = def.values(emp, dates, inputs, ctx)
   releaseLines($('preview'))
   fillFields(values)
+  showSections(def, inputs)
   layoutTabs($('preview'))
   keepLines($('preview'))
   const editable = editableBlanks(def)
