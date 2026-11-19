@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import EmployeeSearch from '../components/EmployeeSearch'
 import PeriodLabel from '../components/PeriodLabel'
+import ColumnFilterTh from '../components/ColumnFilterTh'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { exportEmployeeReport, prefetchExcel } from '../lib/exportXlsx'
@@ -53,6 +54,78 @@ import {
  */
 const PRINT_ROWS_PER_PAGE = 25
 
+const BLANK = '(blank)'
+const EMPTY_SET = new Set()
+
+/**
+ * The Daily Records columns, for sorting and filtering by value.
+ *
+ * `value` is what the filter checklist lists and matches on -- the text
+ * shown in the cell, so what is ticked is what is seen. `sortKey` is what
+ * the column orders by: the date, minutes and hours as numbers rather
+ * than as the text they print as. A null sortKey is an empty cell, and
+ * empty cells go to the bottom whichever way the column is sorted.
+ */
+const RECORD_COLUMNS = [
+  { key: 'date', label: 'Date', value: (r) => dayLabel(r.work_date), sortKey: (r) => r.work_date },
+  {
+    key: 'attendance',
+    label: 'Attendance',
+    value: (r) => r.attendance_types?.name_en || BLANK,
+    sortKey: (r) => r.attendance_types?.name_en?.toLowerCase() || null,
+  },
+  {
+    key: 'late',
+    label: 'Late',
+    value: (r) => minutesToHHMM(r.late_minutes),
+    sortKey: (r) => Number(r.late_minutes) || 0,
+  },
+  {
+    key: 'transport',
+    label: 'Transport',
+    className: 'text-right',
+    value: (r) => num(r.transport),
+    sortKey: (r) => Number(r.transport) || 0,
+  },
+  {
+    key: 'added',
+    label: 'Added',
+    className: 'text-center',
+    value: (r) => (r.add_to_leave_balance ? 'Yes' : 'No'),
+    sortKey: (r) => (r.add_to_leave_balance ? 1 : 0),
+  },
+  {
+    key: 'clock_in',
+    label: 'Clock in',
+    value: (r) => trimTime(r.clock_in) || BLANK,
+    sortKey: (r) => trimTime(r.clock_in) || null,
+  },
+  {
+    key: 'clock_out',
+    label: 'Clock out',
+    value: (r) => trimTime(r.clock_out) || BLANK,
+    sortKey: (r) => trimTime(r.clock_out) || null,
+  },
+  {
+    key: 'worked',
+    label: 'Worked',
+    className: 'text-right',
+    value: (r) => hoursToHHMM(workedHours(trimTime(r.clock_in), trimTime(r.clock_out))),
+    sortKey: (r) => workedHours(trimTime(r.clock_in), trimTime(r.clock_out)),
+  },
+  {
+    key: 'note',
+    label: 'Note',
+    value: (r) => r.note?.trim() || BLANK,
+    sortKey: (r) => r.note?.trim().toLowerCase() || null,
+  },
+]
+
+function compareKeys(a, b) {
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  return String(a).localeCompare(String(b))
+}
+
 /** Report 1 — the "employee report" sheet. */
 export default function EmployeeReport() {
   const lookups = useLookups()
@@ -67,6 +140,16 @@ export default function EmployeeReport() {
   const [exporting, setExporting] = useState(false)
   // 'all' | 'attended' | 'not-attended' | 'leave' | 'type:<id>'
   const [dayFilter, setDayFilter] = useState('all')
+  // Per-column value filters ({ [columnKey]: Set }) and the column sort.
+  const [columnFilters, setColumnFilters] = useState({})
+  const [sort, setSort] = useState({ key: null, dir: null })
+
+  // Ticked values belong to the days that were on screen. A different
+  // employee or range has different values, so they start clear; the
+  // sort carries over, since "latest first" still means the same thing.
+  useEffect(() => {
+    setColumnFilters({})
+  }, [employeeId, range.from, range.to])
 
   useEffect(() => {
     prefetchExcel()
@@ -136,7 +219,7 @@ export default function EmployeeReport() {
     return { balance: add("balance"), consumed: add("consumed"), remaining: add("remaining") }
   }, [summary])
 
-  const visibleRecords = useMemo(() => {
+  const dayFilteredRecords = useMemo(() => {
     if (dayFilter === 'all') return records
     if (dayFilter.startsWith('type:')) {
       const id = Number(dayFilter.slice(5))
@@ -158,6 +241,74 @@ export default function EmployeeReport() {
     })
   }, [records, dayFilter, lookups.typeById])
 
+  const activeColumnFilters = useMemo(
+    () => RECORD_COLUMNS.filter((c) => columnFilters[c.key]?.size),
+    [columnFilters],
+  )
+
+  /* Each column's checklist is built from the rows every other filter
+     lets through -- its own excluded -- the way Excel does it, so the
+     counts beside each value are what ticking it would actually show. */
+  const columnOptions = useMemo(() => {
+    const out = {}
+    for (const col of RECORD_COLUMNS) {
+      const others = activeColumnFilters.filter((c) => c.key !== col.key)
+      const tally = new Map()
+      for (const r of dayFilteredRecords) {
+        if (!others.every((c) => columnFilters[c.key].has(c.value(r)))) continue
+        const value = col.value(r)
+        const entry = tally.get(value)
+        if (entry) entry.count += 1
+        else tally.set(value, { value, label: value, count: 1, key: col.sortKey(r) })
+      }
+      // A value the user ticked that no longer appears stays listed (at
+      // zero) so it can still be unticked.
+      for (const value of columnFilters[col.key] ?? []) {
+        if (!tally.has(value)) tally.set(value, { value, label: value, count: 0, key: null })
+      }
+      out[col.key] = [...tally.values()].sort((a, b) => {
+        if (a.key == null) return b.key == null ? 0 : 1
+        if (b.key == null) return -1
+        return compareKeys(a.key, b.key)
+      })
+    }
+    return out
+  }, [dayFilteredRecords, activeColumnFilters, columnFilters])
+
+  const visibleRecords = useMemo(() => {
+    let rows = dayFilteredRecords
+    if (activeColumnFilters.length) {
+      rows = rows.filter((r) => activeColumnFilters.every((c) => columnFilters[c.key].has(c.value(r))))
+    }
+    const col = sort.key && RECORD_COLUMNS.find((c) => c.key === sort.key)
+    if (col && sort.dir) {
+      const sign = sort.dir === 'desc' ? -1 : 1
+      rows = [...rows].sort((a, b) => {
+        const ka = col.sortKey(a)
+        const kb = col.sortKey(b)
+        // Empty cells last either way; ties keep date order.
+        if (ka == null || kb == null) {
+          if (ka == null && kb == null) return compareKeys(a.work_date, b.work_date)
+          return ka == null ? 1 : -1
+        }
+        return sign * compareKeys(ka, kb) || compareKeys(a.work_date, b.work_date)
+      })
+    }
+    return rows
+  }, [dayFilteredRecords, activeColumnFilters, columnFilters, sort])
+
+  function cycleSort(key) {
+    setSort((s) => {
+      if (s.key !== key) return { key, dir: 'asc' }
+      if (s.dir === 'asc') return { key, dir: 'desc' }
+      return { key: null, dir: null }
+    })
+  }
+
+  function setColumnFilter(key, values) {
+    setColumnFilters((f) => ({ ...f, [key]: values }))
+  }
+
   /* Two columns on paper once one column would not fit the page.
 
      Below the threshold the printed table is the one on screen with
@@ -172,7 +323,7 @@ export default function EmployeeReport() {
     return { left: visibleRecords.slice(0, half), right: visibleRecords.slice(half) }
   }, [visibleRecords])
 
-  const filterLabel =
+  const dayFilterLabel =
     dayFilter === 'all'
       ? null
       : dayFilter === 'attended'
@@ -182,6 +333,20 @@ export default function EmployeeReport() {
           : dayFilter === 'leave'
             ? 'Leave'
             : (lookups.allTypes?.find((t) => `type:${t.id}` === dayFilter)?.name_en ?? 'Filtered')
+
+  // The day filter and any column filters, in one line, for the subtitle
+  // and the Excel file -- so a filtered export says what it was cut to.
+  const filterLabel =
+    [
+      dayFilterLabel,
+      ...activeColumnFilters.map((c) => `${c.label}: ${[...columnFilters[c.key]].join(', ')}`),
+    ]
+      .filter(Boolean)
+      .join(' · ') || null
+  const sortColumn = sort.key && RECORD_COLUMNS.find((c) => c.key === sort.key)
+  const sortLabel = sortColumn
+    ? `${sortColumn.label} ${sort.dir === 'desc' ? 'descending' : 'ascending'}`
+    : null
 
   const employee = employees.find((e) => e.id === employeeId) || null
 
@@ -252,6 +417,7 @@ export default function EmployeeReport() {
         ['Absence days', summary.absence_days],
         ['Absence penalty (days)', Number(summary.absence_penalty)],
         ...(filterLabel ? [['Rows below filtered to', filterLabel]] : []),
+        ...(sortLabel ? [['Rows below sorted by', sortLabel]] : []),
         ...summary.balances.map((b) => [
           `${b.label} — balance / consumed / remaining`,
           `${num(b.balance)} / ${num(b.consumed)} / ${num(b.remaining)}`,
@@ -618,6 +784,19 @@ export default function EmployeeReport() {
                    and the subtitle grows exactly when a filter is on, so
                    the section got taller the moment it was used. */
                 <div className="no-print flex shrink-0 flex-nowrap items-center gap-2">
+                  {(activeColumnFilters.length > 0 || sort.key) && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      title="Clear the column filters and sort"
+                      onClick={() => {
+                        setColumnFilters({})
+                        setSort({ key: null, dir: null })
+                      }}
+                    >
+                      Reset columns
+                    </Button>
+                  )}
                   {[
                     ['all', 'All'],
                     ['attended', 'Attended'],
@@ -659,8 +838,8 @@ export default function EmployeeReport() {
             />
             {records.length === 0 ? (
               <EmptyState title="Nothing recorded for this period" />
-            ) : visibleRecords.length === 0 ? (
-              <EmptyState title={`No ${filterLabel?.toLowerCase()} days in this period`}>
+            ) : dayFilteredRecords.length === 0 ? (
+              <EmptyState title={`No ${dayFilterLabel?.toLowerCase()} days in this period`}>
                 The range holds {records.length} other recorded days.
               </EmptyState>
             ) : (
@@ -673,18 +852,38 @@ export default function EmployeeReport() {
                 <table className="sticky-head w-full border-collapse">
                   <thead>
                     <tr>
-                      <Th>Date</Th>
-                      <Th>Attendance</Th>
-                      <Th>Late</Th>
-                      <Th className="text-right">Transport</Th>
-                      <Th className="text-center">Added</Th>
-                      <Th>Clock in</Th>
-                      <Th>Clock out</Th>
-                      <Th className="text-right">Worked</Th>
-                      <Th>Note</Th>
+                      {RECORD_COLUMNS.map((c) => (
+                        <ColumnFilterTh
+                          key={c.key}
+                          label={c.label}
+                          className={c.className}
+                          sort={sort.key === c.key ? sort.dir : null}
+                          onSort={() => cycleSort(c.key)}
+                          options={columnOptions[c.key] ?? []}
+                          selected={columnFilters[c.key] ?? EMPTY_SET}
+                          onChange={(values) => setColumnFilter(c.key, values)}
+                        />
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
+                    {/* Column filters can leave nothing. The headers stay
+                        so the filter that did it can be undone where it
+                        was set. */}
+                    {visibleRecords.length === 0 && (
+                      <tr>
+                        <Td colSpan={RECORD_COLUMNS.length} className="py-6 text-center text-ink-3">
+                          No days match the column filters.{' '}
+                          <button
+                            type="button"
+                            className="font-medium text-brand-600 hover:underline"
+                            onClick={() => setColumnFilters({})}
+                          >
+                            Clear them
+                          </button>
+                        </Td>
+                      </tr>
+                    )}
                     {visibleRecords.map((r) => (
                       <tr key={r.id} className="hover:bg-hover">
                         <Td className="font-medium text-ink">{dayLabel(r.work_date)}</Td>
