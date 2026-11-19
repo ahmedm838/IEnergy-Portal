@@ -164,6 +164,37 @@ export function purchaseValues(emp, d) {
   }
 }
 
+/* --- Performance evaluation (تقييم أداء) ------------------------------ */
+
+/* Dated today unless the user sets it; the evaluation period starts
+   empty and is set here, from and to. */
+export function evaluationDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+    from: has(set, 'from') ? set.from : null,
+    to: has(set, 'to') ? set.to : null,
+  }
+}
+
+/* The employee's details and the period at the top, the direct manager
+   chosen from the employees, and the employee's name again above their
+   signature. The scores, notes and signatures are written by hand. */
+export function evaluationValues(emp, d, inputs = {}) {
+  const name = emp?.arabic_name || ''
+  return {
+    1: arDate(d.today),
+    2: name,
+    3: jobTitle(emp),
+    4: department(emp),
+    5: arDate(d.hired),
+    6: arDate(d.from),
+    7: arDate(d.to),
+    8: inputs.manager || '',
+    9: name,
+  }
+}
+
 const DOCUMENTS = [
   {
     id: 'salary-advance',
@@ -299,6 +330,38 @@ const DOCUMENTS = [
     ],
     dateFields: [['today', 'تاريخ الطلب', [1]]],
     inputs: [],
+  },
+  {
+    id: 'performance-evaluation',
+    title: 'تقييم أداء',
+    subtitle: 'Performance evaluation',
+    template: 'templates/performance-evaluation.docx?v=1',
+    fields: {
+      1: 'تاريخ التقييم', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
+      6: 'فترة التقييم من', 7: 'فترة التقييم حتى', 8: 'المدير المباشر', 9: 'الاسم بالعربية',
+    },
+    // Its two pages print front and back of one sheet, flipped on the
+    // long edge, and are scaled to the paper.
+    duplex: true,
+    // The two pages stay two: one that runs a little long here is shrunk
+    // onto its sheet, never cut onto a third.
+    shrinkPages: true,
+    // The score tables are right to left in Word, their first column on
+    // the right; the page keeps that.
+    ownDirection: true,
+    dates: evaluationDates,
+    values: evaluationValues,
+    info: [
+      [3, 'الوظيفة'],
+      [4, 'الإدارة'],
+      [5, 'تاريخ التعيين'],
+    ],
+    dateFields: [
+      ['today', 'تاريخ التقييم', [1]],
+      ['from', 'فترة التقييم من', [6]],
+      ['to', 'فترة التقييم حتى', [7]],
+    ],
+    inputs: [['manager', 'المدير المباشر', 'person', [8]]],
   },
 ]
 
