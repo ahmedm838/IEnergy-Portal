@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=73'
+} from '../hr-documents/hr-documents.js?v=74'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -335,7 +335,7 @@ const DOCUMENTS = [
     id: 'performance-evaluation',
     title: 'تقييم أداء',
     subtitle: 'Performance evaluation',
-    template: 'templates/performance-evaluation.docx?v=2',
+    template: 'templates/performance-evaluation.docx?v=3',
     fields: {
       1: 'تاريخ التقييم', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
       6: 'فترة التقييم من', 7: 'فترة التقييم حتى', 8: 'المدير المباشر', 9: 'الاسم بالعربية',
@@ -343,9 +343,9 @@ const DOCUMENTS = [
     // Its two pages print front and back of one sheet, flipped on the
     // short edge, and are scaled to the paper.
     duplex: 'short',
-    // Word's two pages are kept: the second starts at the ratings, and
-    // each is drawn on its own sheet, smaller if it has to be, never cut.
-    pageStarts: ['التقديرات والإجراءات'],
+    // Word's two pages, split by its page break, each on its own sheet:
+    // smaller if it has to be, never cut onto a third.
+    fitPages: true,
     // The score tables are right to left in Word, their first column on
     // the right; the page keeps that.
     ownDirection: true,

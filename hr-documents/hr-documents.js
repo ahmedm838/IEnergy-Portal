@@ -816,6 +816,8 @@ const FORM6_SPOTS = onLines([
    wrap        blanks of free text whose line may wrap onto more lines
    tabsWrap    a tab whose next stop is past the line's end starts the
                next line, as in Word (see layoutPartTabs)
+   fitPages    each of Word's pages (split by its page breaks) prints on
+               exactly one sheet, smaller if it has to be, never cut
    duplex      printed on both sides: true flips on the long edge,
                'short' on the short edge
    pool        whose form it is: 'active' employees (the default) or
@@ -2048,11 +2050,14 @@ new ResizeObserver(() => fitPreview()).observe(document.documentElement)
 /* How far down the page its content goes, in CSS pixels from the top of
    the page: the bottom of the last paragraph or table row, the footer
    left out (the page number is drawn on the sheet instead). */
-function contentBottom(page) {
+function contentBottom(page, { ignoreEmpty = false } = {}) {
   const top = page.getBoundingClientRect().top
   let bottom = 0
   for (const el of page.querySelectorAll('p, tr')) {
     if (el.closest('footer, header')) continue
+    // Empty lines left at the foot of a page hold nothing to print.
+    if (ignoreEmpty && el.tagName === 'P' && !el.closest('td') &&
+        !el.textContent.replace(/\u200b/g, '').trim() && !el.querySelector('img, svg')) continue
     const r = el.getBoundingClientRect()
     if (r.height) bottom = Math.max(bottom, r.bottom - top)
   }
@@ -2189,7 +2194,7 @@ async function buildPdf({ print = false } = {}) {
       const cssWidth = page.offsetWidth
       const cssSheet = cssWidth * (paper.h / paper.w)
       const padBottom = parseFloat(getComputedStyle(page).paddingBottom) || 48
-      const needed = contentBottom(page) + padBottom
+      const needed = contentBottom(page, { ignoreEmpty: !!def?.fitPages }) + padBottom
       /* The page is copied into an SVG image with its styles and drawn
          by the browser itself, so Arabic is shaped and laid out exactly
          as it is on screen. Drawing it text run by text run, as
@@ -2226,7 +2231,9 @@ async function buildPdf({ print = false } = {}) {
         }
         continue
       }
-      if (needed > cssSheet * LONG_PAGE) {
+      // fitPages: each of Word's pages on exactly one sheet, drawn
+      // smaller if it runs long here, never cut onto another.
+      if (needed > cssSheet * LONG_PAGE && !def?.fitPages) {
         const padTop = parseFloat(getComputedStyle(page).paddingTop) || 48
         const cuts = cutPoints(page)
         const end = needed - padBottom
