@@ -179,6 +179,12 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
 }
 .hr-preview .hr-spot.is-empty { color: #c0392b; }
 .hr-preview.is-capturing .hr-spot.is-empty { color: transparent; }
+/* A page saved from Word: the text is set as Word sets the labels beside
+   it, Times New Roman 12 pt (16 CSS pixels), not bold. */
+.hr-preview .hr-spot-line.hr-spot-typed {
+  font-family: 'Times New Roman', Times, serif; font-size: 16px; font-weight: 400;
+  line-height: 1; padding: 0;
+}
 /* An English line ends at the line's right end too. */
 .hr-preview .hr-spot-line[dir="ltr"] { justify-content: flex-end; }
 

@@ -2031,7 +2031,10 @@ async function drawDocument(def) {
             with "|" in it gives each box a part of its own (a date's day,
             month and year).
      mark   a tick in a box
-   The pages are A4 or legal (def.scan.paper) and print at that size. */
+   The pages are A4 or legal (def.scan.paper) and print at that size.
+   typed: true sets the text on lines as plain Times New Roman, 12 pt, as
+   if typed in Word -- for pages saved from Word itself, whose labels are
+   set that way -- instead of the large bold lettering a scan needs. */
 export const PAPER = { a4: { w: 210, h: 297 }, legal: { w: 215.9, h: 355.6 } }
 
 function drawScan(def, preview) {
@@ -2078,6 +2081,7 @@ function drawScan(def, preview) {
         span._align = spot.align || 'start'
       } else {
         span.dir = spot.dir || 'rtl'
+        if (def.scan.typed && spot.kind === 'line') span.classList.add('hr-spot-typed')
       }
       span.textContent = '……'
       page.appendChild(span)

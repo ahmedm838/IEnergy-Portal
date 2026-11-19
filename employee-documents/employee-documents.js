@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=77'
+} from '../hr-documents/hr-documents.js?v=78'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -195,6 +195,21 @@ export function evaluationValues(emp, d, inputs = {}) {
   }
 }
 
+/* Where each blank sits on the pages saved from Word, in the pictures'
+   pixels (200 to the inch): each line ends where its label leaves off,
+   its foot on the label's own baseline. */
+const EVALUATION_SPOTS = [
+  { n: 1, kind: 'line', x: [833, 1460], y: [237, 287] },
+  { n: 2, kind: 'line', x: [833, 1477], y: [292, 342] },
+  { n: 3, kind: 'line', x: [1167, 1441], y: [347, 397] },
+  { n: 4, kind: 'line', x: [867, 1062], y: [347, 397] },
+  { n: 5, kind: 'line', x: [111, 696], y: [347, 397] },
+  { n: 6, kind: 'line', x: [1164, 1317], y: [402, 452] },
+  { n: 7, kind: 'line', x: [872, 1028], y: [402, 452] },
+  { n: 8, kind: 'line', x: [111, 677], y: [402, 452] },
+  { n: 9, kind: 'line', page: 2, x: [833, 1484], y: [1628, 1678] },
+]
+
 const DOCUMENTS = [
   {
     id: 'salary-advance',
@@ -335,21 +350,25 @@ const DOCUMENTS = [
     id: 'performance-evaluation',
     title: 'تقييم أداء',
     subtitle: 'Performance evaluation',
-    template: 'templates/performance-evaluation.docx?v=6',
+    template: 'templates/performance-evaluation-1.png?v=1',
+    /* Both pages as Word itself prints them -- saved from Word as a PDF
+       and kept as pictures -- with only the blanks written over them, so
+       the printout matches Word's print preview. A change to the Word
+       file needs a new PDF from Word. */
+    scan: {
+      pages: ['templates/performance-evaluation-1.png?v=1', 'templates/performance-evaluation-2.png?v=1'],
+      size: [1654, 2339],
+      paper: 'a4',
+      typed: true,
+      spots: EVALUATION_SPOTS,
+    },
     fields: {
       1: 'تاريخ التقييم', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
       6: 'فترة التقييم من', 7: 'فترة التقييم حتى', 8: 'المدير المباشر', 9: 'الاسم بالعربية',
     },
     // Its two pages print front and back of one sheet, flipped on the
-    // short edge, and are scaled to the paper.
+    // short edge.
     duplex: 'short',
-    // Prints exactly the two pages the preview shows, as laid out
-    // there: each on its own sheet, smaller only if it runs past A4,
-    // never cut onto a third.
-    fitPages: true,
-    // The score tables are right to left in Word, their first column on
-    // the right; the page keeps that.
-    ownDirection: true,
     dates: evaluationDates,
     values: evaluationValues,
     info: [
