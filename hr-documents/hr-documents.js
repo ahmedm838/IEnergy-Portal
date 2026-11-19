@@ -564,6 +564,33 @@ export function confidentialityValues(emp, d) {
   }
 }
 
+/* --- Salary account letter to ABK (خطاب فتح حساب مرتب) ----------------- */
+
+/* The company's letter asking Al Ahli Bank of Kuwait - Egypt to open a
+   salary account for the new employee. Dated today unless the user sets
+   it; the hiring date is the one on the record. */
+export function bankAccountDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+  }
+}
+
+/* (6) is the total monthly salary, typed by the user in English digits
+   and shown in Arabic digits. In the hiring papers it is the same box as
+   the contract's monthly wage, typed once. */
+export function bankAccountValues(emp, d, inputs = {}) {
+  const wage = inputs.salary || null
+  return {
+    1: arDate(d.today),
+    2: emp?.arabic_name || '',
+    3: toArabicDigits(emp?.national_id || ''),
+    4: jobTitle(emp),
+    5: arDate(d.hired),
+    6: wage ? `${amountDigits(wage)} جنيه مصري` : '',
+  }
+}
+
 /* --- Resignation (استقالة مسببة) --------------------------------------- */
 
 /* The resignation date (1) is the notice date on the record and the last
@@ -1082,6 +1109,28 @@ DOCUMENTS.push({
   inputs: [],
 })
 DOCUMENTS.push({
+  id: 'bank-account',
+  title: 'خطاب فتح حساب مرتب - البنك الأهلي الكويتي',
+  subtitle: 'Salary account letter (ABK)',
+  template: 'templates/bank-account.docx?v=1',
+  // Signed and stamped by hand.
+  fields: {
+    1: 'تاريخ الخطاب', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'الوظيفة',
+    5: 'تاريخ التعيين', 6: 'إجمالي الراتب الشهري',
+  },
+  dates: bankAccountDates,
+  values: bankAccountValues,
+  info: [
+    [3, 'الرقم القومي'],
+    [4, 'الوظيفة'],
+    [5, 'تاريخ التعيين'],
+  ],
+  dateFields: [['today', 'تاريخ الخطاب', [1]]],
+  inputs: [
+    ['salary', 'الأجر الشهري (بالأرقام الإنجليزية)', 'amount', [6], 'مثال: 8500 أو 8500.50'],
+  ],
+})
+DOCUMENTS.push({
   id: 'resignation',
   title: 'استقالة مسببة',
   subtitle: 'Resignation',
@@ -1559,14 +1608,15 @@ function pack(head, ids, fix = (p) => p) {
 }
 
 /* The hiring papers, signed together on the first day: the contract,
-   the work start acknowledgement, the social status declaration and the
-   confidentiality declaration. One form in place of the four. */
+   the work start acknowledgement, the social status declaration, the
+   confidentiality declaration and, last, the letter to the bank to open
+   the salary account. One form in place of the five. */
 pack({
   id: 'hiring-pack',
   title: 'مستندات التعيين',
-  subtitle: 'Hiring papers · contract, work start, social status, confidentiality',
-}, ['hiring', 'work-start', 'social-status', 'confidentiality'], (p) => {
-  // One date for all four.
+  subtitle: 'Hiring papers · contract, work start, social status, confidentiality, bank account letter',
+}, ['hiring', 'work-start', 'social-status', 'confidentiality', 'bank-account'], (p) => {
+  // One date for all five.
   p.dateFields = p.dateFields.map(([key, label, ...rest]) => [key, key === 'today' ? 'تاريخ المستندات' : label, ...rest])
   // The contract is signed in four copies: Print gives it four times.
   p.parts[0].copies = 4
