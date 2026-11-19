@@ -1112,7 +1112,7 @@ DOCUMENTS.push({
   id: 'bank-account',
   title: 'خطاب فتح حساب مرتب - البنك الأهلي الكويتي',
   subtitle: 'Salary account letter (ABK)',
-  template: 'templates/bank-account.docx?v=1',
+  template: 'templates/bank-account.docx?v=2',
   // Signed and stamped by hand.
   fields: {
     1: 'تاريخ الخطاب', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'الوظيفة',
