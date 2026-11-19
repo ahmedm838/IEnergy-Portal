@@ -790,6 +790,8 @@ const FORM6_SPOTS = onLines([
                fills is the box's to fill
    optional    blanks that may be left empty (they print as nothing)
    wrap        blanks of free text whose line may wrap onto more lines
+   tabsWrap    a tab whose next stop is past the line's end starts the
+               next line, as in Word (see layoutPartTabs)
    pool        whose form it is: 'active' employees (the default) or
                'resigned' ones, those with a notice date */
 const DOCUMENTS = [
@@ -1463,7 +1465,7 @@ function layoutTabs(root) {
 }
 
 /* One template's tabs: its tab stops and default tab, as read from it. */
-function layoutPartTabs(root, { tabStops: stopsList, defaultTab = 36 }) {
+function layoutPartTabs(root, { tabStops: stopsList, defaultTab = 36, def }) {
   if (!stopsList) return
   const paras = [...root.querySelectorAll('section.docx article p')].filter((p) => p.querySelector('.docx-tab-stop'))
   if (paras.length !== stopsList.length) return // not the paragraphs we read; leave them be
@@ -1475,6 +1477,7 @@ function layoutPartTabs(root, { tabStops: stopsList, defaultTab = 36 }) {
        the browser will not end a line on: a tab after a blank pulled the
        blank onto a line of its own, where in Word it stays put. */
     const tabs = [...p.querySelectorAll('.docx-tab-stop')]
+    for (const br of p.querySelectorAll('br.docx-tab-wrap')) br.remove()
     for (const t of tabs) {
       t.innerHTML = ''
       t.style.wordSpacing = ''
@@ -1490,10 +1493,25 @@ function layoutPartTabs(root, { tabStops: stopsList, defaultTab = 36 }) {
     tabs.forEach((tab, k) => {
       const pb = p.getBoundingClientRect()
       const right = pb.right - parseFloat(getComputedStyle(p).paddingRight) / scale
-      const tb = tab.getBoundingClientRect()
-      const at = (right - tb.right) * scale * PT // where the tab starts, from the right
-      const stop = stops.find((s) => s.pos > at + 0.5)
+      const where = () => (right - tab.getBoundingClientRect().right) * scale * PT // where the tab starts, from the right
+      let at = where()
+      let stop = stops.find((s) => s.pos > at + 0.5)
       if (!stop) return
+      /* A tab whose next stop lies past the line's end goes to the start
+         of the next line, as in Word, and is measured from there: a row
+         of options set out with tabs goes on under the row above, column
+         under column. Only where text follows it; tabs at the very end
+         of a paragraph stay where they are. Only for a form that asks
+         for it (tabsWrap): the forms before it were set out without. */
+      const line = (pb.width * scale - parseFloat(getComputedStyle(p).paddingLeft) - parseFloat(getComputedStyle(p).paddingRight)) * PT
+      if (def?.tabsWrap && stop.pos > line + 0.5 && at > 0.5 && textAfter(p, tab)) {
+        const br = document.createElement('br')
+        br.className = 'docx-tab-wrap'
+        tab.before(br)
+        at = where()
+        stop = stops.find((s) => s.pos > at + 0.5)
+        if (!stop) return
+      }
       const range = document.createRange()
       range.setStartAfter(tab)
       if (tabs[k + 1]) range.setEndBefore(tabs[k + 1])
@@ -1510,6 +1528,14 @@ function layoutPartTabs(root, { tabStops: stopsList, defaultTab = 36 }) {
       tab.style.width = `${Math.max(0, width).toFixed(1)}pt`
     })
   })
+}
+
+/* Whether any text that shows comes after this node in the paragraph. */
+function textAfter(p, node) {
+  const range = document.createRange()
+  range.setStartAfter(node)
+  range.setEndAfter(p.lastChild)
+  return /[^\s\u00a0\u2003\u200b\u200f\u2066-\u2069]/.test(range.toString())
 }
 
 /* ------------------------------------------------------------------ */

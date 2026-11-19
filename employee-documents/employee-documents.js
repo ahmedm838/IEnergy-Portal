@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=69'
+} from '../hr-documents/hr-documents.js?v=70'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -289,6 +289,8 @@ const DOCUMENTS = [
     // The items table is right to left in Word, its first column on the
     // right; the page keeps that.
     ownDirection: true,
+    // The purposes are set out with tabs in two rows, column under column.
+    tabsWrap: true,
     dates: purchaseDates,
     values: purchaseValues,
     info: [
