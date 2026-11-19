@@ -790,6 +790,52 @@ const FORM6_SPOTS = onLines([
   { n: 18, kind: 'cells', page: 2, cells: step(81, 122, 164, 206, 248, 289, 330, 370, 412, 454), y: [817, 859], align: 'end' },
 ])
 
+/* --- Absence warning (إخطار بالغياب دون إذن) ---------------------------- */
+
+/* Dated today unless the user sets it. The absence period's two ends are
+   not on the record: they start empty and must be set. */
+export function absenceDates(emp, set = {}, today = todayUTC()) {
+  const d = (k) => (has(set, k) ? set[k] : null)
+  return {
+    today: has(set, 'today') ? set.today : today,
+    idIssued: emp ? parseISO(emp.id_issue_date) : null,
+    hired: emp ? parseISO(emp.hired_on) : null,
+    from: d('from'),
+    to: d('to'),
+  }
+}
+
+/* A count of days that may be nought, in Arabic digits; empty until typed. */
+const days = (n) => (n === '' || n == null ? '' : toArabicDigits(n))
+
+/* The dates absent, as typed: each dd/mm/yyyy in it laid out like the
+   form's other dates, right to left, in Arabic digits. */
+const absenceDateList = (text) => toArabicDigits(String(text || '').replace(
+  /[0-9٠-٩]{1,2}\s*[/\-.]\s*[0-9٠-٩]{1,2}\s*[/\-.]\s*[0-9٠-٩]{4}/g,
+  (m) => { const d = parseDMY(m); return d ? arDate(d) : m }))
+
+/* The employee's details come from the record; the two counts of days
+   and the dates absent are typed. */
+export function absenceValues(emp, d, inputs = {}) {
+  return {
+    1: arDate(d.today),
+    2: emp?.arabic_name || '',
+    3: toArabicDigits(emp?.national_id || ''),
+    // "صادرة بتاريخ": the card's issue month, as the hiring contract prints it.
+    4: arMonth(d.idIssued),
+    5: toArabicDigits(emp?.si_no || ''),
+    6: emp?.address || '',
+    7: arDate(d.hired),
+    8: jobTitle(emp),
+    9: department(emp),
+    10: arDate(d.from),
+    11: arDate(d.to),
+    12: days(inputs.scattered),
+    13: days(inputs.straight),
+    14: absenceDateList(inputs.dates),
+  }
+}
+
 /* --- The list -------------------------------------------------------- */
 
 /* For each document:
@@ -802,7 +848,8 @@ const FORM6_SPOTS = onLines([
                month ones are month and year only
    inputs      [key, label, kind, blanks, hint] values the user types;
                kind is text, longtext, amount (English digits, shown in
-               Arabic digits and words), count (a whole number), year,
+               Arabic digits and words), count (a whole number from 1),
+               days (a whole number from 0), year,
                person (an employee chosen from the list, by Arabic name)
                or employee (an employee chosen from the list, other than
                the one the form is for; its id is kept, and values() reads
@@ -1182,6 +1229,44 @@ DOCUMENTS.push({
   inputs: [
     ['applicant', 'مقدم الطلب', 'employee', [2, 3, 4, 5, 6]],
     ['reason', 'سبب انتهاء الاشتراك', 'text', [13]],
+  ],
+})
+
+/* A warning to an employee absent without leave, under article 166 of
+   the labour law. The acknowledgement at the foot is signed by hand. */
+DOCUMENTS.push({
+  id: 'absence-warning',
+  title: 'إخطار بالغياب دون إذن',
+  subtitle: 'Absence warning',
+  template: 'templates/absence-warning.docx?v=1',
+  fields: {
+    1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'شهر وسنة إصدار البطاقة',
+    5: 'الرقم التأميني', 6: 'العنوان', 7: 'تاريخ التعيين', 8: 'الوظيفة', 9: 'الإدارة',
+    10: 'بداية فترة الغياب', 11: 'نهاية فترة الغياب',
+    12: 'عدد أيام الغياب المتقطعة', 13: 'عدد أيام الغياب المتصلة', 14: 'أيام الغياب بالتواريخ',
+  },
+  // The address and the list of dates can run onto more lines.
+  wrap: [6, 14],
+  dates: absenceDates,
+  values: absenceValues,
+  info: [
+    [3, 'الرقم القومي'],
+    [4, 'تاريخ إصدار البطاقة'],
+    [5, 'الرقم التأميني'],
+    [6, 'العنوان'],
+    [7, 'تاريخ التعيين'],
+    [8, 'الوظيفة'],
+    [9, 'الإدارة'],
+  ],
+  dateFields: [
+    ['today', 'تاريخ الإخطار', [1]],
+    ['from', 'فترة الغياب من', [10]],
+    ['to', 'فترة الغياب إلى', [11]],
+  ],
+  inputs: [
+    ['scattered', 'عدد أيام الغياب المتقطعة خلال السنة', 'days', [12], 'بالأرقام الإنجليزية، صفر أو أكثر'],
+    ['straight', 'عدد أيام الغياب المتصلة', 'days', [13], 'بالأرقام الإنجليزية، صفر أو أكثر'],
+    ['dates', 'أيام الغياب بالتواريخ', 'longtext', [14], 'مثال: 3/11/2026، 5/11/2026، من 10/11/2026 إلى 14/11/2026'],
   ],
 })
 
@@ -2697,15 +2782,16 @@ function buildInputs(def) {
     input.className = 'hr-input'
     input.type = 'text'
     input.autocomplete = 'off'
-    if (kind === 'count') {
-      // A whole number from 1, in English digits; shown in Arabic digits.
+    if (kind === 'count' || kind === 'days') {
+      // A whole number from 1 (days: from 0), in English digits; shown in
+      // Arabic digits.
       input.dir = 'ltr'
       input.inputMode = 'numeric'
       input.maxLength = 3
       input.placeholder = '0'
       input.addEventListener('input', () => {
         const v = input.value.replace(/[٠-٩]/g, (d) => AR_DIGITS.indexOf(d)).trim()
-        const ok = /^[1-9]\d{0,2}$/.test(v)
+        const ok = (kind === 'days' ? /^(0|[1-9]\d{0,2})$/ : /^[1-9]\d{0,2}$/).test(v)
         input.classList.toggle('is-invalid', !!v && !ok)
         state.inputs[key] = ok ? +v : ''
         refresh()
