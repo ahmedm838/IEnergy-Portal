@@ -1120,7 +1120,7 @@ DOCUMENTS.push({
   id: 'confidentiality',
   title: 'إقرار سرية البيانات',
   subtitle: 'Confidentiality declaration',
-  template: 'templates/confidentiality.docx?v=4',
+  template: 'templates/confidentiality.docx?v=5',
   // The signature line is left for the employee to sign by hand.
   fields: {
     1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
@@ -1146,6 +1146,9 @@ DOCUMENTS.push({
   subtitle: 'Salary account letter (ABK)',
   template: 'templates/bank-account.docx?v=2',
   // Signed and stamped by hand.
+  /* Each paragraph keeps the direction and alignment it has in Word: the
+     logo at the top and the company stamp line sit on the left. */
+  ownDirection: true,
   fields: {
     1: 'تاريخ الخطاب', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'الوظيفة',
     5: 'تاريخ التعيين', 6: 'إجمالي الراتب الشهري',
