@@ -264,7 +264,7 @@ const DOCUMENTS = [
     id: 'hiring-request',
     title: 'طلب تعيين',
     subtitle: 'Hiring request',
-    template: 'templates/hiring-request.docx?v=1',
+    template: 'templates/hiring-request.docx?v=2',
     fields: { 1: 'تاريخ الطلب', 2: 'الإدارة الطالبة', 3: 'المسمى الوظيفي المطلوب', 4: 'تاريخ التعيين المطلوب' },
     dates: hiringRequestDates,
     values: hiringRequestValues,
