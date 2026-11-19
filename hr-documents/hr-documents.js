@@ -816,6 +816,8 @@ const FORM6_SPOTS = onLines([
    wrap        blanks of free text whose line may wrap onto more lines
    tabsWrap    a tab whose next stop is past the line's end starts the
                next line, as in Word (see layoutPartTabs)
+   duplex      printed on both sides: true flips on the long edge,
+               'short' on the short edge
    pool        whose form it is: 'active' employees (the default) or
                'resigned' ones, those with a notice date */
 const DOCUMENTS = [
@@ -1121,8 +1123,8 @@ DOCUMENTS.push({
   },
   // From the company details in the tracker's Settings, not the employee.
   companyFields: [1, 18, 19, 24, 25, 26, 28, 29, 30],
-  // Front and back of one sheet.
-  duplex: true,
+  // Front and back of one sheet, flipped on the short edge.
+  duplex: 'short',
   dates: form1Dates,
   values: form1Values,
   info: [
@@ -1155,7 +1157,7 @@ DOCUMENTS.push({
     spots: FORM6_SPOTS,
   },
   pool: 'resigned',
-  duplex: true,
+  duplex: 'short',
   fields: {
     1: 'مكتب التأمينات', 2: 'مقدم الطلب', 3: 'صفة مقدم الطلب (وظيفته)', 4: 'الرقم التأميني لمقدم الطلب',
     5: 'موبايل مقدم الطلب', 6: 'الرقم القومي لمقدم الطلب',
@@ -2146,9 +2148,12 @@ async function buildPdf({ print = false } = {}) {
   // A scanned form prints on its own paper size; every other form on A4.
   const paper = PAPER[state.def?.scan?.paper || 'a4']
   const pdf = new jsPDF({ unit: 'mm', format: [paper.w, paper.h], orientation: 'portrait', compress: true })
-  // A two-sided form asks the print dialog for both sides, flipped on the
-  // long edge, as a book turns.
-  if (state.def?.duplex) pdf.viewerPreferences({ Duplex: 'DuplexFlipLongEdge' })
+  // A two-sided form asks the print dialog for both sides: duplex: true
+  // flips them on the long edge, as a book turns; duplex: 'short' on the
+  // short edge, as a notepad turns.
+  if (state.def?.duplex) {
+    pdf.viewerPreferences({ Duplex: state.def.duplex === 'short' ? 'DuplexFlipShortEdge' : 'DuplexFlipLongEdge' })
+  }
   // Scaled to the paper in the print dialog, as far as a PDF can ask it.
   pdf.viewerPreferences({ PrintScaling: 'AppDefault' })
   // One time for the whole PDF, the same on every page.
