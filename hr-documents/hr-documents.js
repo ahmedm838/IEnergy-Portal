@@ -1163,7 +1163,7 @@ DOCUMENTS.splice(DOCUMENTS.findIndex((d) => d.id === 'renewal') + 1, 0, {
   id: 'employment-certificate',
   title: 'إفادة عمل',
   subtitle: 'Employment certificate',
-  template: 'templates/employment-certificate.docx?v=1',
+  template: 'templates/employment-certificate.docx?v=2',
   fields: {
     1: 'تاريخ الإفادة', 2: 'الجهة الموجه إليها', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
     5: 'شهر وسنة إصدار البطاقة', 6: 'الوظيفة', 7: 'تاريخ التعيين', 8: 'الراتب الشامل',
