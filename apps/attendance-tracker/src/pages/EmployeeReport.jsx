@@ -177,7 +177,7 @@ export default function EmployeeReport() {
         run(
           supabase
             .from('attendance_records')
-            .select('*, attendance_types ( id, code, name_en, name_ar, overtime_hours, is_working_day, effect )')
+            .select('id, work_date, attendance_type_id, late_minutes, transport, add_to_leave_balance, clock_in, clock_out, note, attendance_types ( id, code, name_en, name_ar, overtime_hours, is_working_day, effect )')
             .eq('employee_id', employeeId)
             .gte('work_date', range.from)
             .lte('work_date', range.to)

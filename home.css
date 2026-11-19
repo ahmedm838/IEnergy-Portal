@@ -807,3 +807,19 @@ body.home .container > .section { margin-top: 0; }
 .pw-gate-card .field { display: block; margin-bottom: 12px; }
 .pw-gate-card .auth-actions { margin-top: 16px; }
 .pw-gate-card .btn { width: 100%; }
+
+/* A leave row opens to list its days. */
+.dash-days-toggle {
+  all: unset; cursor: pointer; font-weight: 600;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+}
+.dash-days-toggle::after { content: ' \25B8'; font-size: 11px; color: var(--muted); }
+.dash-days-toggle[aria-expanded="true"]::after { content: ' \25BE'; }
+.dash-days-toggle:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; border-radius: 3px; }
+.dash-table .dash-days-row td { text-align: left; font-weight: 400; padding: 6px 8px 10px 24px; background: var(--hover, rgba(0,0,0,.03)); }
+.dash-days { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dash-days + .dash-days { margin-top: 8px; }
+.dash-days-title { width: 100%; font-size: 12px; font-weight: 700; color: var(--muted); }
+.dash-day { padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 12.5px; white-space: nowrap; }
+.dash-days-none { color: var(--muted); font-size: 12.5px; }
+.dash-note-row .dash-days-toggle { font-weight: inherit; }

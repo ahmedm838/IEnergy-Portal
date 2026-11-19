@@ -28,6 +28,37 @@
   let renderSequence = 0;
   let controlsBound = false;
 
+  /* Kept for a few minutes, in this tab, so going back to the home page
+     or stepping to a period already seen costs no request. The free
+     database plan counts every byte sent, and these figures only move
+     when somebody saves attendance. A reload after five minutes, or a
+     new tab, asks again. */
+  const CACHE_MS = 5 * 60 * 1000;
+  function cacheGet(key) {
+    try {
+      const hit = JSON.parse(sessionStorage.getItem(key));
+      if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
+    } catch (_) { /* no storage: fetch every time */ }
+    return null;
+  }
+  function cachePut(key, data) {
+    try { sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data })); } catch (_) {}
+  }
+
+  /* Which days the leave balances are made of, asked for only when a
+     row is opened, once per calendar year. */
+  async function leaveDays(supabase, employeeId, to) {
+    const key = `ienergy-dash-days:${employeeId}:${to.slice(0, 4)}`;
+    const cached = cacheGet(key);
+    if (cached) return cached;
+    const { data, error } = await supabase.rpc('report_employee_leave_days', {
+      p_employee_id: employeeId, p_to: to,
+    });
+    if (error) throw error;
+    cachePut(key, data || []);
+    return data || [];
+  }
+
   function shiftPeriod(delta) {
     const [year, month] = selectedPeriod.to.split('-').map(Number);
     selectedPeriod = payrollPeriod(new Date(year, month - 1 + delta, 20));
@@ -89,6 +120,72 @@
     return cell;
   }
 
+  const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function dayLabel(value) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? ''));
+    if (!m) return '';
+    const wd = WEEKDAYS[new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()];
+    return `${wd} ${dmy(value)}`;
+  }
+
+  /* Open or close the list of days under a balance row. */
+  async function toggleDays(tr, btn, pick, supabase, employeeId, to) {
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains('dash-days-row')) {
+      next.remove();
+      btn.setAttribute('aria-expanded', 'false');
+      tr.classList.remove('is-open');
+      return;
+    }
+    const row = document.createElement('tr');
+    row.className = 'dash-days-row';
+    const cell = document.createElement('td');
+    cell.colSpan = tr.children.length;
+    cell.textContent = 'Loading days…';
+    row.appendChild(cell);
+    tr.after(row);
+    btn.setAttribute('aria-expanded', 'true');
+    tr.classList.add('is-open');
+
+    let days;
+    try {
+      days = await leaveDays(supabase, employeeId, to);
+    } catch (_) {
+      cell.textContent = 'Could not load the days. Please try again.';
+      return;
+    }
+    if (!row.isConnected) return;
+    cell.textContent = '';
+    const groups = pick(days);
+    for (const [title, list] of groups) {
+      const block = document.createElement('div');
+      block.className = 'dash-days';
+      if (title) {
+        const h = document.createElement('div');
+        h.className = 'dash-days-title';
+        h.textContent = `${title} (${list.length})`;
+        block.appendChild(h);
+      }
+      if (!list.length) {
+        const none = document.createElement('span');
+        none.className = 'dash-days-none';
+        none.textContent = 'No days this year.';
+        block.appendChild(none);
+      }
+      for (const d of list) {
+        const chip = document.createElement('span');
+        chip.className = 'dash-day';
+        chip.textContent = dayLabel(d.d);
+        // Under "Other leaves" each day says what it was.
+        if (d.n && groups.length === 1 && !title && new Set(list.map((x) => x.n)).size > 1) {
+          chip.textContent += ` · ${d.n}`;
+        }
+        block.appendChild(chip);
+      }
+      cell.appendChild(block);
+    }
+  }
+
   async function render() {
     const section = document.getElementById('dashboard');
     if (!section || !window.IEnergyAuth) return;
@@ -114,9 +211,14 @@
     section.hidden = false;
     statsEl.textContent = 'Loading period…';
     balancesEl.innerHTML = '';
-    const mine = await supabase.rpc('report_employee_summary', {
-      p_employee_id: me.id, p_from: period.from, p_to: period.to,
-    }).then((r) => (r.error ? null : r.data)).catch(() => null);
+    const summaryKey = `ienergy-dash:${me.id}:${period.from}`;
+    let mine = cacheGet(summaryKey);
+    if (!mine) {
+      mine = await supabase.rpc('report_employee_summary', {
+        p_employee_id: me.id, p_from: period.from, p_to: period.to,
+      }).then((r) => (r.error ? null : r.data)).catch(() => null);
+      if (mine) cachePut(summaryKey, mine);
+    }
     if (sequence !== renderSequence) return;
 
     statsEl.innerHTML = '';
@@ -152,13 +254,34 @@
         '<th>Balance</th><th>Consumed</th><th>Remaining</th></tr></thead>';
       const body = document.createElement('tbody');
 
-      for (const b of mine.balances) {
+      const opener = (tr, label, pick) => {
+        const cell = tr.firstElementChild;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dash-days-toggle';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.title = 'Show the days';
+        btn.textContent = label;
+        cell.textContent = '';
+        cell.appendChild(btn);
+        btn.addEventListener('click', () => toggleDays(tr, btn, pick, supabase, me.id, period.to));
+      };
+      const KIND = ['annual', 'unplanned', null];
+
+      for (const [i, b] of mine.balances.entries()) {
         const tr = document.createElement('tr');
         const remaining = Number(b.remaining);
         tr.innerHTML =
           `<td>${b.label}</td><td>${num(b.balance, 1)}</td>` +
           `<td>${num(b.consumed, 1)}</td>` +
           `<td class="${remaining < 0 ? 'bad' : 'good'}">${num(remaining, 1)}</td>`;
+        // The third row is the added days: earned and taken are both lists.
+        const kind = KIND[i] ?? null;
+        if (kind) opener(tr, b.label, (d) => [[null, d.filter((x) => x.k === kind)]]);
+        else opener(tr, b.label, (d) => [
+          ['Earned', d.filter((x) => x.k === 'added')],
+          ['Taken', d.filter((x) => x.k === 'added_used')],
+        ]);
         body.appendChild(tr);
       }
 
@@ -186,6 +309,7 @@
       other.innerHTML =
         '<td>Other leaves</td>' +
         `<td class="muted">—</td><td>${num(mine.other_leaves, 1)}</td><td class="muted">—</td>`;
+      opener(other, 'Other leaves', (d) => [[null, d.filter((x) => x.k === 'other')]]);
       body.appendChild(other);
 
       /* What those days were, each with its count in the Consumed
@@ -200,6 +324,7 @@
           '<td class="muted">—</td>' +
           `<td>${num(t.days, 1)}</td>` +
           '<td class="muted">—</td>';
+        opener(row, t.name_en, (d) => [[null, d.filter((x) => x.k === 'other' && x.n === t.name_en)]]);
         body.appendChild(row);
       }
 

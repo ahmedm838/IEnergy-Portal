@@ -422,9 +422,21 @@ $('signOutBtn').addEventListener('click', async () => {
 /* Loading                                                             */
 /* ------------------------------------------------------------------ */
 
+/* Reference lists change only when someone edits Settings, yet were
+   fetched -- eight requests -- every time this page opened. They are kept
+   for a quarter of an hour in this tab; the tracker's Settings page
+   drops the copy when it changes one of them. */
+const LOOKUPS_KEY = 'ienergy-lookups:employee-database'
+const LOOKUPS_MS = 15 * 60 * 1000
+
 async function loadLookups() {
+  let cached = null
+  try {
+    const hit = JSON.parse(sessionStorage.getItem(LOOKUPS_KEY))
+    if (hit && Date.now() - hit.at < LOOKUPS_MS) cached = hit.results
+  } catch { /* no storage: fetch */ }
   const q = (table, select, order) => supabase.from(table).select(select).order(order)
-  const [sites, departments, sectors, statuses, degrees, busRoutes, govs, levels] = await Promise.all([
+  const results = cached ?? await Promise.all([
     q('sites', 'id, name', 'sort_order'),
     // sector_id rides along for the Sector box, which reads the sector
     // off the chosen department rather than off the employee.
@@ -441,6 +453,14 @@ async function loadLookups() {
     q('governorates', 'code, name_ar', 'code'),
     q('employee_levels', 'id, code, name', 'sort_order'),
   ])
+  if (!cached && results.every((r) => !r.error)) {
+    try {
+      sessionStorage.setItem(LOOKUPS_KEY, JSON.stringify({
+        at: Date.now(), results: results.map((r) => ({ data: r.data })),
+      }))
+    } catch { /* full or private: next load fetches again */ }
+  }
+  const [sites, departments, sectors, statuses, degrees, busRoutes, govs, levels] = results
   const rows = (r) => (r.error ? [] : r.data ?? [])
   lookups = {
     ...lookups,
@@ -840,7 +860,7 @@ function cachedProfile() {
     // portal collapses both into "admin" for its own purposes, which is
     // not the question this page asks.
     if (!raw || !raw.id || !raw.trackerRole) return null
-    return { id: raw.id, code: raw.code, name: raw.name, title: raw.title, role: raw.trackerRole }
+    return { id: raw.id, code: raw.code, name: raw.name, title: raw.title, role: raw.trackerRole, confirmedAt: raw.confirmedAt }
   } catch (_) {
     return null
   }
@@ -892,6 +912,10 @@ async function start() {
     // The lists and the totals need no permission beyond the session,
     // so they can start loading while the check below runs.
     loadLookups().then(loadTotals).catch(() => {})
+    /* Confirmed by the portal a few minutes ago in this tab: the server
+       is not asked again. Its periodic session check still runs on the
+       portal pages, and row level security guards every query here. */
+    if (Date.now() - Number(known.confirmedAt || 0) < 9 * 60 * 1000) return
   } else if (!hasToken) {
     // No session: there is one sign-in and it is not here. Send them to
     // it rather than showing a second one.

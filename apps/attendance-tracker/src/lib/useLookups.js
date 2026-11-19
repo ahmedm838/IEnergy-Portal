@@ -19,6 +19,13 @@ let lookupsValue = null
 export function clearLookupsCache() {
   lookupsCache = null
   lookupsValue = null
+  // The portal pages keep their own short-lived copies of these lists in
+  // this tab (keys starting ienergy-lookups:); a change here drops them.
+  try {
+    for (const key of Object.keys(sessionStorage)) {
+      if (key.startsWith('ienergy-lookups:')) sessionStorage.removeItem(key)
+    }
+  } catch { /* no storage */ }
 }
 
 /**

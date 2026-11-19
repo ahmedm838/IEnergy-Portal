@@ -141,7 +141,9 @@ export default function Attendance() {
       const data = await run(
         supabase
           .from('attendance_records')
-          .select('*')
+          // Only what the grid shows: no ids, audit stamps or timestamps,
+          // which were half of every row sent.
+          .select('work_date, attendance_type_id, late_minutes, transport, add_to_leave_balance, clock_in, clock_out, note')
           .eq('employee_id', employeeId)
           .gte('work_date', range.from)
           .lte('work_date', range.to),

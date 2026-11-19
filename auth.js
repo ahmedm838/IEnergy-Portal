@@ -98,7 +98,7 @@
 
   function rememberProfile(who) {
     try {
-      if (who) sessionStorage.setItem(PROFILE_KEY, JSON.stringify(who));
+      if (who) sessionStorage.setItem(PROFILE_KEY, JSON.stringify({ ...who, confirmedAt: Date.now() }));
       else sessionStorage.removeItem(PROFILE_KEY);
     } catch (_) { /* private mode; the page still works, just slower */ }
   }
@@ -879,6 +879,19 @@
         return false;
       }
       return settle();
+    }
+
+    /* Confirmed a moment ago, in this tab: no need to ask again.
+
+       Every page used to ask the server twice on arrival -- who is this
+       token, and which employee is that -- even when the previous page
+       had asked the same thing seconds before. On the free database plan
+       those two were the most frequent requests the site made. The
+       periodic check above still asks the server every few minutes, so a
+       session ended elsewhere is still caught; a changed role shows on
+       the next page after that window. */
+    if (profile && known && Date.now() - Number(known.confirmedAt || 0) < SESSION_CHECK_MS) {
+      return Promise.resolve(settle());
     }
 
     return loadProfile()

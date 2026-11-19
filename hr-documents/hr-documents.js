@@ -2795,13 +2795,39 @@ const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on'
 /* Department names by id, in Arabic where the department has one
    (departments.name_ar, from migration 20261112160001) and as stored
    otherwise. A database without that column yet gives the stored names. */
+/* Reference lists (departments, sectors, statuses) change rarely, and
+   were asked for every time the page opened. Kept for a quarter of an
+   hour in this tab; the tracker's Settings page drops the copies when it
+   changes one. Only these small lists -- never employee records. */
+const LOOKUP_MS = 15 * 60 * 1000
+async function cachedLookup(key, load) {
+  try {
+    const hit = JSON.parse(sessionStorage.getItem('ienergy-lookups:' + key))
+    if (hit && Date.now() - hit.at < LOOKUP_MS) return hit.rows
+  } catch { /* no storage */ }
+  const rows = await load()
+  if (rows) {
+    try { sessionStorage.setItem('ienergy-lookups:' + key, JSON.stringify({ at: Date.now(), rows })) } catch { /* full */ }
+  }
+  return rows || []
+}
+
 async function loadDepartments(supabase) {
+  const [data, sectors] = await Promise.all([
+    cachedLookup('hr-departments', () => fetchDepartments(supabase)),
+    cachedLookup('hr-sectors', async () => {
+      const r = await supabase.from('sectors').select('id, name_ar')
+      return r.error ? null : r.data || []
+    }),
+  ])
+  const sectorAr = new Map(sectors.map((x) => [x.id, x.name_ar || '']))
+  return new Map(data.map((d) => [d.id, { en: d.name, ar: d.name_ar || '', sectorAr: sectorAr.get(d.sector_id) || '' }]))
+}
+
+async function fetchDepartments(supabase) {
   let { data, error } = await supabase.from('departments').select('id, name, name_ar, sector_id')
   if (error && error.code === '42703') ({ data, error } = await supabase.from('departments').select('id, name, sector_id'))
-  if (error) return new Map()
-  const sectors = await supabase.from('sectors').select('id, name_ar')
-  const sectorAr = new Map((sectors.data || []).map((x) => [x.id, x.name_ar || '']))
-  return new Map((data || []).map((d) => [d.id, { en: d.name, ar: d.name_ar || '', sectorAr: sectorAr.get(d.sector_id) || '' }]))
+  return error ? null : data || []
 }
 
 async function loadEmployees() {
@@ -2815,6 +2841,9 @@ async function loadEmployees() {
      address (20261112150001) or id_issue_date (20261116100001). The page
      still opens without it; that blank prints empty until the migration
      is applied. Dropped one at a time, as the error names them. */
+  // The small lists load alongside the employees rather than after them.
+  const lists = Promise.all([loadDepartments(supabase), loadStatuses(supabase)])
+  lists.catch(() => {})
   let columns = EMPLOYEE_COLUMNS
   let { data, error } = await query(columns)
   let missing
@@ -2824,8 +2853,7 @@ async function loadEmployees() {
     ;({ data, error } = await query(columns))
   }
   if (error) throw error
-  const departments = await loadDepartments(supabase)
-  const statuses = await loadStatuses(supabase)
+  const [departments, statuses] = await lists
   state.employees = (data || []).map((e) => ({
     ...e,
     department_ar: departments.get(e.department_id)?.ar || '',
@@ -2838,9 +2866,11 @@ async function loadEmployees() {
 }
 
 async function loadStatuses(supabase) {
-  const { data, error } = await supabase.from('employee_statuses').select('id, name')
-  if (error) return new Map()
-  return new Map((data || []).map((s) => [s.id, s.name]))
+  const data = await cachedLookup('hr-statuses', async () => {
+    const r = await supabase.from('employee_statuses').select('id, name')
+    return r.error ? null : r.data || []
+  })
+  return new Map(data.map((s) => [s.id, s.name]))
 }
 
 /* The employees a form is for: those working here, or, for the
