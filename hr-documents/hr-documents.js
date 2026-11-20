@@ -272,21 +272,22 @@ export function renewalValues(emp, d) {
 
 /* The notice is dated today unless the user sets it. The last working
    day is the end of the contract on the record (contract_expiry, which
-   counts the renewals). The date of the last renewal letter is not on
-   the record, so it is typed, and the notice waits for it. */
+   counts the renewals). */
 export function terminationDates(emp, set = {}, today = todayUTC()) {
   return {
     today: has(set, 'today') ? set.today : today,
     hired: emp ? parseISO(emp.hired_on) : null,
-    renewalLetter: has(set, 'renewalLetter') ? set.renewalLetter : null,
     lastDay: emp ? parseISO(emp.contract_expiry) : null,
   }
 }
 
-/* The termination notice's blanks. (6)-(7) and (8)-(9) are the last
-   working day, in the company's letter and in the employee's
-   acknowledgement; (10) is the employee's name above the signature,
-   which is signed by hand. */
+/* The termination notice's blanks. (5) is when the last renewal ends --
+   the contract expiry on the record -- and only for a contract renewed
+   at least once (renewals on the record); never renewed, it is left
+   empty and its line is not printed (dropLines). (6)-(7) and (8)-(9)
+   are the last working day, in the company's letter and in the
+   employee's acknowledgement; (10) is the employee's name above the
+   signature, which is signed by hand; (11) the address on the record. */
 export function terminationValues(emp, d) {
   const name = emp?.arabic_name || ''
   return {
@@ -294,12 +295,13 @@ export function terminationValues(emp, d) {
     2: name,
     3: toArabicDigits(emp?.national_id || ''),
     4: arDate(d.hired),
-    5: arDate(d.renewalLetter),
+    5: Number(emp?.renewals) > 0 ? arDate(d.lastDay) : '',
     6: arDay(d.lastDay),
     7: arDate(d.lastDay),
     8: arDay(d.lastDay),
     9: arDate(d.lastDay),
     10: name,
+    11: emp?.address || '',
   }
 }
 
@@ -1248,23 +1250,28 @@ DOCUMENTS.push({
   id: 'termination-notice',
   title: 'إخطار بعدم تجديد عقد العمل',
   subtitle: 'Termination notice (contract not renewed)',
-  template: 'templates/termination-notice.docx?v=2',
+  template: 'templates/termination-notice.docx?v=3',
   fields: {
     1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
-    5: 'تاريخ آخر خطاب تجديد', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد',
+    5: 'تاريخ انتهاء آخر تجديد', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد',
     8: 'تاريخ انتهاء العقد', 9: 'تاريخ انتهاء العقد', 10: 'الاسم بالعربية',
+    11: 'العنوان',
   },
+  // No renewals: (5) is empty, and its line is left out of the notice.
+  optional: [5],
+  dropLines: [5],
   dates: terminationDates,
   values: terminationValues,
   info: [
     [3, 'الرقم القومي'],
     [4, 'تاريخ العقد (التعيين)'],
+    [11, 'العنوان'],
+    [5, 'تاريخ انتهاء آخر تجديد'],
     [6, 'آخر يوم عمل'],
     [7, 'تاريخ انتهاء العقد'],
   ],
   dateFields: [
     ['today', 'تاريخ الإخطار', [1]],
-    ['renewalLetter', 'تاريخ آخر خطاب تجديد', [5]],
   ],
   inputs: [],
 })
@@ -1682,6 +1689,7 @@ export function combine(head, parts) {
     fields: Object.assign({}, ...at.map(({ def, off }) =>
       Object.fromEntries(Object.entries(def.fields).map(([n, label]) => [off + +n, label])))),
     optional: at.flatMap(({ def, off }) => move(off, def.optional || [])),
+    dropLines: at.flatMap(({ def, off }) => move(off, def.dropLines || [])),
     wrap: at.flatMap(({ def, off }) => move(off, def.wrap || [])),
     // Each label once, at its first place.
     info: at.flatMap(({ def, off }) => def.info.map(([n, label]) => [off + n, label]))
@@ -2839,7 +2847,7 @@ const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on'
   'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name',
   'secondary_contact_relation', 'secondary_contact_title',
   'status_id', 'notice_date', 'resignation_date', 'resignation_reason',
-  'email', 'si_date', 'si_code', 'governorate_code']
+  'email', 'si_date', 'si_code', 'governorate_code', 'renewals']
 
 /* Department names by id, in Arabic where the department has one
    (departments.name_ar, from migration 20261112160001) and as stored
@@ -3421,6 +3429,18 @@ function showSections(def, inputs) {
   }
 }
 
+/* Lines left out when their blank is empty (def.dropLines): the whole
+   paragraph goes, on screen and in the PDF, rather than printing a
+   sentence with nothing in it. */
+function dropEmptyLines(def, values) {
+  for (const n of def.dropLines || []) {
+    for (const span of $('preview').querySelectorAll(`.hr-field[data-field="${n}"]`)) {
+      const p = span.closest('p')
+      if (p) p.style.display = values[n] ? '' : 'none'
+    }
+  }
+}
+
 /* A form that reads more than the employee record (def.fetch): what it
    read for this employee and these dates, as ctx.fetched, or
    ctx.fetchError. Read once for each employee and set of dates, then kept
@@ -3457,6 +3477,7 @@ function refresh() {
   releaseLines($('preview'))
   fillFields(values)
   showSections(def, inputs)
+  dropEmptyLines(def, values)
   layoutTabs($('preview'))
   keepLines($('preview'))
   const editable = editableBlanks(def)
