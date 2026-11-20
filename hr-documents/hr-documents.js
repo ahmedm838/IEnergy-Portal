@@ -1079,11 +1079,11 @@ const DOCUMENTS = [
     id: 'work-start',
     title: 'إقرار استلام عمل',
     subtitle: 'Work start acknowledgement',
-    template: 'templates/work-start.docx?v=6',
+    template: 'templates/work-start.docx?v=7',
     fields: {
       1: 'الاسم بالعربية', 2: 'الرقم القومي',
       5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'تاريخ الإقرار',
-      10: 'الشئون الإدارية', 11: 'تاريخ الإقرار', 12: 'شهر وسنة إصدار البطاقة',
+      10: 'إدارة الموارد البشرية', 11: 'تاريخ الإقرار', 12: 'شهر وسنة إصدار البطاقة',
       13: 'الرقم التأميني',
     },
     dates: workStartDates,
@@ -1098,13 +1098,13 @@ const DOCUMENTS = [
     ],
     dateFields: [['today', 'تاريخ الإقرار', [11, 9]]],
     // Who signs for administrative affairs, chosen from the employees.
-    inputs: [['admin', 'الشئون الإدارية', 'person', [10]]],
+    inputs: [['admin', 'إدارة الموارد البشرية', 'person', [10]]],
   },
   {
     id: 'social-status',
     title: 'إقرار الحالة الاجتماعية',
     subtitle: 'Social status declaration',
-    template: 'templates/social-status.docx?v=8',
+    template: 'templates/social-status.docx?v=9',
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
       7: 'النوع (من الرقم القومي)', 8: 'الجنسية (من الرقم القومي)', 9: 'الديانة',
@@ -1148,7 +1148,7 @@ DOCUMENTS.push({
   id: 'confidentiality',
   title: 'إقرار سرية البيانات',
   subtitle: 'Confidentiality declaration',
-  template: 'templates/confidentiality.docx?v=5',
+  template: 'templates/confidentiality.docx?v=6',
   // The signature line is left for the employee to sign by hand.
   fields: {
     1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
@@ -1198,7 +1198,7 @@ DOCUMENTS.splice(DOCUMENTS.findIndex((d) => d.id === 'renewal') + 1, 0, {
   id: 'employment-certificate',
   title: 'إفادة عمل',
   subtitle: 'Employment certificate',
-  template: 'templates/employment-certificate.docx?v=4',
+  template: 'templates/employment-certificate.docx?v=5',
   fields: {
     1: 'تاريخ الإفادة', 2: 'الجهة الموجه إليها', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
     5: 'شهر وسنة إصدار البطاقة', 6: 'الوظيفة', 7: 'تاريخ التعيين', 8: 'الراتب الشامل',
@@ -1339,7 +1339,7 @@ DOCUMENTS.push({
   id: 'experience-certificate',
   title: 'شهادة خبرة',
   subtitle: 'Experience certificate',
-  template: 'templates/experience-certificate.docx?v=2',
+  template: 'templates/experience-certificate.docx?v=3',
   pool: 'resigned',
   fields: {
     1: 'تاريخ الشهادة', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'الوظيفة',
