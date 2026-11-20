@@ -657,6 +657,29 @@ export function resignationValues(emp, d, inputs = {}) {
   }
 }
 
+/* --- Experience certificate (شهادة خبرة) ------------------------------ */
+
+/* Dated today unless the user sets it; the period runs from the hiring
+   date to the last working day, the resignation date on the record. */
+export function experienceDates(emp, set = {}, today = todayUTC()) {
+  return {
+    certificateDate: has(set, 'certificateDate') ? set.certificateDate : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+    lastDay: emp ? parseISO(emp.resignation_date) : null,
+  }
+}
+
+export function experienceValues(emp, d) {
+  return {
+    1: arDate(d.certificateDate),
+    2: emp?.arabic_name || '',
+    3: toArabicDigits(emp?.national_id || ''),
+    4: jobTitle(emp),
+    5: arDate(d.hired),
+    6: arDate(d.lastDay),
+  }
+}
+
 /* --- Form 1 Social Insurance (طلب اشتراك مؤمن عليه) ------------------- */
 
 /* Dated today unless the user sets it ("تحريرًا في"); the subscription
@@ -1302,6 +1325,27 @@ DOCUMENTS.push({
    employee, no blanks, nothing to check. It prints on both sides of the
    paper (duplex). */
 DOCUMENTS.push({
+  id: 'experience-certificate',
+  title: 'شهادة خبرة',
+  subtitle: 'Experience certificate',
+  template: 'templates/experience-certificate.docx?v=1',
+  pool: 'resigned',
+  fields: {
+    1: 'تاريخ الشهادة', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'الوظيفة',
+    5: 'تاريخ التعيين', 6: 'تاريخ الاستقالة (آخر يوم عمل)',
+  },
+  dates: experienceDates,
+  values: experienceValues,
+  info: [
+    [3, 'الرقم القومي'],
+    [4, 'الوظيفة'],
+    [5, 'تاريخ التعيين'],
+    [6, 'آخر يوم عمل'],
+  ],
+  dateFields: [['certificateDate', 'تاريخ شهادة الخبرة', [1]]],
+  inputs: [],
+})
+DOCUMENTS.push({
   id: 'job-application',
   title: 'طلب توظيف',
   subtitle: 'Job application · blank form',
@@ -1687,15 +1731,16 @@ pack({
 
 /* The leaving papers, for an employee with a resignation on record: the
    notice that the contract is not renewed, the resignation, the
-   clearance notice and the termination and final settlement agreement.
+   clearance notice, the termination and final settlement agreement and,
+   last, the experience certificate.
    Each keeps its own dates: the resignation's from the record, the
    notice's own date and its contract expiry. */
 pack({
   id: 'leaving-pack',
   title: 'مستندات إنهاء الخدمة',
-  subtitle: 'Leaving papers · non-renewal notice, resignation, clearance, settlement',
+  subtitle: 'Leaving papers · non-renewal notice, resignation, clearance, settlement, experience certificate',
   pool: 'resigned',
-}, ['termination-notice', 'resignation', 'clearance', 'termination-settlement'], (p) => {
+}, ['termination-notice', 'resignation', 'clearance', 'termination-settlement', 'experience-certificate'], (p) => {
   // The notice and the agreement share one date.
   p.dateFields = p.dateFields.map(([key, label, ...rest]) => [key, key === 'today' ? 'تاريخ الإخطار والاتفاق' : label, ...rest])
   return p
