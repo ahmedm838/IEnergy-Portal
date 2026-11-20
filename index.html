@@ -7,7 +7,7 @@
   <title>IEnergy Portal</title>
   <link rel="icon" type="image/png" href="favicon.png?v=2" />
   <link rel="stylesheet" href="responsive.css?v=1" />
-  <link rel="stylesheet" href="home.css?v=22" />
+  <link rel="stylesheet" href="home.css?v=23" />
   <script src="theme.js?v=4"></script>
   <script src="print-stamp.js?v=1"></script>
   <!-- Fetch a page when the pointer settles on its link, so the click
@@ -152,6 +152,12 @@
           <div class="tile-desc">Read and download the latest company policies.</div>
         </a>
 
+        <!-- Every signed-in user can change their own password. -->
+        <button class="tile" type="button" id="changePasswordTile">
+          <div class="tile-title">Change password</div>
+          <div class="tile-desc">Set a new password for your account.</div>
+        </button>
+
         <!-- Settings used to be a tab inside the tracker, where every
              admin could see it and only a super admin could change
              anything. It is its own tile now, shown to super admins
@@ -177,8 +183,8 @@
     </div>
   </main>
 
-  <script src="auth.js?v=14"></script>
-  <script src="dashboard.js?v=11"></script>
+  <script src="auth.js?v=15"></script>
+  <script src="dashboard.js?v=12"></script>
   <script>
     (function () {
       'use strict';
@@ -264,6 +270,10 @@
         }
 
         wirePasswordToggle();
+
+        $('changePasswordTile').addEventListener('click', function () {
+          IEnergyAuth.openChangePassword();
+        });
 
         IEnergyAuth.ensureAuth({
           allowedRoles: ['admin', 'user'],

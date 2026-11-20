@@ -116,6 +116,18 @@ function set_flag(string $id, string $doc, bool $value, string $jwt): bool {
     return $status === 200 && is_array($rows) && count($rows) === 1;
 }
 
+/** Write a file event to the change log, as the signed-in user. A log
+    line that cannot be written does not undo the upload. */
+function log_file_event(string $id, string $doc, string $action, string $jwt): void {
+    [$status] = supabase(
+        'POST',
+        '/rest/v1/rpc/log_employee_file',
+        $jwt,
+        json_encode(['p_employee_id' => $id, 'p_doc' => $doc, 'p_action' => $action])
+    );
+    if ($status < 200 || $status >= 300) error_log("log_employee_file failed ($status) for $id/$doc");
+}
+
 function make_dir(string $dir): void {
     if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
         fail(500, 'Could not create the documents folder on the server.');
@@ -211,6 +223,9 @@ if ($method === 'POST') {
 
     // Written beside the target and renamed over it, so a viewer never
     // gets half a file and a failed replace leaves the old one intact.
+    // A file already there is being replaced: no box changes for that,
+    // so the change log hears it from here (log_employee_file).
+    $replacing = is_file($path);
     $tmp = $path . '.uploading';
     if (!move_uploaded_file($file['tmp_name'], $tmp)) fail(500, 'Could not save the file on the server.');
     @chmod($tmp, 0600);
@@ -221,6 +236,7 @@ if ($method === 'POST') {
     if (!set_flag($id, $doc, true, $jwt)) {
         fail(502, 'The file was saved, but the box could not be ticked. Try uploading again.');
     }
+    if ($replacing) log_file_event($id, $doc, 'replaced', $jwt);
     json_out(['file' => info($path), 'checked' => true]);
 }
 

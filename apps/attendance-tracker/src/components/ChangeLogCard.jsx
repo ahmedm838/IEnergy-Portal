@@ -112,7 +112,7 @@ export default function ChangeLogCard() {
     <Card>
       <CardHeader
         title="Change log"
-        subtitle="Who changed what, when, and what it was before. Recorded by the database on attendance, adjustments, employee records and these settings."
+        subtitle="Who changed what, when, and what it was before. Recorded by the database on attendance, adjustments, employee records, company holidays and these settings, plus personnel files replaced, sign-ins and password changes."
       />
       <div className="grid gap-4 p-5 sm:grid-cols-[repeat(2,minmax(0,160px))_auto] sm:items-end">
         <Field label="From">

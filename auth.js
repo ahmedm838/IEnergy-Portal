@@ -567,6 +567,118 @@
     });
     return true;
   }
+  /* Change password, for any signed-in user, from the main page.
+     The current password is checked first (verify_my_password, in the
+     database, so no second sign-in is logged), then replaced. The
+     change log records the change itself from auth.users. */
+  let changePasswordOpen = false;
+  function openChangePassword() {
+    if (changePasswordOpen) return;
+    changePasswordOpen = true;
+    const opener = document.activeElement;
+
+    const overlay = document.createElement("div");
+    overlay.className = "pw-gate";
+    const card = document.createElement("div");
+    card.className = "pw-gate-card";
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-modal", "true");
+    card.setAttribute("aria-labelledby", "pwChangeTitle");
+
+    const heading = document.createElement("h2");
+    heading.id = "pwChangeTitle";
+    heading.textContent = "Change password";
+    const lead = document.createElement("p");
+    lead.textContent = "Enter your current password, then the new one, at least 8 characters.";
+
+    const current = passwordField("Current password", "pwChangeCurrent");
+    current.input.autocomplete = "current-password";
+    const first = passwordField("New password", "pwChangeNew");
+    const again = passwordField("Repeat new password", "pwChangeAgain");
+
+    const err = document.createElement("div");
+    err.className = "auth-error";
+    err.hidden = true;
+    const ok = document.createElement("div");
+    ok.className = "pw-change-ok";
+    ok.hidden = true;
+
+    const actions = document.createElement("div");
+    actions.className = "auth-actions pw-change-actions";
+    const cancel = document.createElement("button");
+    cancel.className = "btn";
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    const save = document.createElement("button");
+    save.className = "btn primary";
+    save.type = "button";
+    save.textContent = "Save";
+    actions.appendChild(cancel);
+    actions.appendChild(save);
+
+    [heading, lead, current.label, first.label, again.label, err, ok, actions]
+      .forEach(function (el) { card.appendChild(el); });
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    setTimeout(function () { current.input.focus(); }, 50);
+
+    let busy = false;
+    function close() {
+      if (busy) return;
+      document.removeEventListener("keydown", onKey);
+      overlay.remove();
+      changePasswordOpen = false;
+      if (opener && opener.focus) opener.focus();
+    }
+    function onKey(e) { if (e.key === "Escape") close(); }
+    document.addEventListener("keydown", onKey);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+    cancel.addEventListener("click", close);
+
+    const fail = function (text) { err.textContent = text; err.hidden = false; };
+
+    async function submit() {
+      if (busy) return;
+      err.hidden = true;
+      if (!current.input.value) { fail("Enter your current password."); return; }
+      if (first.input.value.length < 8) { fail("Use at least 8 characters for the new password."); return; }
+      if (first.input.value !== again.input.value) { fail("The two new passwords do not match."); return; }
+      if (first.input.value === current.input.value) { fail("The new password must be different from the current one."); return; }
+      busy = true;
+      save.disabled = true;
+      cancel.disabled = true;
+      save.textContent = "Saving...";
+      try {
+        const supabase = await getClient();
+        const check = await supabase.rpc("verify_my_password", { p_password: current.input.value });
+        if (check.error) throw check.error;
+        if (check.data !== true) throw new Error("The current password is not correct.");
+        await setPassword(first.input.value);
+        busy = false;
+        [current, first, again].forEach(function (f) { f.label.hidden = true; });
+        lead.hidden = true;
+        ok.textContent = "Your password has been changed. Use the new one next time you sign in.";
+        ok.hidden = false;
+        save.hidden = true;
+        cancel.disabled = false;
+        cancel.textContent = "Close";
+        cancel.focus();
+      } catch (e) {
+        busy = false;
+        fail((e && e.message) || "Could not change the password. Try again.");
+        save.disabled = false;
+        cancel.disabled = false;
+        save.textContent = "Save";
+      }
+    }
+    save.addEventListener("click", submit);
+    [current.input, first.input, again.input].forEach(function (input) {
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); submit(); }
+      });
+    });
+  }
+
   function mountSignOut(homeHref) {
     if (document.getElementById('logoutBtn')) return null;
 
@@ -911,6 +1023,7 @@
     loadProfile,
     needsPasswordChange,
     setPassword,
+    openChangePassword,
     getClient,
     IDLE_MS,
     // Kept so older pages reading it do not trip over undefined. The

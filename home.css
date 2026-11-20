@@ -263,6 +263,14 @@ body {
   background: var(--fill-3);
 }
 
+/* The change-password tile is a button, drawn like the links beside it. */
+button.tile {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .tile.primary {
   border-color: var(--accent-line);
   background: var(--accent-fill);
@@ -816,6 +824,15 @@ body.home .container > .section { margin-top: 0; }
 .dash-days-toggle::after { content: ' \2197'; font-size: 11px; color: var(--muted); }
 .dash-days-toggle:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; border-radius: 3px; }
 .dash-days { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* In the pop-up the days are a vertical list, one per line. */
+.dash-popup .dash-days { display: block; }
+.dash-popup .dash-days-title { margin-bottom: 4px; }
+.dash-popup .dash-day-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; }
+.dash-popup .dash-day-list li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 12px; font-size: 13.5px; border-bottom: 1px solid var(--line); }
+.dash-popup .dash-day-list li:last-child { border-bottom: 0; }
+.dash-popup .dash-day-num { color: var(--muted); min-width: 1.8em; }
+.dash-popup .dash-day-date { flex: 1; font-variant-numeric: tabular-nums; }
+.dash-popup .dash-day-kind { color: var(--muted); }
 .dash-days + .dash-days { margin-top: 8px; }
 .dash-days-title { width: 100%; font-size: 12px; font-weight: 700; color: var(--muted); }
 .dash-day { padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 12.5px; white-space: nowrap; }
@@ -848,3 +865,13 @@ body.dash-popup-open { overflow: hidden; }
 .dash-popup-close:hover { background: var(--line); color: var(--text); }
 .dash-popup-close:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
 .dash-popup-body { padding: 14px 18px 18px; overflow: auto; font-size: 13.5px; }
+
+/* Change password panel (auth.js openChangePassword). */
+.pw-gate-card .field[hidden] { display: none; }
+.pw-gate-card > p[hidden] { display: none; }
+.pw-change-actions { display: flex; gap: 8px; }
+.pw-gate-card .pw-change-actions .btn { width: auto; flex: 1; }
+.pw-gate-card .pw-change-actions .btn[hidden] { display: none; }
+.pw-change-ok { margin: 4px 0 4px; padding: 10px 12px; border-radius: 10px; font-size: 13.5px;
+  color: var(--success-text, #2e7d32); border: 1px solid currentColor; }
+.pw-change-ok[hidden] { display: none; }

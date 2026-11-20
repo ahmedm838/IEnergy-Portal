@@ -209,16 +209,29 @@
         none.textContent = 'No days this year.';
         block.appendChild(none);
       }
-      for (const d of list) {
-        const chip = document.createElement('span');
-        chip.className = 'dash-day';
-        chip.textContent = dayLabel(d.d);
+      // One day per line, numbered, oldest first.
+      const ol = document.createElement('ol');
+      ol.className = 'dash-day-list';
+      const mixed = groups.length === 1 && !title && new Set(list.map((x) => x.n)).size > 1;
+      [...list].sort((x, y) => String(x.d).localeCompare(String(y.d))).forEach((d, i) => {
+        const li = document.createElement('li');
+        const n = document.createElement('span');
+        n.className = 'dash-day-num';
+        n.textContent = `${i + 1}.`;
+        const date = document.createElement('span');
+        date.className = 'dash-day-date';
+        date.textContent = dayLabel(d.d);
+        li.append(n, date);
         // Under "Other leaves" each day says what it was.
-        if (d.n && groups.length === 1 && !title && new Set(list.map((x) => x.n)).size > 1) {
-          chip.textContent += ` · ${d.n}`;
+        if (d.n && mixed) {
+          const kind = document.createElement('span');
+          kind.className = 'dash-day-kind';
+          kind.textContent = d.n;
+          li.appendChild(kind);
         }
-        block.appendChild(chip);
-      }
+        ol.appendChild(li);
+      });
+      if (list.length) block.appendChild(ol);
       body.appendChild(block);
     }
     if (groups.length === 1) h.textContent = `${label} (${total})`;
