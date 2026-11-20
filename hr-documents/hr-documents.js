@@ -639,10 +639,11 @@ export function resignationDates(emp, set = {}) {
   }
 }
 
-/* The name, job title, last working day and reasons come from the
-   record -- the reasons are the resignation reason on it; the two
-   approvers are chosen. (2) is the weekday of the last working day,
-   "يوم (2) الموافق (3)". */
+/* The name, job title, department, last working day and reasons come
+   from the record -- the reasons are the resignation reason on it; the
+   department manager and the HR manager are chosen. (2) is the weekday
+   of the last working day, "يوم (2) الموافق (3)"; (10) is the employee
+   again, in the company's acceptance. */
 export function resignationValues(emp, d, inputs = {}) {
   const name = emp?.arabic_name || ''
   return {
@@ -653,7 +654,9 @@ export function resignationValues(emp, d, inputs = {}) {
     5: name,
     6: jobTitle(emp),
     7: inputs.manager || '',
+    8: department(emp),
     9: inputs.admin || '',
+    10: name,
     12: name,
     13: arDate(d.acknowledgedOn),
   }
@@ -1220,18 +1223,19 @@ DOCUMENTS.push({
   id: 'resignation',
   title: 'استقالة مسببة',
   subtitle: 'Resignation',
-  template: 'templates/resignation.docx?v=3',
+  template: 'templates/resignation.docx?v=4',
   pool: 'resigned',
   fields: {
     1: 'تاريخ الاستقالة', 2: 'تاريخ الاستقالة (آخر يوم عمل)', 3: 'تاريخ الاستقالة (آخر يوم عمل)',
     4: 'سبب الاستقالة',
-    5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'مدير الإدارة', 9: 'الشئون الإدارية',
-    12: 'الاسم بالعربية', 13: 'تاريخ إقرار الموظف',
+    5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'مدير الإدارة', 8: 'الإدارة', 9: 'مدير الموارد البشرية',
+    10: 'الاسم بالعربية', 12: 'الاسم بالعربية', 13: 'تاريخ إقرار الموظف',
   },
   dates: resignationDates,
   values: resignationValues,
   info: [
     [6, 'الوظيفة'],
+    [8, 'الإدارة'],
     // From the notice date on the record, not typed here.
     [1, 'تاريخ تقديم الاستقالة'],
     [3, 'آخر يوم عمل'],
@@ -1242,8 +1246,8 @@ DOCUMENTS.push({
     ['acknowledgedOn', 'تاريخ إقرار الموظف بالقبول', [13]],
   ],
   inputs: [
-    ['manager', 'اعتماد مدير الإدارة', 'person', [7]],
-    ['admin', 'اعتماد الشئون الإدارية', 'person', [9]],
+    ['manager', 'مدير الإدارة', 'person', [7]],
+    ['admin', 'مدير الموارد البشرية', 'person', [9]],
   ],
 })
 DOCUMENTS.push({
@@ -1279,7 +1283,7 @@ DOCUMENTS.push({
   id: 'clearance',
   title: 'إخلاء طرف',
   subtitle: 'Clearance notice',
-  template: 'templates/clearance-notice.docx?v=1',
+  template: 'templates/clearance-notice.docx?v=2',
   // Its dates are the resignation's, so it is for those who have resigned.
   pool: 'resigned',
   // The delivered / not delivered boxes, the signatures and the line on
