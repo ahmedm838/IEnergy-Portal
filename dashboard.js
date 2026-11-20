@@ -324,9 +324,9 @@
         const tr = document.createElement('tr');
         const remaining = Number(b.remaining);
         tr.innerHTML =
-          `<td>${b.label}</td><td>${num(b.balance, 1)}</td>` +
-          `<td>${num(b.consumed, 1)}</td>` +
-          `<td class="${remaining < 0 ? 'bad' : 'good'}">${num(remaining, 1)}</td>`;
+          `<td>${b.label}</td><td>${num(b.balance, 0)}</td>` +
+          `<td>${num(b.consumed, 0)}</td>` +
+          `<td class="${remaining < 0 ? 'bad' : 'good'}">${num(remaining, 0)}</td>`;
         // The third row is the added days: earned and taken are both lists.
         const kind = KIND[i] ?? null;
         if (kind) opener(tr, b.label, (d) => [[null, d.filter((x) => x.k === kind)]]);
@@ -351,16 +351,16 @@
       total.className = 'dash-total-row';
       total.innerHTML =
         '<td>Total</td>' +
-        `<td>${num(sum('balance'), 1)}</td>` +
-        `<td>${num(sum('consumed'), 1)}</td>` +
-        `<td class="${sum('remaining') < 0 ? 'bad' : 'good'}">${num(sum('remaining'), 1)}</td>`;
+        `<td>${num(sum('balance'), 0)}</td>` +
+        `<td>${num(sum('consumed'), 0)}</td>` +
+        `<td class="${sum('remaining') < 0 ? 'bad' : 'good'}">${num(sum('remaining'), 0)}</td>`;
       body.appendChild(total);
 
       // The leave days none of the three rows above account for.
       const other = document.createElement('tr');
       other.innerHTML =
         '<td>Other leaves</td>' +
-        `<td class="muted">—</td><td>${num(mine.other_leaves, 1)}</td><td class="muted">—</td>`;
+        `<td class="muted">—</td><td>${num(mine.other_leaves, 0)}</td><td class="muted">—</td>`;
       opener(other, 'Other leaves', (d) => [[null, d.filter((x) => x.k === 'other')]]);
       body.appendChild(other);
 
@@ -374,7 +374,7 @@
         row.innerHTML =
           `<td>${t.name_en}</td>` +
           '<td class="muted">—</td>' +
-          `<td>${num(t.days, 1)}</td>` +
+          `<td>${num(t.days, 0)}</td>` +
           '<td class="muted">—</td>';
         opener(row, t.name_en, (d) => [[null, d.filter((x) => x.k === 'other' && x.n === t.name_en)]]);
         body.appendChild(row);
@@ -395,9 +395,9 @@
       foot.className = 'dash-total-row';
       foot.innerHTML =
         '<td>Grand Total</td>' +
-        `<td>${num(sum('balance'), 1)}</td>` +
-        `<td>${num(consumed, 1)}</td>` +
-        `<td class="${sum('remaining') < 0 ? 'bad' : 'good'}">${num(sum('remaining'), 1)}</td>`;
+        `<td>${num(sum('balance'), 0)}</td>` +
+        `<td>${num(consumed, 0)}</td>` +
+        `<td class="${sum('remaining') < 0 ? 'bad' : 'good'}">${num(sum('remaining'), 0)}</td>`;
       grand.appendChild(foot);
       table.appendChild(grand);
       balancesEl.appendChild(table);

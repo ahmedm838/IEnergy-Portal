@@ -420,7 +420,7 @@ export default function EmployeeReport() {
         ...(sortLabel ? [['Rows below sorted by', sortLabel]] : []),
         ...summary.balances.map((b) => [
           `${b.label} — balance / consumed / remaining`,
-          `${num(b.balance)} / ${num(b.consumed)} / ${num(b.remaining)}`,
+          `${num(b.balance, 0)} / ${num(b.consumed, 0)} / ${num(b.remaining, 0)}`,
         ]),
         /* The same three totals the screen now shows, so a file read
            away from this page says what the page said. The export had
@@ -428,9 +428,9 @@ export default function EmployeeReport() {
            other leaves -- which are days the employee took. */
         [
           'Total — balance / consumed / remaining',
-          `${num(sumBalances.balance, 1)} / ${num(sumBalances.consumed, 1)} / ${num(
+          `${num(sumBalances.balance, 0)} / ${num(sumBalances.consumed, 0)} / ${num(
             sumBalances.remaining,
-            1,
+            0,
           )}`,
         ],
         ['Other leaves (days)', Number(summary.other_leaves || 0)],
@@ -440,10 +440,10 @@ export default function EmployeeReport() {
         ]),
         [
           'Grand Total — balance / consumed / remaining',
-          `${num(sumBalances.balance, 1)} / ${num(
+          `${num(sumBalances.balance, 0)} / ${num(
             sumBalances.consumed + Number(summary.other_leaves || 0),
-            1,
-          )} / ${num(sumBalances.remaining, 1)}`,
+            0,
+          )} / ${num(sumBalances.remaining, 0)}`,
         ],
       ],
       columns: exportColumns,
@@ -681,14 +681,14 @@ export default function EmployeeReport() {
                   {summary.balances.map((b) => (
                     <tr key={b.label}>
                       <Td className="font-medium text-ink">{b.label}</Td>
-                      <Td className="tabular text-right">{num(b.balance, 1)}</Td>
-                      <Td className="tabular text-right">{num(b.consumed, 1)}</Td>
+                      <Td className="tabular text-right">{num(b.balance, 0)}</Td>
+                      <Td className="tabular text-right">{num(b.consumed, 0)}</Td>
                       <Td
                         className={`tabular text-right font-semibold ${
                           Number(b.remaining) < 0 ? 'text-on-danger' : 'text-on-success'
                         }`}
                       >
-                        {num(b.remaining, 1)}
+                        {num(b.remaining, 0)}
                       </Td>
                     </tr>
                   ))}
@@ -699,17 +699,17 @@ export default function EmployeeReport() {
                   <tr className="border-t-2 border-line-strong">
                     <Td className="font-semibold text-ink">Total</Td>
                     <Td className="tabular text-right font-semibold">
-                      {num(sumBalances.balance, 1)}
+                      {num(sumBalances.balance, 0)}
                     </Td>
                     <Td className="tabular text-right font-semibold">
-                      {num(sumBalances.consumed, 1)}
+                      {num(sumBalances.consumed, 0)}
                     </Td>
                     <Td
                       className={`tabular text-right font-semibold ${
                         sumBalances.remaining < 0 ? 'text-on-danger' : 'text-on-success'
                       }`}
                     >
-                      {num(sumBalances.remaining, 1)}
+                      {num(sumBalances.remaining, 0)}
                     </Td>
                   </tr>
 
@@ -727,7 +727,7 @@ export default function EmployeeReport() {
                   <tr>
                     <Td className="font-medium text-ink">Other leaves</Td>
                     <Td className="text-right text-ink-4">—</Td>
-                    <Td className="tabular text-right">{num(summary.other_leaves, 1)}</Td>
+                    <Td className="tabular text-right">{num(summary.other_leaves, 0)}</Td>
                     <Td className="text-right text-ink-4">—</Td>
                   </tr>
 
@@ -738,7 +738,7 @@ export default function EmployeeReport() {
                     <tr key={t.name_en}>
                       <Td className="pl-6 text-sm text-ink-3">{t.name_en}</Td>
                       <Td className="text-right text-ink-4">—</Td>
-                      <Td className="tabular text-right text-ink-3">{num(t.days, 1)}</Td>
+                      <Td className="tabular text-right text-ink-3">{num(t.days, 0)}</Td>
                       <Td className="text-right text-ink-4">—</Td>
                     </tr>
                   ))}
@@ -752,17 +752,17 @@ export default function EmployeeReport() {
                   <tr className="border-t-2 border-line-strong">
                     <Td className="font-semibold text-ink">Grand Total</Td>
                     <Td className="tabular text-right font-semibold">
-                      {num(sumBalances.balance, 1)}
+                      {num(sumBalances.balance, 0)}
                     </Td>
                     <Td className="tabular text-right font-semibold">
-                      {num(sumBalances.consumed + Number(summary.other_leaves || 0), 1)}
+                      {num(sumBalances.consumed + Number(summary.other_leaves || 0), 0)}
                     </Td>
                     <Td
                       className={`tabular text-right font-semibold ${
                         sumBalances.remaining < 0 ? 'text-on-danger' : 'text-on-success'
                       }`}
                     >
-                      {num(sumBalances.remaining, 1)}
+                      {num(sumBalances.remaining, 0)}
                     </Td>
                   </tr>
                 </tfoot>
