@@ -1225,7 +1225,7 @@ DOCUMENTS.push({
   id: 'termination-notice',
   title: 'إخطار بعدم تجديد عقد العمل',
   subtitle: 'Termination notice (contract not renewed)',
-  template: 'templates/termination-notice.docx?v=1',
+  template: 'templates/termination-notice.docx?v=2',
   fields: {
     1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
     5: 'تاريخ آخر خطاب تجديد', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد',
@@ -1657,10 +1657,11 @@ export function combine(head, parts) {
   }
 }
 
-/* Forms put together as one (combine), in the list where the first of
-   them was; the single forms leave the list. */
+/* Forms put together as one (combine), in the list where the earliest of
+   them was, whatever order the pack prints them in; the single forms
+   leave the list. */
 function pack(head, ids, fix = (p) => p) {
-  const at = DOCUMENTS.findIndex((d) => d.id === ids[0])
+  const at = Math.min(...ids.map((id) => DOCUMENTS.findIndex((d) => d.id === id)).filter((i) => i >= 0))
   const p = fix(combine(head, ids.map((id) => DOCUMENTS.find((d) => d.id === id))))
   p.template = p.parts[0].def.template
   p.blanks = Object.keys(p.fields).map(Number)
@@ -1685,16 +1686,16 @@ pack({
 })
 
 /* The leaving papers, for an employee with a resignation on record: the
-   resignation, the notice that the contract is not renewed, the
+   notice that the contract is not renewed, the resignation, the
    clearance notice and the termination and final settlement agreement.
    Each keeps its own dates: the resignation's from the record, the
    notice's own date and its contract expiry. */
 pack({
   id: 'leaving-pack',
   title: 'مستندات إنهاء الخدمة',
-  subtitle: 'Leaving papers · resignation, non-renewal notice, clearance, settlement',
+  subtitle: 'Leaving papers · non-renewal notice, resignation, clearance, settlement',
   pool: 'resigned',
-}, ['resignation', 'termination-notice', 'clearance', 'termination-settlement'], (p) => {
+}, ['termination-notice', 'resignation', 'clearance', 'termination-settlement'], (p) => {
   // The notice and the agreement share one date.
   p.dateFields = p.dateFields.map(([key, label, ...rest]) => [key, key === 'today' ? 'تاريخ الإخطار والاتفاق' : label, ...rest])
   return p
