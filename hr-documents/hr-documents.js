@@ -2245,6 +2245,7 @@ async function drawDocument(def) {
     const box = document.createElement('div')
     box.className = 'hr-part'
     box.dataset.part = String(i)
+    if (state.skip.has(i)) box.classList.add('is-skipped')
     box._hr = { ...t, def: part.def, copies: part.copies || 1 }
     preview.appendChild(box)
     await renderAsync(t.blob, box, null, {
@@ -2579,7 +2580,9 @@ const LONG_PAGE = 1.2
    copy after another. Save PDF keeps one of each. */
 async function buildPdf({ print = false } = {}) {
   const preview = $('preview')
+  // In a pack, only the parts ticked to print (state.skip lists the rest).
   const pages = Array.from(preview.querySelectorAll('section.docx'))
+    .filter((page) => !state.skip.has(+page.closest('.hr-part')?.dataset.part))
   // A scanned form prints on its own paper size; every other form on A4.
   const paper = PAPER[state.def?.scan?.paper || 'a4']
   const pdf = new jsPDF({ unit: 'mm', format: [paper.w, paper.h], orientation: 'portrait', compress: true })
@@ -2782,7 +2785,7 @@ async function printPdf() {
 /* dateSet: dates the user has set by hand, by key. inputs: what the user
    has typed (the wage, the address), by key. Both are kept while the
    document is open, so changing the employee keeps them. */
-const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, capturing: false, busy: false, choices: {}, choiceLabel: {}, company: null, fetched: { key: '' }, fetching: '' }
+const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, capturing: false, busy: false, choices: {}, choiceLabel: {}, company: null, fetched: { key: '' }, fetching: '', skip: new Set() }
 
 const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
   'si_no', 'si_title', 'title', 'annual_leave_balance', 'unplanned_leave_balance', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',
@@ -3448,7 +3451,10 @@ function refresh() {
      left empty. What is missing is named -- from the employee record,
      to be put right there, or from the boxes here, to be filled in. */
   const optional = new Set(def.optional || [])
-  const empty = def.blanks.filter((n) => !values[n] && !optional.has(n))
+  // In a pack, a part left out of the print (state.skip) asks for nothing.
+  const inPrint = (n) => !def.parts || !state.skip.has(Math.floor(n / 100) - 1)
+  const empty = def.blanks.filter((n) => !values[n] && !optional.has(n) && inPrint(n))
+  const nothing = !!def.parts && state.skip.size >= def.parts.length
   const names = (list) => [...new Set(list.map((n) => def.fields[n]))].join('، ')
   // Company details (def.companyFields) are kept in the tracker's Settings.
   const ofCompany = new Set(def.companyFields || [])
@@ -3468,11 +3474,12 @@ function refresh() {
   if (emp && toFill.length) notes.push(`أدخل ${names(toFill)}.`)
   const problem = def.check ? def.check(emp, dates, inputs, ctx) : ''
   if (problem) notes.push(problem)
+  if (nothing) notes.push('اختر مستندًا واحدًا على الأقل للطباعة.')
   if (notes.length) notes.push('لا يمكن الحفظ أو الطباعة قبل استكمال كل البيانات.')
   warn.hidden = !notes.length
   warn.textContent = notes.join(' ')
 
-  const ready = (!!emp || !!def.blankForm) && !empty.length && !problem && !state.busy
+  const ready = (!!emp || !!def.blankForm) && !empty.length && !problem && !nothing && !state.busy
   $('savePdfBtn').disabled = !ready
   $('printBtn').disabled = !ready
 }
@@ -3523,12 +3530,74 @@ async function loadCompany() {
   state.company = error ? {} : (data || [])[0] || {}
 }
 
+/* A form of several parts (a pack) lists them with a tick box each:
+   what is ticked is what Save PDF and Print give. All ticked to begin
+   with. A part left out is dimmed in the preview and its blanks no
+   longer have to be filled. */
+function buildPartPicker(def) {
+  const box = $('partPicker')
+  if (!box) return
+  box.innerHTML = ''
+  const parts = def.parts || []
+  box.hidden = parts.length < 2
+  if (parts.length < 2) return
+  const head = document.createElement('div')
+  head.className = 'hr-parts-head'
+  const title = document.createElement('span')
+  title.className = 'hr-label'
+  title.textContent = 'المستندات المطلوب طباعتها'
+  const all = document.createElement('button')
+  all.type = 'button'
+  all.className = 'hr-parts-all'
+  head.append(title, all)
+  box.appendChild(head)
+  const checks = []
+  const sync = () => {
+    const none = state.skip.size === 0
+    all.textContent = none ? 'إلغاء الكل' : 'تحديد الكل'
+    for (const el of $('preview').querySelectorAll('.hr-part')) {
+      el.classList.toggle('is-skipped', state.skip.has(+el.dataset.part))
+    }
+    refresh()
+  }
+  parts.forEach((part, i) => {
+    const row = document.createElement('label')
+    row.className = 'hr-part-option'
+    const cb = document.createElement('input')
+    cb.type = 'checkbox'
+    cb.checked = !state.skip.has(i)
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.skip.delete(i)
+      else state.skip.add(i)
+      sync()
+    })
+    const num = document.createElement('span')
+    num.className = 'hr-part-num'
+    num.textContent = toArabicDigits(i + 1)
+    const name = document.createElement('span')
+    name.textContent = part.def.title + (part.copies > 1 ? ` (${toArabicDigits(part.copies)} نسخ عند الطباعة)` : '')
+    row.append(cb, num, name)
+    box.appendChild(row)
+    checks.push(cb)
+  })
+  all.addEventListener('click', () => {
+    const select = state.skip.size > 0
+    state.skip.clear()
+    if (!select) parts.forEach((_, i) => state.skip.add(i))
+    checks.forEach((cb) => { cb.checked = select })
+    sync()
+  })
+  all.textContent = 'إلغاء الكل'
+}
+
 async function openDocument(def) {
   if (def.companyFields && !state.company) loadCompany().then(() => refresh()).catch((err) => console.error(err))
   state.def = def
   state.employee = null
   state.dateSet = {}
   state.inputs = {}
+  state.skip = new Set()
+  buildPartPicker(def)
   $('employeeSearch').value = ''
   // A blank form is for no one in particular: no employee to choose.
   $('employeeSearch').closest('.hr-picker').hidden = !!def.blankForm
@@ -3557,6 +3626,7 @@ function closeDocument() {
   state.employee = null
   state.dateSet = {}
   state.inputs = {}
+  state.skip = new Set()
   $('editorView').hidden = true
   $('listView').hidden = false
   $('preview').innerHTML = ''

@@ -128,43 +128,80 @@
     return `${wd} ${dmy(value)}`;
   }
 
-  /* Open or close the list of days under a balance row. */
-  async function toggleDays(tr, btn, pick, supabase, employeeId, to) {
-    const next = tr.nextElementSibling;
-    if (next && next.classList.contains('dash-days-row')) {
-      next.remove();
-      btn.setAttribute('aria-expanded', 'false');
-      tr.classList.remove('is-open');
-      return;
-    }
-    const row = document.createElement('tr');
-    row.className = 'dash-days-row';
-    const cell = document.createElement('td');
-    cell.colSpan = tr.children.length;
-    cell.textContent = 'Loading days…';
-    row.appendChild(cell);
-    tr.after(row);
-    btn.setAttribute('aria-expanded', 'true');
-    tr.classList.add('is-open');
+  /* The days behind a balance row, shown in a pop-up over the page.
+     One pop-up at a time; Escape, the close button or a click on the
+     dimmed backdrop closes it and gives focus back to the row. */
+  let openPopup = null;
+  function closeDays() {
+    if (!openPopup) return;
+    const { overlay, opener, onKey } = openPopup;
+    openPopup = null;
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+    document.body.classList.remove('dash-popup-open');
+    if (opener && opener.isConnected) opener.focus();
+  }
+
+  async function showDays(label, btn, pick, supabase, employeeId, to) {
+    closeDays();
+    const overlay = document.createElement('div');
+    overlay.className = 'dash-popup';
+    const card = document.createElement('div');
+    card.className = 'dash-popup-card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    card.setAttribute('aria-labelledby', 'dashPopupTitle');
+
+    const head = document.createElement('div');
+    head.className = 'dash-popup-head';
+    const h = document.createElement('h3');
+    h.id = 'dashPopupTitle';
+    h.textContent = label;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'dash-popup-close';
+    close.setAttribute('aria-label', 'Close');
+    close.textContent = '×';
+    close.addEventListener('click', closeDays);
+    head.appendChild(h);
+    head.appendChild(close);
+
+    const body = document.createElement('div');
+    body.className = 'dash-popup-body';
+    body.textContent = 'Loading days…';
+    card.appendChild(head);
+    card.appendChild(body);
+    overlay.appendChild(card);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDays(); });
+
+    const onKey = (e) => { if (e.key === 'Escape') closeDays(); };
+    document.addEventListener('keydown', onKey);
+    const mine = { overlay, opener: btn, onKey };
+    openPopup = mine;
+    document.body.appendChild(overlay);
+    document.body.classList.add('dash-popup-open');
+    close.focus();
 
     let days;
     try {
       days = await leaveDays(supabase, employeeId, to);
     } catch (_) {
-      cell.textContent = 'Could not load the days. Please try again.';
+      if (openPopup === mine) body.textContent = 'Could not load the days. Please try again.';
       return;
     }
-    if (!row.isConnected) return;
-    cell.textContent = '';
+    if (openPopup !== mine) return;
+    body.textContent = '';
     const groups = pick(days);
+    let total = 0;
     for (const [title, list] of groups) {
+      total += list.length;
       const block = document.createElement('div');
       block.className = 'dash-days';
       if (title) {
-        const h = document.createElement('div');
-        h.className = 'dash-days-title';
-        h.textContent = `${title} (${list.length})`;
-        block.appendChild(h);
+        const t = document.createElement('div');
+        t.className = 'dash-days-title';
+        t.textContent = `${title} (${list.length})`;
+        block.appendChild(t);
       }
       if (!list.length) {
         const none = document.createElement('span');
@@ -182,8 +219,9 @@
         }
         block.appendChild(chip);
       }
-      cell.appendChild(block);
+      body.appendChild(block);
     }
+    if (groups.length === 1) h.textContent = `${label} (${total})`;
   }
 
   async function render() {
@@ -193,6 +231,7 @@
     const me = IEnergyAuth.getProfile();
     if (!me) return;
 
+    closeDays();
     const sequence = ++renderSequence;
     const period = { ...selectedPeriod };
     if (!controlsBound) {
@@ -259,12 +298,12 @@
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'dash-days-toggle';
-        btn.setAttribute('aria-expanded', 'false');
+        btn.setAttribute('aria-haspopup', 'dialog');
         btn.title = 'Show the days';
         btn.textContent = label;
         cell.textContent = '';
         cell.appendChild(btn);
-        btn.addEventListener('click', () => toggleDays(tr, btn, pick, supabase, me.id, period.to));
+        btn.addEventListener('click', () => showDays(label, btn, pick, supabase, me.id, period.to));
       };
       const KIND = ['annual', 'unplanned', null];
 

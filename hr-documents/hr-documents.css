@@ -191,3 +191,16 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
 /* A box to tick (an input of kind flag), its label beside it. */
 .hr-check-label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .hr-check { width: 18px; height: 18px; margin: 0; cursor: pointer; }
+
+/* A pack's parts, each with a tick box: what is ticked is printed. */
+.hr-parts[hidden] { display: none; }
+.hr-parts { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.hr-parts-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.hr-parts-head .hr-label { margin: 0; }
+.hr-parts-all { all: unset; cursor: pointer; font-size: 12.5px; color: var(--accent, #2563eb); text-decoration: underline; text-underline-offset: 3px; }
+.hr-parts-all:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; border-radius: 3px; }
+.hr-part-option { display: flex; align-items: center; gap: 8px; padding: 5px 0; cursor: pointer; font-size: 13.5px; }
+.hr-part-option input { width: 16px; height: 16px; margin: 0; flex-shrink: 0; cursor: pointer; }
+.hr-part-num { min-width: 1.2em; color: var(--muted); font-weight: 700; }
+/* A part left out of the print, dimmed in the preview. */
+.hr-preview .hr-part.is-skipped { opacity: 0.3; }
