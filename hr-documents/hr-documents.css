@@ -204,3 +204,11 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
 .hr-part-num { min-width: 1.2em; color: var(--muted); font-weight: 700; }
 /* A part left out of the print, dimmed in the preview. */
 .hr-preview .hr-part.is-skipped { opacity: 0.3; }
+
+/* The documents list, 20% wider than the page column (980px -> 1176px).
+   Only while the list is showing; the editor keeps its own width. Shared
+   by HR Documents and Employee Documents. */
+.container:has(> #listView:not([hidden])) {
+  --container-max: 1176px;
+  max-width: 1176px;
+}
