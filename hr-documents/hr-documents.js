@@ -1223,7 +1223,7 @@ DOCUMENTS.push({
   id: 'resignation',
   title: 'استقالة مسببة',
   subtitle: 'Resignation',
-  template: 'templates/resignation.docx?v=4',
+  template: 'templates/resignation.docx?v=5',
   pool: 'resigned',
   fields: {
     1: 'تاريخ الاستقالة', 2: 'تاريخ الاستقالة (آخر يوم عمل)', 3: 'تاريخ الاستقالة (آخر يوم عمل)',
@@ -1254,7 +1254,7 @@ DOCUMENTS.push({
   id: 'termination-notice',
   title: 'إخطار بعدم تجديد عقد العمل',
   subtitle: 'Termination notice (contract not renewed)',
-  template: 'templates/termination-notice.docx?v=3',
+  template: 'templates/termination-notice.docx?v=4',
   fields: {
     1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
     5: 'تاريخ انتهاء آخر تجديد', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد',
@@ -1283,7 +1283,7 @@ DOCUMENTS.push({
   id: 'clearance',
   title: 'إخلاء طرف',
   subtitle: 'Clearance notice',
-  template: 'templates/clearance-notice.docx?v=2',
+  template: 'templates/clearance-notice.docx?v=3',
   // Its dates are the resignation's, so it is for those who have resigned.
   pool: 'resigned',
   // The delivered / not delivered boxes, the signatures and the line on
@@ -1339,7 +1339,7 @@ DOCUMENTS.push({
   id: 'experience-certificate',
   title: 'شهادة خبرة',
   subtitle: 'Experience certificate',
-  template: 'templates/experience-certificate.docx?v=1',
+  template: 'templates/experience-certificate.docx?v=2',
   pool: 'resigned',
   fields: {
     1: 'تاريخ الشهادة', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'الوظيفة',
