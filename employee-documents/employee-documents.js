@@ -55,8 +55,8 @@ export function grantDates(emp, set = {}, today = todayUTC()) {
 
 /* The grant is picked from the financial grants table (Settings in the
    tracker): its name is the reason (3), its amount and attachments fill
-   (2) and (4). The requester is the employee chosen at the top. The four
-   approvers, (8) to (11), are left empty: they are written by hand when
+   (2) and (4). The requester is the employee chosen at the top. The three
+   approvers, (8) to (10), are left empty: they are written by hand when
    the form is signed. */
 export function grantValues(emp, d, inputs = {}, ctx = {}) {
   const grant = ctx.choice ? ctx.choice('grant') : null
@@ -75,10 +75,14 @@ export function grantValues(emp, d, inputs = {}, ctx = {}) {
 
 /* Dated today unless the user sets it. */
 export function penaltyDates(emp, set = {}, today = todayUTC()) {
-  return { today: has(set, 'today') ? set.today : today }
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+  }
 }
 
-/* Only the heading is filled: the date and who the notice is about.
+/* Only the heading is filled: the date and who the notice is about,
+   with their hiring date (5) from the record.
    The violations are ticked, explained, signed and decided on by hand. */
 export function penaltyValues(emp, d) {
   return {
@@ -86,6 +90,7 @@ export function penaltyValues(emp, d) {
     2: emp?.arabic_name || '',
     3: jobTitle(emp),
     4: department(emp),
+    5: arDate(d.hired),
   }
 }
 
@@ -215,7 +220,7 @@ const DOCUMENTS = [
     id: 'salary-advance',
     title: 'طلب سلفة (بوجود ضامن)',
     subtitle: 'Salary advance request with a guarantor',
-    template: 'templates/salary-advance.docx?v=2',
+    template: 'templates/salary-advance.docx?v=3',
     fields: {
       1: 'تاريخ الطلب', 2: 'قيمة السلفة', 3: 'عدد الأقساط', 4: 'قيمة القسط',
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة', 8: 'تاريخ التعيين',
@@ -243,14 +248,14 @@ const DOCUMENTS = [
     id: 'financial-grant',
     title: 'طلب صرف منحة مالية',
     subtitle: 'Financial grant request',
-    template: 'templates/financial-grant.docx?v=2',
+    template: 'templates/financial-grant.docx?v=3',
     fields: {
       1: 'تاريخ الطلب', 2: 'نوع المنحة', 3: 'نوع المنحة', 4: 'نوع المنحة',
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة',
-      8: 'مدير الإدارة', 9: 'الشئون الإدارية', 10: 'العضو المنتدب', 11: 'الإدارة المالية',
+      8: 'مدير الإدارة', 9: 'الموارد البشرية', 10: 'العضو المنتدب',
     },
     // Approvers' names are written by hand: dots on screen, room on paper.
-    optional: [8, 9, 10, 11],
+    optional: [8, 9, 10],
     wrap: [3, 4],
     dates: grantDates,
     values: grantValues,
@@ -271,8 +276,8 @@ const DOCUMENTS = [
     id: 'penalty-notice',
     title: 'إخطار بشأن وقوع مخالفة',
     subtitle: 'Penalty notice',
-    template: 'templates/penalty-notice.docx?v=3',
-    fields: { 1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة' },
+    template: 'templates/penalty-notice.docx?v=4',
+    fields: { 1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين' },
     // The violations table is right to left in Word, its first column on
     // the right; the page keeps that.
     ownDirection: true,
@@ -281,6 +286,7 @@ const DOCUMENTS = [
     info: [
       [3, 'الوظيفة'],
       [4, 'الإدارة'],
+      [5, 'تاريخ التعيين'],
     ],
     dateFields: [['today', 'تاريخ الإخطار', [1]]],
     inputs: [],
