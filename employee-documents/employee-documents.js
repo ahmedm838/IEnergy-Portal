@@ -55,14 +55,14 @@ export function grantDates(emp, set = {}, today = todayUTC()) {
 
 /* The grant is picked from the financial grants table (Settings in the
    tracker): its name is the reason (3), its amount and attachments fill
-   (2) and (4). The requester is the employee chosen at the top. The three
-   approvers, (8) to (10), are left empty: they are written by hand when
-   the form is signed. */
+   (2) and (4), the amount grouped with ",". The requester is the
+   employee chosen at the top. The department manager (8) is left empty:
+   it is written by hand when the form is signed. */
 export function grantValues(emp, d, inputs = {}, ctx = {}) {
   const grant = ctx.choice ? ctx.choice('grant') : null
   return {
     1: arDate(d.today),
-    2: grant ? pounds(parseAmount(String(grant.amount)) || null) : '',
+    2: grant ? pounds(parseAmount(String(grant.amount)) || null).replace(/٬/g, ',') : '',
     3: grant?.name || '',
     4: grant?.attachments || '',
     5: emp?.arabic_name || '',
@@ -248,14 +248,14 @@ const DOCUMENTS = [
     id: 'financial-grant',
     title: 'طلب صرف منحة مالية',
     subtitle: 'Financial grant request',
-    template: 'templates/financial-grant.docx?v=3',
+    template: 'templates/financial-grant.docx?v=4',
     fields: {
       1: 'تاريخ الطلب', 2: 'نوع المنحة', 3: 'نوع المنحة', 4: 'نوع المنحة',
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة',
-      8: 'مدير الإدارة', 9: 'الموارد البشرية', 10: 'العضو المنتدب',
+      8: 'مدير الإدارة',
     },
-    // Approvers' names are written by hand: dots on screen, room on paper.
-    optional: [8, 9, 10],
+    // The manager's name is written by hand: dots on screen, room on paper.
+    optional: [8],
     wrap: [3, 4],
     dates: grantDates,
     values: grantValues,
