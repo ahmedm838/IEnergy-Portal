@@ -56,8 +56,8 @@ export function grantDates(emp, set = {}, today = todayUTC()) {
 /* The grant is picked from the financial grants table (Settings in the
    tracker): its name is the reason (3), its amount and attachments fill
    (2) and (4), the amount grouped with ",". The requester is the
-   employee chosen at the top. The department manager (8) is left empty:
-   it is written by hand when the form is signed. */
+   employee chosen at the top; the department manager (8) is chosen from
+   the employees. */
 export function grantValues(emp, d, inputs = {}, ctx = {}) {
   const grant = ctx.choice ? ctx.choice('grant') : null
   return {
@@ -68,6 +68,7 @@ export function grantValues(emp, d, inputs = {}, ctx = {}) {
     5: emp?.arabic_name || '',
     6: jobTitle(emp),
     7: department(emp),
+    8: inputs.manager || '',
   }
 }
 
@@ -254,8 +255,6 @@ const DOCUMENTS = [
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة',
       8: 'مدير الإدارة',
     },
-    // The manager's name is written by hand: dots on screen, room on paper.
-    optional: [8],
     wrap: [3, 4],
     dates: grantDates,
     values: grantValues,
@@ -270,6 +269,7 @@ const DOCUMENTS = [
     inputs: [
       ['grant', 'نوع المنحة', 'choice', [2, 3, 4], 'السبب والقيمة والمرفقات تُملأ تلقائيًا من جدول المنح المالية.',
         { table: 'financial_grants', label: 'name' }],
+      ['manager', 'مدير الإدارة', 'person', [8]],
     ],
   },
   {
