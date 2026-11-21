@@ -2689,26 +2689,19 @@ async function buildPdf({ print = false } = {}) {
       const cssSheet = cssWidth * (paper.h / paper.w)
       const padBottom = parseFloat(getComputedStyle(page).paddingBottom) || 48
       const needed = contentBottom(page, { ignoreEmpty: !!def?.fitPages }) + padBottom
-      /* The page is copied into an SVG image with its styles and drawn
-         by the browser itself, so Arabic is shaped and laid out exactly
-         as it is on screen. Drawing it text run by text run, as
-         html2canvas does, breaks letters apart wherever Word split a
-         word across runs. */
-      const canvas = await toCanvas(page, {
+      const capture = (el) => toCanvas(el, {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         cacheBust: false,
         style: { margin: '0', boxShadow: 'none' },
       })
-      const k = canvas.width / cssWidth
       /* A document that names where its pages start (pageStarts: the
          opening words of the paragraph that begins each page after the
-         first) keeps Word's pages: the page is split there and each part
-         drawn on one sheet, smaller if it has to be, never cut further.
-         A page that starts inside a table starts at the top of the row
-         whose cell begins with those words. */
+         first) keeps Word's pages. A page that starts inside a table
+         starts at the row whose cell begins with those words. */
       const opens = (p, words) => p.textContent.replace(/\u200b/g, '').trim().startsWith(words)
       const paras = [...page.querySelectorAll('p')].filter((p) => !p.closest('footer, header'))
+      const pageTop = () => page.getBoundingClientRect().top
       const starts = (def?.pageStarts || [])
         .map((words) => {
           const p = paras.find((q) => !q.closest('td') && opens(q, words)) ||
@@ -2716,22 +2709,49 @@ async function buildPdf({ print = false } = {}) {
           return p ? p.closest('tr') || p : null
         })
         .filter(Boolean)
-        .map((el) => Math.floor(el.getBoundingClientRect().top - page.getBoundingClientRect().top))
+        .map((el) => el.getBoundingClientRect().top - pageTop())
+        .sort((a, b) => a - b)
       if (starts.length) {
-        const padTop = parseFloat(getComputedStyle(page).paddingTop) || 48
-        const edges = [0, ...starts, needed - padBottom]
-        for (let i = 0; i < edges.length - 1; i++) {
-          const from = edges[i]
-          const to = edges[i + 1]
-          const at = i ? padTop : 0
-          const f = Math.min(1, (cssSheet - padBottom - at) / (to - from))
-          sheets.push(sheet(canvas.width, (ctx) => {
-            ctx.drawImage(canvas, 0, from * k, canvas.width, (to - from) * k,
-              (canvas.width * (1 - f)) / 2, at * k, canvas.width * f, (to - from) * k * f)
-          }, border, number(), k, stamp, paper.h / paper.w))
+        /* Each of those pages is copied on its own, with the paragraphs
+           and rows of the others hidden, and the whole copy drawn on one
+           sheet, smaller if it has to be. Nothing is cut out of a longer
+           copy: the copy can come out a few pixels taller than the page
+           measures on screen, and a cut made by the screen's measure
+           would then go through a line of text. */
+        const blocks = [...page.querySelectorAll('p, tr')]
+          .filter((el) => !el.closest('footer, header') && !(el.tagName === 'P' && el.closest('tr')))
+        const tops = blocks.map((el) => el.getBoundingClientRect().top - pageTop())
+        const tables = [...page.querySelectorAll('table')].filter((t) => !t.closest('footer, header'))
+        const bounds = [-Infinity, ...starts, Infinity]
+        for (let i = 0; i < bounds.length - 1; i++) {
+          const hidden = []
+          const hide = (el) => { hidden.push([el, el.style.display]); el.style.display = 'none' }
+          blocks.forEach((el, j) => {
+            if (tops[j] < bounds[i] - 1 || tops[j] >= bounds[i + 1] - 1) hide(el)
+          })
+          // A table with none of its rows on this page is left out whole.
+          tables.filter((t) => [...t.querySelectorAll('tr')].every((r) => r.style.display === 'none')).forEach(hide)
+          let c
+          try {
+            c = await capture(page)
+          } finally {
+            hidden.reverse().forEach(([el, d]) => { el.style.display = d })
+          }
+          sheets.push(sheet(c.width, (ctx, sheetHeight) => {
+            const f = Math.min(1, sheetHeight / c.height)
+            const w = c.width * f
+            ctx.drawImage(c, (c.width - w) / 2, 0, w, c.height * f)
+          }, border, number(), c.width / cssWidth, stamp, paper.h / paper.w))
         }
         continue
       }
+      /* The page is copied into an SVG image with its styles and drawn
+         by the browser itself, so Arabic is shaped and laid out exactly
+         as it is on screen. Drawing it text run by text run, as
+         html2canvas does, breaks letters apart wherever Word split a
+         word across runs. */
+      const canvas = await capture(page)
+      const k = canvas.width / cssWidth
       // fitPages: each of Word's pages on exactly one sheet, drawn
       // smaller if it runs long here, never cut onto another.
       if (needed > cssSheet * LONG_PAGE && !def?.fitPages) {
