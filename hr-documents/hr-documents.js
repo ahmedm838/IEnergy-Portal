@@ -1006,6 +1006,9 @@ export function absenceCheck(emp, d, inputs = {}, ctx = {}) {
                next line, as in Word (see layoutPartTabs)
    fitPages    each of Word's pages (split by its page breaks) prints on
                exactly one sheet, smaller if it has to be, never cut
+   pageStarts  for a template saved without Word's page breaks: the
+               opening words of the paragraph (or table row) that starts
+               each page after the first; each page prints on one sheet
    duplex      printed on both sides: true flips on the long edge,
                'short' on the short edge
    pool        whose form it is: 'active' employees (the default) or
@@ -2701,12 +2704,19 @@ async function buildPdf({ print = false } = {}) {
       /* A document that names where its pages start (pageStarts: the
          opening words of the paragraph that begins each page after the
          first) keeps Word's pages: the page is split there and each part
-         drawn on one sheet, smaller if it has to be, never cut further. */
+         drawn on one sheet, smaller if it has to be, never cut further.
+         A page that starts inside a table starts at the top of the row
+         whose cell begins with those words. */
+      const opens = (p, words) => p.textContent.replace(/\u200b/g, '').trim().startsWith(words)
+      const paras = [...page.querySelectorAll('p')].filter((p) => !p.closest('footer, header'))
       const starts = (def?.pageStarts || [])
-        .map((words) => [...page.querySelectorAll('p')].find((p) => !p.closest('footer, header, td') &&
-          p.textContent.replace(/\u200b/g, '').trim().startsWith(words)))
+        .map((words) => {
+          const p = paras.find((q) => !q.closest('td') && opens(q, words)) ||
+            paras.find((q) => q.closest('td') && opens(q, words))
+          return p ? p.closest('tr') || p : null
+        })
         .filter(Boolean)
-        .map((p) => Math.floor(p.getBoundingClientRect().top - page.getBoundingClientRect().top))
+        .map((el) => Math.floor(el.getBoundingClientRect().top - page.getBoundingClientRect().top))
       if (starts.length) {
         const padTop = parseFloat(getComputedStyle(page).paddingTop) || 48
         const edges = [0, ...starts, needed - padBottom]

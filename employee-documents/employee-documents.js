@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=87'
+} from '../hr-documents/hr-documents.js?v=88'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -276,11 +276,13 @@ const DOCUMENTS = [
     id: 'penalty-notice',
     title: 'إخطار بشأن وقوع مخالفة',
     subtitle: 'Penalty notice',
-    template: 'templates/penalty-notice.docx?v=4',
+    template: 'templates/penalty-notice.docx?v=5',
     fields: { 1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين' },
     // The violations table is right to left in Word, its first column on
     // the right; the page keeps that.
     ownDirection: true,
+    // Two pages, as in Word: the second starts at this row of the table.
+    pageStarts: ['العبث أو ارتكاب أي فعل'],
     dates: penaltyDates,
     values: penaltyValues,
     info: [
