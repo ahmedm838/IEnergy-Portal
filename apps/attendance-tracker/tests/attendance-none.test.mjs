@@ -81,14 +81,14 @@ test('editing a figure does not re-clear the day', () => {
 /* ---- rule 2: which days are removed, lifted out of the save ---- */
 
 const clearList = source.slice(
-  source.indexOf('const toClear = [...dirty].filter('),
-  source.indexOf('const payload = [...dirty]'),
+  source.indexOf('const toClear = toSave.filter('),
+  source.indexOf('const payload = toSave'),
 )
 assert.ok(clearList.includes('savedDays.has(iso)'), 'found the removal list in the page')
 
 const whichToClear = new Function(
   'dirty', 'rows', 'savedDays', 'locks', 'isFutureDay',
-  `${clearList}\nreturn toClear`,
+  `const toSave = [...dirty]\n${clearList}\nreturn toClear`,
 )
 
 const NEVER_LOCKED = { isLocked: () => false }
