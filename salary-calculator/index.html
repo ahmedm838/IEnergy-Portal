@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="../favicon.png?v=2" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=15" />
-  <link rel="stylesheet" href="styles.css?v=31" />
+  <link rel="stylesheet" href="styles.css?v=32" />
   <script src="../theme.js?v=4"></script>
   <script src="../print-stamp.js?v=1"></script>
   <!-- Fetch a page when the pointer settles on its link, so the click
@@ -62,6 +62,7 @@
     <div class="container">
 
     <section class="card">
+      <div id="settingsNote" class="settings-note" hidden></div>
       <div id="errorsTop" class="errors" hidden></div>
 
       <div class="grid inputs-grid">
@@ -258,7 +259,7 @@
     </div>
   </main>
 
-  <script src="app.js?v=20261021_5"></script>
+  <script src="app.js?v=20261122_1"></script>
   <script src="../auth.js?v=14"></script>
   <script>
     (function () {
@@ -299,7 +300,11 @@
         IEnergyAuth.ensureAuth({
           allowedRoles: ['admin'],
           homeHref: '../index.html',
-          onAuthed: fillPageBar
+          onAuthed: function () {
+            fillPageBar();
+            // Tax table and S.I. wage limits come from the Settings page.
+            if (window.loadSalarySettings) window.loadSalarySettings();
+          }
         });
       });
     })();

@@ -13,8 +13,29 @@ const HOURS_PER_DAY = 8;
 
 // Social insurance (employee insurable wage base) accepted range.
 // Requirement: any value outside this range must show an error and stop calculation.
-const INSURABLE_BASE_MIN = 5500;
-const INSURABLE_BASE_MAX = 16700;
+// These are fallbacks only: the real values come from the tracker's
+// Settings page (app_settings si_wage_min / si_wage_max), loaded by
+// loadSalarySettings() once the user is signed in.
+let INSURABLE_BASE_MIN = 5500;
+let INSURABLE_BASE_MAX = 16700;
+
+// Annual progressive tax table. Fallback copy of the default table on the
+// Settings page (app_settings salary_tax_brackets), replaced on load.
+//   up_to           top of the bracket, null on the last (no limit)
+//   rate            percent charged inside the bracket
+//   all_from_above  when annual taxable income is above this, every
+//                   earlier bracket is charged at this bracket's rate
+let TAX_BRACKETS = [
+  { up_to: 40000, rate: 0, all_from_above: null },
+  { up_to: 55000, rate: 10, all_from_above: 600000 },
+  { up_to: 70000, rate: 15, all_from_above: 700000 },
+  { up_to: 200000, rate: 20, all_from_above: 800000 },
+  { up_to: 400000, rate: 22.5, all_from_above: 900000 },
+  { up_to: 1200000, rate: 25, all_from_above: 1200000 },
+  { up_to: null, rate: 27.5, all_from_above: null }
+];
+
+let salarySettingsState = "loading"; // loading | ready | fallback
 
 // Default parameters (not user-editable in UI)
 const DEFAULT_EMPLOYEE_SI_RATE_PCT = 11;
@@ -112,67 +133,37 @@ function wireThousandsSeparators() {
 }
 
 /**
- * Annual progressive tax template (Egypt-style bracket structure).
- * IMPORTANT: This is a template; validate against your payroll rules.
+ * Annual progressive salary tax from TAX_BRACKETS (Settings page table).
+ *
+ * Standard case: each bracket's slice of income is charged at its rate.
+ * Relief removal: find the LAST bracket whose all_from_above the income
+ * exceeds; everything up to that bracket's top is then charged at its
+ * rate, and the brackets after it as normal. With the default table this
+ * reproduces the Egyptian rules exactly (e.g. above 1.2M: 25% of the first
+ * 1.2M plus 27.5% above).
  */
 function calcAnnualTaxEG(annualTaxableIncome) {
-  // Annual progressive salary tax (Egypt-style structure).
-  // Brackets (annual taxable):
-  // - 0% up to 40,000
-  // - 10% 40,001–55,000
-  // - 15% 55,001–70,000
-  // - 20% 70,001–200,000
-  // - 22.5% 200,001–400,000
-  // - 25% 400,001–1,200,000
-  // - 27.5% above 1,200,000
-  //
-  // For higher income bands (above 600k/700k/800k/900k), Egyptian payroll practice often
-  // removes certain lower-band reliefs. The piecewise cases below model that so results
-  // match common payroll calculators.
-
   const I = Math.max(0, Number(annualTaxableIncome) || 0);
+  const brackets = TAX_BRACKETS;
+  if (!brackets.length) return 0;
 
-  // Standard-table constants (<= 600k)
-  const T_10 = 15000 * 0.10;        // 40k–55k
-  const T_15 = 15000 * 0.15;        // 55k–70k
-  const T_20 = 130000 * 0.20;       // 70k–200k
-  const T_225 = 200000 * 0.225;     // 200k–400k
-  const T_BASE_400 = T_10 + T_15 + T_20 + T_225; // tax up to 400k (standard)
+  let merged = -1;
+  brackets.forEach((b, i) => {
+    if (b.all_from_above != null && I > Number(b.all_from_above)) merged = i;
+  });
 
-  if (I > 1200000) {
-    // 25% of first 1.2M + 27.5% above
-    return 300000 + (I - 1200000) * 0.275;
+  let tax = 0;
+  let from = 0;
+  for (let i = 0; i < brackets.length; i++) {
+    const b = brackets[i];
+    const top = b.up_to == null ? Infinity : Number(b.up_to);
+    if (i < merged) { from = top; continue; }
+    const lo = i === merged ? 0 : from;
+    if (I > lo) tax += (Math.min(I, top) - lo) * (Number(b.rate) / 100);
+    from = top;
+    if (I <= top) break;
   }
-
-  if (I > 900000) {
-    // 22.5% up to 400k, then 25% above
-    return (400000 * 0.225) + (I - 400000) * 0.25;
-  }
-
-  if (I > 800000) {
-    // 20% up to 200k, 22.5% to 400k, then 25% above
-    return (200000 * 0.20) + (200000 * 0.225) + (I - 400000) * 0.25;
-  }
-
-  if (I > 700000) {
-    // 15% up to 70k, 20% to 200k, 22.5% to 400k, then 25% above
-    return (70000 * 0.15) + (130000 * 0.20) + (200000 * 0.225) + (I - 400000) * 0.25;
-  }
-
-  if (I > 600000) {
-    // 10% up to 55k, 15% to 70k, 20% to 200k, 22.5% to 400k, then 25% above
-    return (55000 * 0.10) + (15000 * 0.15) + (130000 * 0.20) + (200000 * 0.225) + (I - 400000) * 0.25;
-  }
-
-  // Standard table (<= 600k)
-  if (I <= 40000) return 0;
-  if (I <= 55000) return (I - 40000) * 0.10;
-  if (I <= 70000) return T_10 + (I - 55000) * 0.15;
-  if (I <= 200000) return T_10 + T_15 + (I - 70000) * 0.20;
-  if (I <= 400000) return T_10 + T_15 + T_20 + (I - 200000) * 0.225;
-
-  // 400k–600k
-  return T_BASE_400 + (I - 400000) * 0.25;
+  return tax;
 }
 
 function validateNonNegative(name, n, errs) {
@@ -575,10 +566,91 @@ function resetForm() {
 
   clearResults();
   showErrorsIn("errorsSolve", []);
+  applySiRangeToFields();
 
   showErrors([]);
 
 }
+
+function siRangeText() {
+  return `${INSURABLE_BASE_MIN.toLocaleString("en-US")} – ${INSURABLE_BASE_MAX.toLocaleString("en-US")}`;
+}
+
+/** Show the S.I. wage range from Settings on both S.I. fields. */
+function applySiRangeToFields() {
+  ["insurableBase", "solveInsurableBase"].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.placeholder = `${siRangeText()} (e.g. ${Math.max(INSURABLE_BASE_MIN, Math.min(6000, INSURABLE_BASE_MAX)).toLocaleString("en-US")})`;
+    const hint = el.parentElement && el.parentElement.querySelector(".hint");
+    if (hint) {
+      hint.textContent = `Must be between ${INSURABLE_BASE_MIN.toLocaleString("en-US")} and ${INSURABLE_BASE_MAX.toLocaleString("en-US")} (from Settings).`;
+    }
+    checkSiField(el);
+  });
+}
+
+/** Mark an S.I. field red while its value is outside the allowed range. */
+function checkSiField(el) {
+  const raw = String(el.value ?? "").trim();
+  const n = parseNumber(raw);
+  const bad = raw !== "" && (!Number.isFinite(n) || n < INSURABLE_BASE_MIN || n > INSURABLE_BASE_MAX);
+  el.classList.toggle("invalid", bad);
+  el.setAttribute("aria-invalid", bad ? "true" : "false");
+}
+
+function setCalcButtonsEnabled(on) {
+  ["btnCalc", "btnSolveGross"].forEach((id) => {
+    const b = $(id);
+    if (b) b.disabled = !on;
+  });
+}
+
+/**
+ * Load the tax table and S.I. wage limits from the Settings page.
+ * Called once the user is signed in. Until it finishes the Calculate
+ * buttons are disabled, so no result is ever worked out from stale
+ * numbers. If it fails, the built-in defaults are used and a note says so.
+ */
+async function loadSalarySettings() {
+  setCalcButtonsEnabled(false);
+  const note = $("settingsNote");
+  try {
+    const supabase = await window.IEnergyAuth.getClient();
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", ["salary_tax_brackets", "si_wage_min", "si_wage_max"]);
+    if (error) throw error;
+    const map = Object.fromEntries((data || []).map((r) => [r.key, r.value]));
+
+    const min = Number(map.si_wage_min);
+    const max = Number(map.si_wage_max);
+    if (Number.isFinite(min) && min > 0) INSURABLE_BASE_MIN = min;
+    if (Number.isFinite(max) && max > INSURABLE_BASE_MIN) INSURABLE_BASE_MAX = max;
+
+    const b = map.salary_tax_brackets;
+    if (Array.isArray(b) && b.length && b.every((x) => x && Number.isFinite(Number(x.rate)))) {
+      TAX_BRACKETS = b.map((x) => ({
+        up_to: x.up_to == null ? null : Number(x.up_to),
+        rate: Number(x.rate),
+        all_from_above: x.all_from_above == null ? null : Number(x.all_from_above)
+      }));
+    }
+    salarySettingsState = "ready";
+    if (note) note.hidden = true;
+  } catch (err) {
+    salarySettingsState = "fallback";
+    if (note) {
+      note.hidden = false;
+      note.textContent = "Could not load the salary tax settings; using the built-in 2026 table and S.I. range " + siRangeText() + ".";
+    }
+  } finally {
+    applySiRangeToFields();
+    setCalcButtonsEnabled(true);
+  }
+}
+window.loadSalarySettings = loadSalarySettings;
 
 function initCalculatorBindings() {
   if (calculatorBindingsInitialized) return;
@@ -590,6 +662,16 @@ function initCalculatorBindings() {
 
   // Apply thousands separators to all numeric inputs.
   wireThousandsSeparators();
+
+  // S.I. fields go red as soon as they hold a wage outside the range.
+  ["insurableBase", "solveInsurableBase"].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener("input", () => checkSiField(el));
+    el.addEventListener("blur", () => checkSiField(el));
+  });
+  applySiRangeToFields();
+  setCalcButtonsEnabled(false);
 
   // Enter-to-calc handlers (includes all inputs)
   [
@@ -604,6 +686,7 @@ function initCalculatorBindings() {
     el.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
+        if ($("btnCalc") && $("btnCalc").disabled) return;
         calculate();
       }
     });

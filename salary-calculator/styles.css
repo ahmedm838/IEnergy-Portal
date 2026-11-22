@@ -375,3 +375,19 @@ button { padding: 8px 12px; }
 @media (min-width: 1280px) {
   .inputs-grid .field span { min-height: 1.3em; }
 }
+
+/* S.I. basic wage outside the range set on the Settings page. */
+.field input.invalid {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
+}
+
+/* Shown only if the tax settings could not be loaded. */
+.settings-note {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  font-size: 13px;
+}
