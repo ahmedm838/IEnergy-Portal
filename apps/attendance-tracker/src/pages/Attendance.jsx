@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import EmployeeSearch from '../components/EmployeeSearch'
 import PeriodLabel from '../components/PeriodLabel'
+import ColumnFilterTh from '../components/ColumnFilterTh'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { useLocks, lockRangeLabel } from '../lib/useLocks'
@@ -57,6 +58,125 @@ const EMPTY_ROW = {
   note: '',
 }
 
+const BLANK = '(blank)'
+const EMPTY_SET = new Set()
+
+/** A row that holds nothing worth keeping or deleting. */
+const isEmptyRow = (row) =>
+  !row ||
+  (!row.attendance_type_id &&
+    !row.late_minutes &&
+    !Number(row.transport) &&
+    !row.add_to_leave_balance &&
+    !row.clock_in &&
+    !row.clock_out &&
+    !row.note)
+
+function compareKeys(a, b) {
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  return String(a).localeCompare(String(b))
+}
+
+/**
+ * The grid's columns, for sorting and filtering by value -- the same
+ * shape the Employee report's Daily Records use. `value` is the text the
+ * checklist lists and matches on; `sortKey` is what the column orders
+ * by, null for an empty cell (always last).
+ */
+function gridColumns(typeById) {
+  const typeOf = (r) => (r.attendance_type_id ? typeById?.get(r.attendance_type_id) : null)
+  return [
+    {
+      key: 'date',
+      label: 'Date',
+      className: 'min-w-[140px]',
+      value: (r) => dayLabel(r.work_date),
+      sortKey: (r) => r.work_date,
+    },
+    {
+      key: 'attendance',
+      label: 'Attendance',
+      className: 'min-w-[220px]',
+      value: (r) => typeOf(r)?.name_en || BLANK,
+      sortKey: (r) => typeOf(r)?.name_en?.toLowerCase() || null,
+    },
+    {
+      key: 'late',
+      label: 'Late (hh:mm)',
+      value: (r) => minutesToHHMM(r.late_minutes),
+      sortKey: (r) => Number(r.late_minutes) || 0,
+    },
+    {
+      key: 'transport',
+      label: 'Transport',
+      value: (r) => num(Number(r.transport) || 0),
+      sortKey: (r) => Number(r.transport) || 0,
+    },
+    {
+      key: 'added',
+      label: 'Add to balance',
+      className: 'text-center',
+      value: (r) => (r.add_to_leave_balance ? 'Yes' : 'No'),
+      sortKey: (r) => (r.add_to_leave_balance ? 1 : 0),
+    },
+    {
+      key: 'clock_in',
+      label: 'Clock in',
+      value: (r) => r.clock_in || BLANK,
+      sortKey: (r) => r.clock_in || null,
+    },
+    {
+      key: 'clock_out',
+      label: 'Clock out',
+      value: (r) => r.clock_out || BLANK,
+      sortKey: (r) => r.clock_out || null,
+    },
+    {
+      key: 'overtime',
+      label: 'Overtime',
+      value: (r) => {
+        const type = typeOf(r)
+        return type ? hoursToHHMM(Number(type.overtime_hours || 0)) : BLANK
+      },
+      sortKey: (r) => {
+        const type = typeOf(r)
+        return type ? Number(type.overtime_hours || 0) : null
+      },
+    },
+    {
+      key: 'note',
+      label: 'Note',
+      className: 'min-w-[160px]',
+      value: (r) => r.note?.trim() || BLANK,
+      sortKey: (r) => r.note?.trim().toLowerCase() || null,
+    },
+  ]
+}
+
+/**
+ * The quick day filter, as on the Employee report, plus "Not recorded"
+ * -- this grid draws every calendar day, recorded or not, and the empty
+ * ones are the ones somebody is usually looking for here.
+ */
+function matchesDayFilter(row, dayFilter, typeById) {
+  if (dayFilter === 'all') return true
+  const type = row.attendance_type_id ? typeById?.get(row.attendance_type_id) : null
+  if (dayFilter === 'blank') return !row.attendance_type_id
+  if (dayFilter.startsWith('type:')) return row.attendance_type_id === Number(dayFilter.slice(5))
+  if (!type) return false
+  if (dayFilter === 'attended') return !!type.is_working_day
+  if (dayFilter === 'not-attended') return !type.is_working_day
+  if (dayFilter === 'leave') {
+    // The same classification as the Employee report's Leave filter.
+    return (
+      !type.is_working_day &&
+      type.effect !== 'absence' &&
+      !['weekly_rest', 'holiday', 'no_status'].includes(type.code)
+    )
+  }
+  return true
+}
+
 export default function Attendance() {
   const lookups = useLookups()
   const { employees, loading: employeesLoading } = useEmployees()
@@ -65,7 +185,20 @@ export default function Attendance() {
   const [employeeId, setEmployeeId] = useState('')
   const [range, setRange] = useState(() => payrollPeriod())
   const [rows, setRows] = useState({})
+  // The days as the database has them, so Discard can put back just the
+  // shown days instead of reloading -- and losing -- everything.
+  const [savedRows, setSavedRows] = useState({})
   const [savedDays, setSavedDays] = useState(() => new Set())
+  // Filters, as on the Employee report.
+  // 'all' | 'blank' | 'attended' | 'not-attended' | 'leave' | 'type:<id>'
+  const [dayFilter, setDayFilter] = useState('all')
+  const [columnFilters, setColumnFilters] = useState({})
+  const [sort, setSort] = useState({ key: null, dir: null })
+  // Bumped on every load, so the shown days are worked out again from
+  // what the database returned.
+  const [loadVersion, setLoadVersion] = useState(0)
+  const rowsRef = useRef(rows)
+  rowsRef.current = rows
   const [dirty, setDirty] = useState(() => new Set())
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -96,6 +229,13 @@ export default function Attendance() {
     setNotice(null)
     setError(null)
   }, [employeeId])
+
+  // Ticked column values belong to the days that were on screen; another
+  // employee or range has other values. The day filter and sort carry
+  // over, as on the Employee report.
+  useEffect(() => {
+    setColumnFilters({})
+  }, [employeeId, range.from, range.to])
 
   const days = useMemo(
     () => (range.from && range.to && range.from <= range.to ? dateRange(range.from, range.to) : []),
@@ -129,10 +269,15 @@ export default function Attendance() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [dirty])
 
-  const loadRecords = useCallback(async () => {
+  /* `keep` is the days whose unsaved edits survive the reload. Saving
+     only the shown days must not throw away changes made on days a
+     filter is hiding, so those are carried across. */
+  const loadRecords = useCallback(async ({ keep } = {}) => {
     if (!employeeId || days.length === 0) {
       setRows({})
+      setSavedRows({})
       setDirty(new Set())
+      setLoadVersion((v) => v + 1)
       return
     }
     setLoading(true)
@@ -160,12 +305,21 @@ export default function Attendance() {
           note: record.note ?? '',
         }
       }
-      setRows(next)
       // Which days exist in the database, as opposed to being blank rows
       // the grid draws for every date in the period. Clearing a day is a
       // delete, and only these have anything to delete.
       setSavedDays(new Set(Object.keys(next)))
-      setDirty(new Set())
+      setSavedRows(next)
+      const kept = new Set()
+      const merged = { ...next }
+      for (const iso of keep ?? []) {
+        if (!(iso in rowsRef.current)) continue
+        merged[iso] = rowsRef.current[iso]
+        kept.add(iso)
+      }
+      setRows(merged)
+      setDirty(kept)
+      setLoadVersion((v) => v + 1)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -178,6 +332,130 @@ export default function Attendance() {
   }, [loadRecords])
 
   const getRow = useCallback((iso) => rows[iso] ?? EMPTY_ROW, [rows])
+
+  const columns = useMemo(() => gridColumns(lookups.typeById), [lookups.typeById])
+  const activeColumnFilters = useMemo(
+    () => columns.filter((c) => columnFilters[c.key]?.size),
+    [columns, columnFilters],
+  )
+  const filtering = dayFilter !== 'all' || activeColumnFilters.length > 0
+
+  /* The days on screen.
+
+     Worked out when a filter, the sort, the range or the loaded records
+     change -- not on every keystroke. Read live, a day would vanish from
+     under the cursor the moment it stopped matching: filter to "Not
+     recorded", give a day a type, and the row is gone before the next
+     field can be filled. This keeps the rows put, the way a filtered
+     column in Excel does, until the filter is changed again.
+
+     These days are also what every button acts on: the fills, Upload,
+     Clear days, Discard and Save. */
+  const visibleDays = useMemo(() => {
+    const current = rowsRef.current
+    const rowFor = (iso) => ({ ...(current[iso] ?? EMPTY_ROW), work_date: iso })
+    let list = days
+    if (filtering) {
+      list = days.filter((iso) => {
+        const r = rowFor(iso)
+        return (
+          matchesDayFilter(r, dayFilter, lookups.typeById) &&
+          activeColumnFilters.every((c) => columnFilters[c.key].has(c.value(r)))
+        )
+      })
+    }
+    const col = sort.key && columns.find((c) => c.key === sort.key)
+    if (col && sort.dir) {
+      const sign = sort.dir === 'desc' ? -1 : 1
+      list = [...list].sort((a, b) => {
+        const ka = col.sortKey(rowFor(a))
+        const kb = col.sortKey(rowFor(b))
+        if (ka == null || kb == null) {
+          if (ka == null && kb == null) return compareKeys(a, b)
+          return ka == null ? 1 : -1
+        }
+        return sign * compareKeys(ka, kb) || compareKeys(a, b)
+      })
+    }
+    return list
+    // rowsRef is read on purpose: see above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days, dayFilter, columnFilters, activeColumnFilters, sort, columns, filtering, loadVersion, lookups.typeById])
+
+  const visibleSet = useMemo(() => new Set(visibleDays), [visibleDays])
+  const dirtyShown = useMemo(() => [...dirty].filter((iso) => visibleSet.has(iso)), [dirty, visibleSet])
+  const dirtyHidden = dirty.size - dirtyShown.length
+
+  /* Each column's checklist, built from the rows every other filter lets
+     through, as on the Employee report, so the counts beside each value
+     are what ticking it would show. */
+  const columnOptions = useMemo(() => {
+    const all = days.map((iso) => ({ ...(rows[iso] ?? EMPTY_ROW), work_date: iso }))
+    const base = all.filter((r) => matchesDayFilter(r, dayFilter, lookups.typeById))
+    const out = {}
+    for (const col of columns) {
+      const others = activeColumnFilters.filter((c) => c.key !== col.key)
+      const tally = new Map()
+      for (const r of base) {
+        if (!others.every((c) => columnFilters[c.key].has(c.value(r)))) continue
+        const value = col.value(r)
+        const entry = tally.get(value)
+        if (entry) entry.count += 1
+        else tally.set(value, { value, label: value, count: 1, key: col.sortKey(r) })
+      }
+      for (const value of columnFilters[col.key] ?? []) {
+        if (!tally.has(value)) tally.set(value, { value, label: value, count: 0, key: null })
+      }
+      out[col.key] = [...tally.values()].sort((a, b) => {
+        if (a.key == null) return b.key == null ? 0 : 1
+        if (b.key == null) return -1
+        return compareKeys(a.key, b.key)
+      })
+    }
+    return out
+  }, [days, rows, dayFilter, columns, activeColumnFilters, columnFilters, lookups.typeById])
+
+  function cycleSort(key) {
+    setSort((s) => {
+      if (s.key !== key) return { key, dir: 'asc' }
+      if (s.dir === 'asc') return { key, dir: 'desc' }
+      return { key: null, dir: null }
+    })
+  }
+
+  function setColumnFilter(key, values) {
+    setColumnFilters((f) => ({ ...f, [key]: values }))
+  }
+
+  function resetFilters() {
+    setDayFilter('all')
+    setColumnFilters({})
+    setSort({ key: null, dir: null })
+  }
+
+  const dayFilterLabel =
+    dayFilter === 'all'
+      ? null
+      : dayFilter === 'blank'
+        ? 'Not recorded'
+        : dayFilter === 'attended'
+          ? 'Attended'
+          : dayFilter === 'not-attended'
+            ? 'Not attended'
+            : dayFilter === 'leave'
+              ? 'Leave'
+              : (lookups.allTypes?.find((t) => `type:${t.id}` === dayFilter)?.name_en ?? 'Filtered')
+  const filterLabel =
+    [
+      dayFilterLabel,
+      ...activeColumnFilters.map((c) => `${c.label}: ${[...columnFilters[c.key]].join(', ')}`),
+    ]
+      .filter(Boolean)
+      .join(' · ') || null
+
+  // "the 12 shown days" when filtered, "the 31 days" when not -- so every
+  // confirmation and message says which days it means.
+  const scopeWord = filtering ? 'shown ' : ''
 
   const update = useCallback(
     (iso, patch) => {
@@ -244,7 +522,9 @@ export default function Attendance() {
     setRows((current) => {
       const next = { ...current }
       const touched = new Set(dirty)
-      for (const iso of days) {
+      // Only the days on screen: with a filter on, the hidden ones are
+      // left exactly as they are.
+      for (const iso of visibleDays) {
         if (!predicate(iso)) continue
         if (locks.isLocked(iso)) continue
         // Fill Weekends and the like would otherwise march on into days
@@ -325,10 +605,16 @@ export default function Attendance() {
          the message -- but React queues an updater rather than running
          it there and then, so the days were filled in correctly while
          the message was written with every counter still at zero. */
+      // Days in the file that a filter is hiding are left alone, like
+      // every other button on this grid, and counted in the message.
+      const hiddenByFilter = Object.keys(result.days).filter(
+        (iso) => iso >= range.from && iso <= range.to && !visibleSet.has(iso),
+      ).length
+
       const applied = applyImport({
         rows,
         dirty,
-        days,
+        days: visibleDays,
         imported: result.days,
         typeId: type.id,
         emptyRow: EMPTY_ROW,
@@ -342,7 +628,7 @@ export default function Attendance() {
         notUploadedRows(
           { ...result, keptDays: applied.keptDays, blockedDays: applied.blockedDays },
           (id) => lookups.typeById?.get(id)?.name_en ?? 'Unknown type',
-        ),
+        ).filter((row) => visibleSet.has(row.date)),
       )
 
       // A line per thing that happened and nothing for the things that
@@ -350,8 +636,11 @@ export default function Attendance() {
       const parts = [`${filled} day${filled === 1 ? '' : 's'} filled in as attended`]
       if (kept) parts.push(`${kept} already recorded`)
       if (blocked) parts.push(`${blocked} locked or in the future`)
-      if (result.issues.length) parts.push(`${result.issues.length} need a look`)
-      if (result.noPunchDays.length) parts.push(`${result.noPunchDays.length} with no punches`)
+      if (hiddenByFilter) parts.push(`${hiddenByFilter} hidden by the filter, left alone`)
+      const issueCount = result.issues.filter((i) => visibleSet.has(i.date)).length
+      const noPunchCount = result.noPunchDays.filter((iso) => visibleSet.has(iso)).length
+      if (issueCount) parts.push(`${issueCount} need a look`)
+      if (noPunchCount) parts.push(`${noPunchCount} with no punches`)
       setNotice(`${parts.join('. ')}. Nothing is saved yet — press Save to keep it.`)
     } catch (err) {
       setError(err.message)
@@ -360,16 +649,79 @@ export default function Attendance() {
     }
   }
 
-  function clearAll() {
-    if (!window.confirm('Clear every unsaved entry in this view? Saved rows stay in the database.')) {
+  /* Put the shown days back as they are saved. Days a filter hides keep
+     their unsaved changes. */
+  function discardShown() {
+    if (dirtyShown.length === 0) return
+    const what = `${dirtyShown.length} ${scopeWord}day${dirtyShown.length === 1 ? '' : 's'}`
+    if (!window.confirm(`Discard the unsaved changes on the ${what}? Saved rows stay in the database.`)) {
       return
     }
+    setRows((current) => {
+      const next = { ...current }
+      for (const iso of dirtyShown) {
+        if (savedRows[iso]) next[iso] = savedRows[iso]
+        else delete next[iso]
+      }
+      return next
+    })
+    setDirty((current) => {
+      const next = new Set(current)
+      dirtyShown.forEach((iso) => next.delete(iso))
+      return next
+    })
     setImportReport(null)
-    loadRecords()
+    setNotice(null)
+  }
+
+  /* Clear every shown day: type, times, transport, note, all of it.
+
+     Nothing leaves the database here. The cleared days become unsaved
+     changes like any other edit -- Save removes them, Discard puts them
+     back -- so a filter set wrongly costs nothing until Save. Locked and
+     future days are skipped, as they are by every other button. */
+  function clearShownDays() {
+    if (readOnlyEmployee) return
+    const targets = visibleDays.filter(
+      (iso) =>
+        !locks.isLocked(iso) &&
+        !isFutureDay(iso) &&
+        (!isEmptyRow(rows[iso]) || (savedDays.has(iso) && !dirty.has(iso))),
+    )
+    if (targets.length === 0) {
+      setNotice(null)
+      setError(`There is nothing to clear on the ${scopeWord}days.`)
+      return
+    }
+    setRows((current) => {
+      const next = { ...current }
+      for (const iso of targets) next[iso] = { ...EMPTY_ROW }
+      return next
+    })
+    setDirty((current) => {
+      const next = new Set(current)
+      for (const iso of targets) {
+        // A day that was never saved and is empty again is no change at all.
+        if (savedDays.has(iso)) next.add(iso)
+        else next.delete(iso)
+      }
+      return next
+    })
+    setError(null)
+    const skipped = visibleDays.filter((iso) => locks.isLocked(iso) || isFutureDay(iso)).length
+    setNotice(
+      `${targets.length} ${scopeWord}day${targets.length === 1 ? '' : 's'} cleared` +
+        (skipped ? `, ${skipped} locked or future day${skipped === 1 ? '' : 's'} left alone` : '') +
+        '. Nothing is removed yet — press Save to remove them, or Discard changes to undo.',
+    )
   }
 
   async function handleSave() {
-    if (dirty.size === 0 || readOnlyEmployee) return
+    if (dirtyShown.length === 0 || readOnlyEmployee) return
+    // Only the shown days are saved. Changes on days a filter hides stay
+    // unsaved, and survive the reload below.
+    const toSave = dirtyShown
+    const hidden = [...dirty].filter((iso) => !visibleSet.has(iso))
     setSaving(true)
     setError(null)
     setNotice(null)
@@ -388,7 +740,7 @@ export default function Attendance() {
          Locked and future days are skipped here for the same reason they
          are skipped below -- the database refuses them, and one refusal
          takes the whole statement down. */
-      const toClear = [...dirty].filter(
+      const toClear = toSave.filter(
         (iso) =>
           !rows[iso]?.attendance_type_id &&
           savedDays.has(iso) &&
@@ -396,7 +748,7 @@ export default function Attendance() {
           !isFutureDay(iso),
       )
 
-      const payload = [...dirty]
+      const payload = toSave
         .map((iso) => {
           const row = rows[iso]
           if (!row?.attendance_type_id) return null
@@ -452,8 +804,14 @@ export default function Attendance() {
       if (toClear.length) {
         parts.push(`cleared ${toClear.length} day${toClear.length === 1 ? '' : 's'}`)
       }
+      if (hidden.length) {
+        parts.push(
+          `${hidden.length} change${hidden.length === 1 ? '' : 's'} on days hidden by the filter ` +
+            'not saved yet',
+        )
+      }
       setNotice(`${parts.join(', ')}.`)
-      await loadRecords()
+      await loadRecords({ keep: hidden })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -613,9 +971,13 @@ export default function Attendance() {
           <Card>
             <CardHeader
               title={selectedEmployee ? `#${selectedEmployee.code} — ${selectedEmployee.name}` : ''}
-              subtitle={`${days.length} days · ${dirty.size} unsaved change${
-                dirty.size === 1 ? '' : 's'
-              }`}
+              subtitle={
+                (filtering
+                  ? `Showing ${visibleDays.length} of ${days.length} days · ${filterLabel}`
+                  : `${days.length} days`) +
+                ` · ${dirtyShown.length} unsaved change${dirtyShown.length === 1 ? '' : 's'}` +
+                (dirtyHidden > 0 ? ` (+${dirtyHidden} on hidden days)` : '')
+              }
               actions={
                 <>
                   {/* The input is what actually opens the file picker;
@@ -648,6 +1010,7 @@ export default function Attendance() {
                     size="sm"
                     disabled={readOnlyEmployee}
                     onClick={() => bulkFill('weekly_rest', restDay)}
+                    title={filtering ? 'Applies to the shown days only' : undefined}
                   >
                     {weekend === 'fri' ? 'Fill Friday Rest' : 'Fill Fri/Sat Rest'}
                   </Button>
@@ -656,22 +1019,86 @@ export default function Attendance() {
                     size="sm"
                     disabled={readOnlyEmployee}
                     onClick={() => bulkFill('paid_day', (iso) => !restDay(iso))}
+                    title={filtering ? 'Applies to the shown days only' : undefined}
                   >
                     Fill workdays
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={clearAll} disabled={dirty.size === 0}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={readOnlyEmployee || visibleDays.length === 0}
+                    onClick={clearShownDays}
+                    title={
+                      filtering
+                        ? 'Clear the shown days only — nothing is removed until Save'
+                        : 'Clear every day in the range — nothing is removed until Save'
+                    }
+                  >
+                    Clear days
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={discardShown}
+                    disabled={dirtyShown.length === 0}
+                  >
                     Discard changes
                   </Button>
                   <Button
                     size="sm"
                     onClick={handleSave}
-                    disabled={saving || dirty.size === 0 || readOnlyEmployee}
+                    disabled={saving || dirtyShown.length === 0 || readOnlyEmployee}
+                    title={dirtyHidden > 0 ? 'Saves the shown days only' : undefined}
                   >
-                    {saving ? 'Saving…' : `Save ${dirty.size || ''}`}
+                    {saving ? 'Saving…' : `Save ${dirtyShown.length || ''}`}
                   </Button>
                 </>
               }
             />
+
+            {/* The filters, as on the Employee report. Everything the
+                buttons above do is limited to the days these leave. */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
+              {[
+                ['all', 'All'],
+                ['blank', 'Not recorded'],
+                ['attended', 'Attended'],
+                ['not-attended', 'Not attended'],
+                ['leave', 'Leave'],
+              ].map(([value, label]) => (
+                <Button
+                  key={value}
+                  size="sm"
+                  variant={dayFilter === value ? 'primary' : 'secondary'}
+                  onClick={() => setDayFilter(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+              <Select
+                aria-label="Filter by attendance type"
+                className="w-44 text-sm"
+                value={dayFilter.startsWith('type:') ? dayFilter : ''}
+                onChange={(e) => setDayFilter(e.target.value || 'all')}
+              >
+                <option value="">Any type…</option>
+                {lookups.allTypes?.map((t) => (
+                  <option key={t.id} value={`type:${t.id}`}>
+                    {t.name_en}
+                  </option>
+                ))}
+              </Select>
+              {(filtering || sort.key) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  title="Show every day again, in date order"
+                  onClick={resetFilters}
+                >
+                  Reset filters
+                </Button>
+              )}
+            </div>
 
             {loading ? (
               <Spinner />
@@ -680,19 +1107,36 @@ export default function Attendance() {
                 <table className="sticky-head w-full border-collapse">
                   <thead>
                     <tr>
-                      <Th className="min-w-[140px]">Date</Th>
-                      <Th className="min-w-[220px]">Attendance</Th>
-                      <Th>Late (hh:mm)</Th>
-                      <Th>Transport</Th>
-                      <Th className="text-center">Add to balance</Th>
-                      <Th>Clock in</Th>
-                      <Th>Clock out</Th>
-                      <Th>Overtime</Th>
-                      <Th className="min-w-[160px]">Note</Th>
+                      {columns.map((c) => (
+                        <ColumnFilterTh
+                          key={c.key}
+                          label={c.label}
+                          className={c.className}
+                          sort={sort.key === c.key ? sort.dir : null}
+                          onSort={() => cycleSort(c.key)}
+                          options={columnOptions[c.key] ?? []}
+                          selected={columnFilters[c.key] ?? EMPTY_SET}
+                          onChange={(values) => setColumnFilter(c.key, values)}
+                        />
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
-                    {days.map((iso) => (
+                    {visibleDays.length === 0 && (
+                      <tr>
+                        <Td colSpan={columns.length} className="py-6 text-center text-ink-3">
+                          No days match the filters.{' '}
+                          <button
+                            type="button"
+                            className="font-medium text-brand-600 hover:underline"
+                            onClick={resetFilters}
+                          >
+                            Show all days
+                          </button>
+                        </Td>
+                      </tr>
+                    )}
+                    {visibleDays.map((iso) => (
                       <DayRow
                         key={iso}
                         iso={iso}
