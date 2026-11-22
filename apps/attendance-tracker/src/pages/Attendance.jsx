@@ -676,44 +676,72 @@ export default function Attendance() {
 
   /* Clear every shown day: type, times, transport, note, all of it.
 
-     Nothing leaves the database here. The cleared days become unsaved
-     changes like any other edit -- Save removes them, Discard puts them
-     back -- so a filter set wrongly costs nothing until Save. Locked and
-     future days are skipped, as they are by every other button. */
-  function clearShownDays() {
+     Two steps. The button only works out which days would go and puts
+     a red warning above the grid saying how many; nothing changes until
+     that warning is confirmed. Confirming deletes the saved days from
+     the database there and then -- it does not wait for Save, so it
+     cannot be undone with Discard, which is what the warning says.
+
+     Locked and future days are skipped, as they are by every other
+     button, and so are days a filter is hiding. */
+  const [clearPrompt, setClearPrompt] = useState(null)
+  const [clearing, setClearing] = useState(false)
+
+  // A warning about "these 12 days" means nothing once the days on
+  // screen are different ones.
+  useEffect(() => {
+    setClearPrompt(null)
+  }, [employeeId, visibleDays])
+
+  function askClearShownDays() {
     if (readOnlyEmployee) return
     const targets = visibleDays.filter(
       (iso) =>
         !locks.isLocked(iso) &&
         !isFutureDay(iso) &&
-        (!isEmptyRow(rows[iso]) || (savedDays.has(iso) && !dirty.has(iso))),
+        (savedDays.has(iso) || !isEmptyRow(rows[iso])),
     )
+    setNotice(null)
     if (targets.length === 0) {
-      setNotice(null)
+      setClearPrompt(null)
       setError(`There is nothing to clear on the ${scopeWord}days.`)
       return
     }
-    setRows((current) => {
-      const next = { ...current }
-      for (const iso of targets) next[iso] = { ...EMPTY_ROW }
-      return next
-    })
-    setDirty((current) => {
-      const next = new Set(current)
-      for (const iso of targets) {
-        // A day that was never saved and is empty again is no change at all.
-        if (savedDays.has(iso)) next.add(iso)
-        else next.delete(iso)
-      }
-      return next
-    })
     setError(null)
     const skipped = visibleDays.filter((iso) => locks.isLocked(iso) || isFutureDay(iso)).length
-    setNotice(
-      `${targets.length} ${scopeWord}day${targets.length === 1 ? '' : 's'} cleared` +
-        (skipped ? `, ${skipped} locked or future day${skipped === 1 ? '' : 's'} left alone` : '') +
-        '. Nothing is removed yet — press Save to remove them, or Discard changes to undo.',
-    )
+    setClearPrompt({ targets, skipped })
+  }
+
+  async function confirmClearShownDays() {
+    if (!clearPrompt || readOnlyEmployee) return
+    const { targets } = clearPrompt
+    const targetSet = new Set(targets)
+    const toDelete = targets.filter((iso) => savedDays.has(iso))
+    // Unsaved edits on any other day survive the reload below.
+    const keep = [...dirty].filter((iso) => !targetSet.has(iso))
+    setClearing(true)
+    setError(null)
+    try {
+      if (toDelete.length > 0) {
+        await run(
+          supabase
+            .from('attendance_records')
+            .delete()
+            .eq('employee_id', employeeId)
+            .in('work_date', toDelete),
+        )
+      }
+      setClearPrompt(null)
+      setImportReport(null)
+      setNotice(
+        `${targets.length} ${scopeWord}day${targets.length === 1 ? '' : 's'} cleared.`,
+      )
+      await loadRecords({ keep })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setClearing(false)
+    }
   }
 
   async function handleSave() {
@@ -1026,12 +1054,12 @@ export default function Attendance() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    disabled={readOnlyEmployee || visibleDays.length === 0}
-                    onClick={clearShownDays}
+                    disabled={readOnlyEmployee || visibleDays.length === 0 || clearing}
+                    onClick={askClearShownDays}
                     title={
                       filtering
-                        ? 'Clear the shown days only — nothing is removed until Save'
-                        : 'Clear every day in the range — nothing is removed until Save'
+                        ? 'Delete the shown days only — asks first'
+                        : 'Delete every day in the range — asks first'
                     }
                   >
                     Clear days
@@ -1055,6 +1083,37 @@ export default function Attendance() {
                 </>
               }
             />
+
+            {clearPrompt && (
+              <div className="border-b border-line px-5 py-3">
+                <Alert tone="error" title="This cannot be undone">
+                <p>
+                  {clearPrompt.targets.length} {scopeWord}day
+                  {clearPrompt.targets.length === 1 ? '' : 's'} will be cleared and deleted from the
+                  database. This is not a reversible action.
+                  {clearPrompt.skipped > 0 &&
+                    ` ${clearPrompt.skipped} locked or future day${
+                      clearPrompt.skipped === 1 ? '' : 's'
+                    } will be left alone.`}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button variant="danger" size="sm" onClick={confirmClearShownDays} disabled={clearing}>
+                    {clearing
+                      ? 'Clearing…'
+                      : `Clear ${clearPrompt.targets.length} day${clearPrompt.targets.length === 1 ? '' : 's'}`}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setClearPrompt(null)}
+                    disabled={clearing}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </Alert>
+              </div>
+            )}
 
             {/* The filters, as on the Employee report. Everything the
                 buttons above do is limited to the days these leave. */}
