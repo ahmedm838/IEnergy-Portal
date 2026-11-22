@@ -85,6 +85,28 @@ $fn$;
 revoke all on function public.export_retry_block(text[], boolean) from public, anon, authenticated;
 
 
+-- The super-admin check, run with the ordinary search path:
+-- is_super_admin() calls my_role() unqualified, and the export functions
+-- below run with an empty search path so that every name they write out
+-- comes out schema-qualified.
+create or replace function public.export_guard()
+returns void
+language plpgsql
+stable
+security definer
+set search_path = public, pg_catalog
+as $fn$
+begin
+  if not coalesce(public.is_super_admin(), false) then
+    raise exception 'Only a super admin can export the database.' using errcode = '42501';
+  end if;
+end
+$fn$;
+
+revoke all on function public.export_guard() from public, anon, authenticated;
+grant execute on function public.export_guard() to authenticated;
+
+
 create or replace function public.export_database_schema()
 returns jsonb
 language plpgsql
@@ -101,9 +123,7 @@ declare
   kw    text;
   managed constant text[] := array['public', 'anon', 'authenticated', 'service_role'];
 begin
-  if not public.is_super_admin() then
-    raise exception 'Only a super admin can export the database.' using errcode = '42501';
-  end if;
+  perform public.export_guard();
 
   -- 1. Extensions (plpgsql is always there) and enum types --------------
   for r in
@@ -445,9 +465,7 @@ security definer
 set search_path = ''
 as $fn$
 begin
-  if not public.is_super_admin() then
-    raise exception 'Only a super admin can export the database.' using errcode = '42501';
-  end if;
+  perform public.export_guard();
   return query
     select n.nspname::text, c.relname::text, greatest(c.reltuples, 0)::bigint
       from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -484,9 +502,7 @@ declare
   n     integer;
   stmt  text;
 begin
-  if not public.is_super_admin() then
-    raise exception 'Only a super admin can export the database.' using errcode = '42501';
-  end if;
+  perform public.export_guard();
   if not (p_schema = 'public' or (p_schema = 'auth' and p_table in ('users', 'identities'))) then
     raise exception 'Table %.% is not part of the export.', p_schema, p_table;
   end if;
