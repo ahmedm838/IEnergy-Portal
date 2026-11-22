@@ -48,7 +48,16 @@ const filterValue = (q) => String(q).replace(/[\\"*%]/g, ' ').replace(/\s+/g, ' 
 /* Wages are whole pounds. The column is numeric(10,2) because that is
    what money columns usually are, but a piastre in an insurance wage is
    always a typo, so nothing here offers a decimal point. */
-const WAGE_LIMITS = { si_basic_wage: [5500, 55000], si_gross_wage: [7100, 71000] }
+/* The allowed band for each wage comes from the tracker's Settings page
+   (app_settings si_wage_min/max and si_gross_wage_min/max), read by
+   loadWageLimits() each time the lists load. These are only the fallback
+   until then. The database checks the same band when a wage is saved. */
+const WAGE_LIMITS = { si_basic_wage: [5500, 16700], si_gross_wage: [7100, 71000] }
+const WAGE_SETTING_KEYS = {
+  si_basic_wage: ['si_wage_min', 'si_wage_max'],
+  si_gross_wage: ['si_gross_wage_min', 'si_gross_wage_max'],
+}
+const moneyRange = ([low, high]) => `${low.toLocaleString('en-US')} to ${high.toLocaleString('en-US')}`
 
 const onlyDigits = (v, max) => String(v ?? '').replace(/\D/g, '').slice(0, max)
 /**
@@ -265,8 +274,8 @@ const GROUPS = [
       { key: 'si_no', label: 'S.I. No.', type: 'text' },
       { key: 'si_date', label: 'S.I. date', type: 'date' },
       { key: 'si_code', label: 'S.I. code', type: 'sicode' },
-      { key: 'si_basic_wage', label: 'S.I. basic wage', type: 'money', placeholder: '5,500 to 55,000' },
-      { key: 'si_gross_wage', label: 'S.I. gross wage', type: 'money', placeholder: '7,100 to 71,000' },
+      { key: 'si_basic_wage', label: 'S.I. basic wage', type: 'money', placeholder: moneyRange(WAGE_LIMITS.si_basic_wage) },
+      { key: 'si_gross_wage', label: 'S.I. gross wage', type: 'money', placeholder: moneyRange(WAGE_LIMITS.si_gross_wage) },
     ],
   },
   {
@@ -429,8 +438,31 @@ $('signOutBtn').addEventListener('click', async () => {
 const LOOKUPS_KEY = 'ienergy-lookups:employee-database'
 const LOOKUPS_MS = 15 * 60 * 1000
 
+/* The S.I. wage bands from Settings. Not part of the cached lists: a
+   band changed on the Settings page should apply on the next open. */
+async function loadWageLimits() {
+  const keys = Object.values(WAGE_SETTING_KEYS).flat()
+  const { data, error } = await supabase.from('app_settings').select('key, value').in('key', keys)
+  if (error) return
+  const map = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]))
+  for (const [field, [minKey, maxKey]] of Object.entries(WAGE_SETTING_KEYS)) {
+    const low = map[minKey]
+    const high = map[maxKey]
+    if (Number.isFinite(low) && Number.isFinite(high) && low > 0 && high > low) {
+      WAGE_LIMITS[field] = [low, high]
+    }
+    const def = EDITABLE.find((f) => f.key === field)
+    if (def) def.placeholder = moneyRange(WAGE_LIMITS[field])
+    // A form already on screen gets the new hint too.
+    document.querySelectorAll(`input[data-key="${field}"]`).forEach((el) => {
+      if (el.tagName === 'INPUT') el.placeholder = moneyRange(WAGE_LIMITS[field])
+    })
+  }
+}
+
 async function loadLookups() {
   let cached = null
+  loadWageLimits().catch(() => {})
   try {
     const hit = JSON.parse(sessionStorage.getItem(LOOKUPS_KEY))
     if (hit && Date.now() - hit.at < LOOKUPS_MS) cached = hit.results
@@ -2488,8 +2520,8 @@ function friendlyError(err) {
     employees_company_mobile_format: 'Company mobile must look like 000-0000-0000.',
     employees_personal_mobile_format: 'Personal mobile must look like 000-0000-0000.',
     employees_secondary_mobile_format: 'Secondary mobile must look like 000-0000-0000.',
-    employees_si_basic_wage_range: 'S.I. basic wage must be between 5,500 and 99,999.',
-    employees_si_gross_wage_range: 'S.I. gross wage must be between 7,100 and 99,999.',
+    employees_si_basic_wage_range: 'S.I. basic wage is outside the range set on the Settings page.',
+    employees_si_gross_wage_range: 'S.I. gross wage is outside the range set on the Settings page.',
     employees_si_code_fkey: 'That S.I. code is not in the official list.',
     employees_military_service_valid: 'Military service must be Served, Served-Reserve Forces, Postponed or Exempted.',
     employees_marital_status_valid: 'Marital status must be Single, Married or Divorced.',

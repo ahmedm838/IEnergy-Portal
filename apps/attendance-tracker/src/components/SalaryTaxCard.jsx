@@ -12,6 +12,11 @@ import { Alert, Button, Card, CardHeader, Field, Input, Td, Th } from './ui'
  *   salary_tax_brackets  the annual progressive tax table, in order
  *   si_wage_min          lowest S.I. basic wage the calculator accepts
  *   si_wage_max          highest S.I. basic wage the calculator accepts
+ *   si_gross_wage_min    lowest S.I. gross wage the Employee Database accepts
+ *   si_gross_wage_max    highest S.I. gross wage the Employee Database accepts
+ *
+ * The S.I. basic wage band also applies in the Employee Database, and the
+ * database itself checks both bands when a wage is saved.
  *
  * Each bracket is { up_to, rate, all_from_above }:
  *   up_to           top of the bracket (annual taxable EGP); null on the last
@@ -35,6 +40,10 @@ export const DEFAULT_TAX_BRACKETS = [
 ]
 export const DEFAULT_SI_MIN = 5500
 export const DEFAULT_SI_MAX = 16700
+export const DEFAULT_SI_GROSS_MIN = 7100
+export const DEFAULT_SI_GROSS_MAX = 71000
+// The employee wage columns are numeric(7,2): five digits of pounds.
+const WAGE_CEILING = 99999
 
 const fmt = (n) => (n == null || n === '' ? '' : Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 }))
 const num = (v) => {
@@ -56,6 +65,8 @@ export default function SalaryTaxCard({ readOnly }) {
   const [rows, setRows] = useState([])
   const [siMin, setSiMin] = useState('')
   const [siMax, setSiMax] = useState('')
+  const [grossMin, setGrossMin] = useState('')
+  const [grossMax, setGrossMax] = useState('')
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -66,7 +77,7 @@ export default function SalaryTaxCard({ readOnly }) {
         supabase
           .from('app_settings')
           .select('key, value')
-          .in('key', ['salary_tax_brackets', 'si_wage_min', 'si_wage_max']),
+          .in('key', ['salary_tax_brackets', 'si_wage_min', 'si_wage_max', 'si_gross_wage_min', 'si_gross_wage_max']),
       )
       const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]))
       const brackets = Array.isArray(map.salary_tax_brackets) && map.salary_tax_brackets.length
@@ -76,11 +87,15 @@ export default function SalaryTaxCard({ readOnly }) {
         rows: toDraft(brackets),
         siMin: fmt(map.si_wage_min ?? DEFAULT_SI_MIN),
         siMax: fmt(map.si_wage_max ?? DEFAULT_SI_MAX),
+        grossMin: fmt(map.si_gross_wage_min ?? DEFAULT_SI_GROSS_MIN),
+        grossMax: fmt(map.si_gross_wage_max ?? DEFAULT_SI_GROSS_MAX),
       }
       setSaved(s)
       setRows(s.rows)
       setSiMin(s.siMin)
       setSiMax(s.siMax)
+      setGrossMin(s.grossMin)
+      setGrossMax(s.grossMax)
     } catch (err) {
       setError(err.message)
     }
@@ -90,7 +105,9 @@ export default function SalaryTaxCard({ readOnly }) {
   const changed = saved
     ? (JSON.stringify(rows) !== JSON.stringify(saved.rows) ? 1 : 0) +
       (siMin !== saved.siMin ? 1 : 0) +
-      (siMax !== saved.siMax ? 1 : 0)
+      (siMax !== saved.siMax ? 1 : 0) +
+      (grossMin !== saved.grossMin ? 1 : 0) +
+      (grossMax !== saved.grossMax ? 1 : 0)
     : 0
 
   const setCell = (i, key, value) =>
@@ -136,8 +153,16 @@ export default function SalaryTaxCard({ readOnly }) {
     const max = num(siMax)
     if (min === null || Number.isNaN(min) || min <= 0) return { problem: 'Enter the minimum social insurance wage.' }
     if (max === null || Number.isNaN(max) || max <= 0) return { problem: 'Enter the maximum social insurance wage.' }
-    if (max <= min) return { problem: 'The maximum social insurance wage must be more than the minimum.' }
-    return { brackets, min, max }
+    if (max <= min) return { problem: 'The maximum social insurance basic wage must be more than the minimum.' }
+    const gMin = num(grossMin)
+    const gMax = num(grossMax)
+    if (gMin === null || Number.isNaN(gMin) || gMin <= 0) return { problem: 'Enter the minimum social insurance gross wage.' }
+    if (gMax === null || Number.isNaN(gMax) || gMax <= 0) return { problem: 'Enter the maximum social insurance gross wage.' }
+    if (gMax <= gMin) return { problem: 'The maximum social insurance gross wage must be more than the minimum.' }
+    if (max > WAGE_CEILING || gMax > WAGE_CEILING) {
+      return { problem: `Social insurance wages can be at most ${fmt(WAGE_CEILING)} (five digits).` }
+    }
+    return { brackets, min, max, gMin, gMax }
   }
 
   async function save() {
@@ -156,11 +181,13 @@ export default function SalaryTaxCard({ readOnly }) {
             { key: 'salary_tax_brackets', value: parsed.brackets, description: 'Salary Calculator: annual progressive tax brackets' },
             { key: 'si_wage_min', value: parsed.min, description: 'Salary Calculator: minimum S.I. basic wage' },
             { key: 'si_wage_max', value: parsed.max, description: 'Salary Calculator: maximum S.I. basic wage' },
+            { key: 'si_gross_wage_min', value: parsed.gMin, description: 'Employee Database: minimum S.I. gross wage' },
+            { key: 'si_gross_wage_max', value: parsed.gMax, description: 'Employee Database: maximum S.I. gross wage' },
           ],
           { onConflict: 'key' },
         ),
       )
-      setNotice('Saved. The Salary Calculator uses the new table and wage limits the next time it opens.')
+      setNotice('Saved. The Salary Calculator and the Employee Database use the new table and wage limits the next time they open.')
       await load()
     } catch (err) {
       setError(err.message.includes('row-level security')
@@ -190,27 +217,24 @@ export default function SalaryTaxCard({ readOnly }) {
         {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
       </div>
 
-      <div className="grid gap-4 px-5 pt-5 sm:grid-cols-2">
-        <Field label="Minimum social insurance wage (EGP)" hint="The calculator refuses an S.I. basic wage below this.">
-          <Input
-            inputMode="decimal"
-            className="tabular"
-            value={siMin}
-            disabled={disabled}
-            onChange={(e) => setSiMin(e.target.value)}
-            onBlur={() => { const n = num(siMin); if (Number.isFinite(n)) setSiMin(fmt(n)) }}
-          />
-        </Field>
-        <Field label="Maximum social insurance wage (EGP)" hint="The calculator refuses an S.I. basic wage above this.">
-          <Input
-            inputMode="decimal"
-            className="tabular"
-            value={siMax}
-            disabled={disabled}
-            onChange={(e) => setSiMax(e.target.value)}
-            onBlur={() => { const n = num(siMax); if (Number.isFinite(n)) setSiMax(fmt(n)) }}
-          />
-        </Field>
+      <div className="grid gap-4 px-5 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['Minimum S.I. basic wage (EGP)', 'Salary Calculator and Employee Database refuse a basic wage below this.', siMin, setSiMin],
+          ['Maximum S.I. basic wage (EGP)', 'Salary Calculator and Employee Database refuse a basic wage above this.', siMax, setSiMax],
+          ['Minimum S.I. gross wage (EGP)', 'Employee Database refuses a gross wage below this.', grossMin, setGrossMin],
+          ['Maximum S.I. gross wage (EGP)', 'Employee Database refuses a gross wage above this.', grossMax, setGrossMax],
+        ].map(([label, hint, value, set]) => (
+          <Field key={label} label={label} hint={hint}>
+            <Input
+              inputMode="decimal"
+              className="tabular"
+              value={value}
+              disabled={disabled}
+              onChange={(e) => set(e.target.value)}
+              onBlur={() => { const n = num(value); if (Number.isFinite(n)) set(fmt(n)) }}
+            />
+          </Field>
+        ))}
       </div>
 
       <div className="p-5">
@@ -303,8 +327,11 @@ export default function SalaryTaxCard({ readOnly }) {
           count={changed}
           busy={busy}
           onSave={save}
-          onDiscard={() => { setRows(saved.rows); setSiMin(saved.siMin); setSiMax(saved.siMax) }}
-          hint="Salary taxes and the S.I. wage limits are saved together."
+          onDiscard={() => {
+            setRows(saved.rows); setSiMin(saved.siMin); setSiMax(saved.siMax)
+            setGrossMin(saved.grossMin); setGrossMax(saved.grossMax)
+          }}
+          hint="Salary taxes and all four S.I. wage limits are saved together."
         />
       )}
     </Card>
