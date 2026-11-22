@@ -20,7 +20,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -172,11 +172,36 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      # Named per attempt. With one fixed name, "Re-run failed jobs"
+      # uploads a second "github-pages" into the same run and the deploy
+      # then refuses to pick between the two -- so a failed deploy could
+      # never be re-run. Happened 22 Nov 2026.
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+          name: github-pages-${{ github.run_attempt }}
+
+      # GitHub sometimes cannot see an artifact for a moment after it is
+      # uploaded ("Found 0 artifact(s)"). Give it a few seconds, and try
+      # once more if the first attempt still misses it.
+      - name: Wait for the artifact to register
+        run: sleep 10
 
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
+
+      - name: Wait before retrying the deploy
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy to GitHub Pages (retry)
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
