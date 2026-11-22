@@ -375,53 +375,61 @@ export default function Settings() {
       {error && <Alert tone="error" onDismiss={() => setError(null)}>{error}</Alert>}
       {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
 
-      <Card>
-        <CardHeader title="Payroll constants" />
-        <form className="grid gap-4 p-5 sm:grid-cols-4" onSubmit={saveSettings}>
-          <Field
-            label={`Meal allowance (${lookups.currency} per meal unit)`}
-            hint="Default for the monthly report; can be overridden per run."
-          >
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={mealRate}
-              disabled={readOnly}
-              onChange={(e) => setMealRate(e.target.value)}
-            />
-          </Field>
-          <Field
-            label="Required hours per working day"
-            hint="The workbook's literal 8. Drives required hours and every deduction formula."
-          >
-            <Input
-              type="number"
-              step="0.5"
-              min="1"
-              value={hoursPerDay}
-              disabled={readOnly}
-              onChange={(e) => setHoursPerDay(e.target.value)}
-            />
-          </Field>
-          <Field
-            label="Late hours forgiven per period"
-            hint="Lateness beyond this is added to Deducted Hours on the monthly report."
-          >
-            <Input
-              type="number"
-              step="0.25"
-              min="0"
-              value={lateGrace}
-              disabled={readOnly}
-              onChange={(e) => setLateGrace(e.target.value)}
-            />
-          </Field>
-          <div className="flex items-end">
-            <Button type="submit" disabled={readOnly}>Save</Button>
-          </div>
-        </form>
-      </Card>
+      {/* Payroll constants and the change log side by side at the top.
+          The log is not gated on readOnly: reading it is exactly what an
+          admin who is not a super admin should be able to do, and the
+          policy on audit_log says so too. Nothing on that card writes. */}
+      <div className="grid items-start gap-5 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="Payroll constants" />
+          <form className="grid gap-4 p-5 sm:grid-cols-2" onSubmit={saveSettings}>
+            <Field
+              label={`Meal allowance (${lookups.currency} per meal unit)`}
+              hint="Default for the monthly report; can be overridden per run."
+            >
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={mealRate}
+                disabled={readOnly}
+                onChange={(e) => setMealRate(e.target.value)}
+              />
+            </Field>
+            <Field
+              label="Required hours per working day"
+              hint="The workbook's literal 8. Drives required hours and every deduction formula."
+            >
+              <Input
+                type="number"
+                step="0.5"
+                min="1"
+                value={hoursPerDay}
+                disabled={readOnly}
+                onChange={(e) => setHoursPerDay(e.target.value)}
+              />
+            </Field>
+            <Field
+              label="Late hours forgiven per period"
+              hint="Lateness beyond this is added to Deducted Hours on the monthly report."
+            >
+              <Input
+                type="number"
+                step="0.25"
+                min="0"
+                value={lateGrace}
+                disabled={readOnly}
+                onChange={(e) => setLateGrace(e.target.value)}
+              />
+            </Field>
+            <div className="flex items-end">
+              <Button type="submit" disabled={readOnly}>Save</Button>
+            </div>
+          </form>
+        </Card>
+
+        <ChangeLogCard />
+      </div>
 
       <LockedPeriods readOnly={readOnly} />
 
@@ -742,10 +750,6 @@ export default function Settings() {
 
       <AccessCard readOnly={readOnly} />
 
-      {/* Last, and not gated on readOnly: reading the log is exactly what
-          an admin who is not a super admin should be able to do, and the
-          policy on audit_log says so too. Nothing on this card writes. */}
-      <ChangeLogCard />
     </div>
   )
 }
