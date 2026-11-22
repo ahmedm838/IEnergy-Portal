@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { supabase, run } from '../lib/supabase'
 import { exportSheet } from '../lib/exportXlsx'
 import { toISODate, longDateLabel } from '../lib/format'
+import { buildDatabaseScript, downloadText } from '../lib/exportDatabase'
+import { useAuth } from '../lib/auth'
 import { Alert, Button, Card, CardHeader, Field, Input } from './ui'
 
 /** The first day of the month n months before today, and today. */
@@ -60,6 +62,35 @@ export default function ChangeLogCard() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
+  const { isSuperAdmin } = useAuth()
+  const [dbBusy, setDbBusy] = useState(null)
+
+  /**
+   * Everything -- structure, rows, policies, grants, sign-ins -- as one
+   * .sql file that rebuilds the database in a new Supabase project.
+   * Super admins only: the file holds every salary, national ID and
+   * password hash, and the database functions refuse anyone else anyway.
+   */
+  async function exportDatabase() {
+    setError(null)
+    setNotice(null)
+    setDbBusy('Starting…')
+    try {
+      const rpc = (name, args) => run(supabase.rpc(name, args ?? {}))
+      const { sql, tables, rows } = await buildDatabaseScript(rpc, setDbBusy)
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')
+      downloadText(sql, `ienergy-database-${stamp}.sql`)
+      setNotice(
+        `Exported the whole database: ${tables} tables, ${rows.toLocaleString()} rows, with ` +
+          'functions, policies and sign-ins. Restore steps are at the top of the file. ' +
+          'It holds salaries, national IDs and password hashes, so keep it private.',
+      )
+    } catch (e) {
+      setError(`Database export failed: ${e.message ?? String(e)}`)
+    } finally {
+      setDbBusy(null)
+    }
+  }
 
   async function exportLog() {
     setError(null)
@@ -129,12 +160,28 @@ export default function ChangeLogCard() {
             onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
           />
         </Field>
-        <div>
-          <Button onClick={exportLog} disabled={busy}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={exportLog} disabled={busy || Boolean(dbBusy)}>
             {busy ? 'Exporting…' : 'Export log (Excel)'}
           </Button>
+          {/* Beside the log export, and only for super admins: a copy of
+              the entire database that can rebuild it somewhere else. */}
+          {isSuperAdmin && (
+            <Button
+              variant="secondary"
+              onClick={exportDatabase}
+              disabled={busy || Boolean(dbBusy)}
+              title="Every table with its records, plus functions, views, triggers, RLS policies, grants and sign-ins, as one .sql file that rebuilds the database in a new Supabase project."
+            >
+              {dbBusy ? 'Exporting database…' : 'Export full database (SQL)'}
+            </Button>
+          )}
         </div>
       </div>
+
+      {dbBusy && (
+        <p className="px-5 pb-4 text-sm text-ink-3" role="status">{dbBusy}</p>
+      )}
 
       {error && (
         <div className="px-5 pb-4">
