@@ -14,6 +14,8 @@ import { Alert, Button, Card, CardHeader, Field, Input, Td, Th } from './ui'
  *   si_wage_max          highest S.I. basic wage the calculator accepts
  *   si_gross_wage_min    lowest S.I. gross wage the Employee Database accepts
  *   si_gross_wage_max    highest S.I. gross wage the Employee Database accepts
+ *   si_employee_share_pct  employee's S.I. share, % of the S.I. basic wage
+ *   si_company_share_pct   company's S.I. share, % of the S.I. basic wage
  *
  * The S.I. basic wage band also applies in the Employee Database, and the
  * database itself checks both bands when a wage is saved.
@@ -44,6 +46,8 @@ export const DEFAULT_SI_GROSS_MIN = 7100
 export const DEFAULT_SI_GROSS_MAX = 71000
 // The employee wage columns are numeric(7,2): five digits of pounds.
 const WAGE_CEILING = 99999
+export const DEFAULT_SI_EMPLOYEE_PCT = 11
+export const DEFAULT_SI_COMPANY_PCT = 18.75
 
 const fmt = (n) => (n == null || n === '' ? '' : Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 }))
 const num = (v) => {
@@ -67,6 +71,8 @@ export default function SalaryTaxCard({ readOnly }) {
   const [siMax, setSiMax] = useState('')
   const [grossMin, setGrossMin] = useState('')
   const [grossMax, setGrossMax] = useState('')
+  const [empPct, setEmpPct] = useState('')
+  const [coPct, setCoPct] = useState('')
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -77,7 +83,7 @@ export default function SalaryTaxCard({ readOnly }) {
         supabase
           .from('app_settings')
           .select('key, value')
-          .in('key', ['salary_tax_brackets', 'si_wage_min', 'si_wage_max', 'si_gross_wage_min', 'si_gross_wage_max']),
+          .in('key', ['salary_tax_brackets', 'si_wage_min', 'si_wage_max', 'si_gross_wage_min', 'si_gross_wage_max', 'si_employee_share_pct', 'si_company_share_pct']),
       )
       const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]))
       const brackets = Array.isArray(map.salary_tax_brackets) && map.salary_tax_brackets.length
@@ -89,6 +95,8 @@ export default function SalaryTaxCard({ readOnly }) {
         siMax: fmt(map.si_wage_max ?? DEFAULT_SI_MAX),
         grossMin: fmt(map.si_gross_wage_min ?? DEFAULT_SI_GROSS_MIN),
         grossMax: fmt(map.si_gross_wage_max ?? DEFAULT_SI_GROSS_MAX),
+        empPct: String(map.si_employee_share_pct ?? DEFAULT_SI_EMPLOYEE_PCT),
+        coPct: String(map.si_company_share_pct ?? DEFAULT_SI_COMPANY_PCT),
       }
       setSaved(s)
       setRows(s.rows)
@@ -96,6 +104,8 @@ export default function SalaryTaxCard({ readOnly }) {
       setSiMax(s.siMax)
       setGrossMin(s.grossMin)
       setGrossMax(s.grossMax)
+      setEmpPct(s.empPct)
+      setCoPct(s.coPct)
     } catch (err) {
       setError(err.message)
     }
@@ -107,7 +117,9 @@ export default function SalaryTaxCard({ readOnly }) {
       (siMin !== saved.siMin ? 1 : 0) +
       (siMax !== saved.siMax ? 1 : 0) +
       (grossMin !== saved.grossMin ? 1 : 0) +
-      (grossMax !== saved.grossMax ? 1 : 0)
+      (grossMax !== saved.grossMax ? 1 : 0) +
+      (empPct !== saved.empPct ? 1 : 0) +
+      (coPct !== saved.coPct ? 1 : 0)
     : 0
 
   const setCell = (i, key, value) =>
@@ -162,7 +174,11 @@ export default function SalaryTaxCard({ readOnly }) {
     if (max > WAGE_CEILING || gMax > WAGE_CEILING) {
       return { problem: `Social insurance wages can be at most ${fmt(WAGE_CEILING)} (five digits).` }
     }
-    return { brackets, min, max, gMin, gMax }
+    const ePct = num(empPct)
+    const cPct = num(coPct)
+    if (ePct === null || Number.isNaN(ePct) || ePct < 0 || ePct > 100) return { problem: 'The employee S.I. share must be a percentage between 0 and 100.' }
+    if (cPct === null || Number.isNaN(cPct) || cPct < 0 || cPct > 100) return { problem: 'The company S.I. share must be a percentage between 0 and 100.' }
+    return { brackets, min, max, gMin, gMax, ePct, cPct }
   }
 
   async function save() {
@@ -183,6 +199,8 @@ export default function SalaryTaxCard({ readOnly }) {
             { key: 'si_wage_max', value: parsed.max, description: 'Salary Calculator: maximum S.I. basic wage' },
             { key: 'si_gross_wage_min', value: parsed.gMin, description: 'Employee Database: minimum S.I. gross wage' },
             { key: 'si_gross_wage_max', value: parsed.gMax, description: 'Employee Database: maximum S.I. gross wage' },
+            { key: 'si_employee_share_pct', value: parsed.ePct, description: 'Salary Calculator: employee S.I. share, % of S.I. basic wage' },
+            { key: 'si_company_share_pct', value: parsed.cPct, description: 'Salary Calculator: company S.I. share, % of S.I. basic wage' },
           ],
           { onConflict: 'key' },
         ),
@@ -232,6 +250,20 @@ export default function SalaryTaxCard({ readOnly }) {
               disabled={disabled}
               onChange={(e) => set(e.target.value)}
               onBlur={() => { const n = num(value); if (Number.isFinite(n)) set(fmt(n)) }}
+            />
+          </Field>
+        ))}
+        {[
+          ['Employee S.I. share (%)', 'Deducted from the employee: % of the S.I. basic wage. Used by the Salary Calculator.', empPct, setEmpPct],
+          ['Company S.I. share (%)', 'Paid by the company: % of the S.I. basic wage. Used by the Salary Calculator.', coPct, setCoPct],
+        ].map(([label, hint, value, set]) => (
+          <Field key={label} label={label} hint={hint}>
+            <Input
+              inputMode="decimal"
+              className="tabular"
+              value={value}
+              disabled={disabled}
+              onChange={(e) => set(e.target.value)}
             />
           </Field>
         ))}
@@ -330,8 +362,9 @@ export default function SalaryTaxCard({ readOnly }) {
           onDiscard={() => {
             setRows(saved.rows); setSiMin(saved.siMin); setSiMax(saved.siMax)
             setGrossMin(saved.grossMin); setGrossMax(saved.grossMax)
+            setEmpPct(saved.empPct); setCoPct(saved.coPct)
           }}
-          hint="Salary taxes and all four S.I. wage limits are saved together."
+          hint="Salary taxes, the S.I. wage limits and the S.I. shares are saved together."
         />
       )}
     </Card>

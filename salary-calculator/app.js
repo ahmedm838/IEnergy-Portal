@@ -38,8 +38,11 @@ let TAX_BRACKETS = [
 let salarySettingsState = "loading"; // loading | ready | fallback
 
 // Default parameters (not user-editable in UI)
-const DEFAULT_EMPLOYEE_SI_RATE_PCT = 11;
-const DEFAULT_COMPANY_SI_RATE_PCT = 18.75;
+// S.I. shares (% of the S.I. basic wage). Fallbacks; the real values come
+// from the Settings page (app_settings si_employee_share_pct /
+// si_company_share_pct), loaded by loadSalarySettings().
+let DEFAULT_EMPLOYEE_SI_RATE_PCT = 11;
+let DEFAULT_COMPANY_SI_RATE_PCT = 18.75;
 const DEFAULT_PERSONAL_EXEMPTION_ANNUAL = 20000;
 
 
@@ -620,7 +623,7 @@ async function loadSalarySettings() {
     const { data, error } = await supabase
       .from("app_settings")
       .select("key, value")
-      .in("key", ["salary_tax_brackets", "si_wage_min", "si_wage_max"]);
+      .in("key", ["salary_tax_brackets", "si_wage_min", "si_wage_max", "si_employee_share_pct", "si_company_share_pct"]);
     if (error) throw error;
     const map = Object.fromEntries((data || []).map((r) => [r.key, r.value]));
 
@@ -628,6 +631,11 @@ async function loadSalarySettings() {
     const max = Number(map.si_wage_max);
     if (Number.isFinite(min) && min > 0) INSURABLE_BASE_MIN = min;
     if (Number.isFinite(max) && max > INSURABLE_BASE_MIN) INSURABLE_BASE_MAX = max;
+
+    const emp = Number(map.si_employee_share_pct);
+    const co = Number(map.si_company_share_pct);
+    if (map.si_employee_share_pct != null && Number.isFinite(emp) && emp >= 0 && emp <= 100) DEFAULT_EMPLOYEE_SI_RATE_PCT = emp;
+    if (map.si_company_share_pct != null && Number.isFinite(co) && co >= 0 && co <= 100) DEFAULT_COMPANY_SI_RATE_PCT = co;
 
     const b = map.salary_tax_brackets;
     if (Array.isArray(b) && b.length && b.every((x) => x && Number.isFinite(Number(x.rate)))) {
