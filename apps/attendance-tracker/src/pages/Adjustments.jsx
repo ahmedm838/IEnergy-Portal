@@ -146,13 +146,13 @@ export default function Adjustments() {
 
   return (
     <div className="grid grid-cols-1 gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <h1 className="text-xl font-semibold text-ink">Adjustments</h1>
-          <p className="mt-0.5 text-sm text-ink-3">
+          <p className="text-sm text-ink-3">
             Incentives, bonuses, penalties and salary advances that feed the monthly report.
           </p>
-          <PeriodLabel from={range.from} to={range.to} className="mt-2" />
+          <PeriodLabel from={range.from} to={range.to} />
         </div>
         <Button onClick={newDraft}>Add adjustment</Button>
       </div>

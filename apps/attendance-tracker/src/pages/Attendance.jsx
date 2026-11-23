@@ -875,12 +875,12 @@ export default function Attendance() {
 
   return (
     <div className="grid grid-cols-1 gap-5">
-      <div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <h1 className="text-xl font-semibold text-ink">Attendance</h1>
-        <p className="mt-0.5 text-sm text-ink-3">
+        <p className="text-sm text-ink-3">
           One row per calendar day, as in the workbook&rsquo;s employee report sheet.
         </p>
-        <PeriodLabel from={range.from} to={range.to} className="mt-2" />
+        <PeriodLabel from={range.from} to={range.to} />
       </div>
 
       <Card>

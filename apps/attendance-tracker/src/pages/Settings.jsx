@@ -358,9 +358,9 @@ export default function Settings() {
 
   return (
     <div className="grid grid-cols-1 gap-5">
-      <div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <h1 className="text-xl font-semibold text-ink">Settings</h1>
-        <p className="mt-0.5 text-sm text-ink-3">
+        <p className="text-sm text-ink-3">
           Reference data from the workbook. Changes take effect on the next report run.
         </p>
       </div>

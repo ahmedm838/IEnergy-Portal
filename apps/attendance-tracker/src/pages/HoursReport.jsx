@@ -148,12 +148,12 @@ export default function HoursReport() {
 
   return (
     <div className="grid grid-cols-1 gap-5">
-      <div className="no-print">
+      <div className="no-print flex flex-wrap items-center gap-x-4 gap-y-1">
         <h1 className="text-xl font-semibold text-ink">Hours report</h1>
-        <p className="mt-0.5 text-sm text-ink-3">
+        <p className="text-sm text-ink-3">
           Hours owed against hours worked, for employees whose Overtime switch is off.
         </p>
-        <PeriodLabel from={range.from} to={range.to} className="mt-2" />
+        <PeriodLabel from={range.from} to={range.to} />
       </div>
 
       <Card className="no-print">

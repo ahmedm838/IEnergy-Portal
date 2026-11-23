@@ -281,13 +281,13 @@ export default function Employees() {
           what it shows. The link that used to say so is gone -- it is one
           click from the portal's own tile, and it was the last thing here
           still pointing at the old GitHub Pages address. */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <h1 className="text-xl font-semibold text-ink">Employees</h1>
-          <p className="mt-0.5 text-sm text-ink-3">
+          <p className="text-sm text-ink-3">
             {filtered.length} of {employees.length} employees. Leave figures are in days, shown as Annual / Unplanned for {year}.
           </p>
-          <p className="no-print mt-1 text-xs text-ink-4">
+          <p className="no-print text-xs text-ink-4">
             {isSuperAdmin
               ? 'Roles and passwords are set in Settings, under Access.'
               : 'Roles and passwords are set by a super admin, in Settings. There is no email reset.'}
