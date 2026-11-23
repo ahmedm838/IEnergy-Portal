@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=90'
+} from '../hr-documents/hr-documents.js?v=91'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -124,6 +124,30 @@ export function custodyValues(emp, d, inputs = {}) {
     7: arDate(d.hired),
     8: name,
     9: inputs.manager || '',
+  }
+}
+
+/* --- Lost custody memo (مذكرة إدارية - فقد عهدة) ----------------------- */
+
+/* A memo to the legal affairs manager referring the loss of an
+   employee's custody for investigation. The date and the employee's
+   details are filled; the custody's description, serial number, the
+   dates it was received and found lost, and the signature are written
+   by hand on the dotted lines. */
+export function custodyLossDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+  }
+}
+
+export function custodyLossValues(emp, d) {
+  return {
+    1: arDate(d.today),
+    2: emp?.arabic_name || '',
+    3: jobTitle(emp),
+    4: department(emp),
+    5: arDate(d.hired),
   }
 }
 
@@ -313,6 +337,24 @@ const DOCUMENTS = [
     ],
     dateFields: [['today', 'تاريخ الإقرار', [1]]],
     inputs: [['manager', 'مدير الإدارة المسئولة', 'person', [9]]],
+  },
+  {
+    id: 'custody-loss',
+    title: 'مذكرة إدارية (فقد عهدة)',
+    subtitle: 'Lost custody memo',
+    template: 'templates/custody-loss.docx?v=2',
+    fields: {
+      1: 'تاريخ المذكرة', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
+    },
+    dates: custodyLossDates,
+    values: custodyLossValues,
+    info: [
+      [3, 'الوظيفة'],
+      [4, 'الإدارة'],
+      [5, 'تاريخ التعيين'],
+    ],
+    dateFields: [['today', 'تاريخ المذكرة', [1]]],
+    inputs: [],
   },
   {
     id: 'hiring-request',
