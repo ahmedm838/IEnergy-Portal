@@ -1978,6 +1978,35 @@ export function mergeParagraphBorders(xml) {
   return xml
 }
 
+/* Word's "Auto" spacing before and after a paragraph (beforeAutospacing,
+   afterAutospacing) is 14 pt, except inside a table cell, where the
+   first paragraph has none before it and the last none after it. The
+   renderer does not read it and fell back to the small value saved
+   beside it, so a form spaced that way came out squeezed together, its
+   first page short and its second crowded. The 14 pt is written in. */
+export function useAutoSpacing(xml) {
+  if (!/Autospacing="(?:1|true|on)"/.test(xml)) return xml
+  const AUTO = 280 // 14 pt, in twentieths of a point
+  const fix = (p, first, last) => p.replace(/<w:spacing\b[^>]*\/>/, (s) => {
+    let out = s
+    for (const [side, isEdge] of [['before', first], ['after', last]]) {
+      const on = new RegExp(`\\sw:${side}Autospacing="(?:1|true|on)"`)
+      if (!on.test(out)) continue
+      out = out.replace(on, '').replace(new RegExp(`\\sw:${side}="\\d+"`), '')
+      out = out.replace(/\/>$/, ` w:${side}="${isEdge ? 0 : AUTO}"/>`)
+    }
+    return out
+  })
+  const PARA = /<w:p\b(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/g
+  // Table cells first: their first and last paragraphs keep no space at the edge.
+  xml = xml.replace(/<w:tc>[\s\S]*?<\/w:tc>/g, (cell) => {
+    const n = (cell.match(PARA) || []).length
+    let i = 0
+    return cell.replace(PARA, (p) => { const out = fix(p, i === 0, i === n - 1); i++; return out })
+  })
+  return xml.replace(PARA, (p) => fix(p, false, false))
+}
+
 /* For every table in the body, in document order (nested ones too),
    whether Word lays it out right to left (bidiVisual: the first column
    on the right). The renderer does not read it, so it is turned here. */
@@ -2003,7 +2032,7 @@ async function loadTemplate(def, off = 0) {
       // Kashida justification is how Word justifies Arabic; the renderer
       // does not know it and would leave those paragraphs unaligned.
       xml = xml.replace(/(<w:jc w:val=")(?:low|medium|high)Kashida(")/g, '$1both$2')
-      zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(mergeParagraphBorders(xml))), def.blanks, off))
+      zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(mergeParagraphBorders(useAutoSpacing(xml)))), def.blanks, off))
       for (const name of Object.keys(zip.files)) {
         if (/^word\/(styles|header\d*|footer\d*)\.xml$/.test(name)) {
           zip.file(name, useArabicRunProps(await zip.file(name).async('string')))
@@ -2901,6 +2930,8 @@ async function buildPdf({ print = false } = {}) {
     state.capturing = false
     fitPreview()
   }
+  // The title a PDF viewer shows, and saves the file under.
+  pdf.setProperties({ title: pdfName(state.def, state.employee).replace(/\.pdf$/, '') })
   return pdf.output('blob')
 }
 
@@ -2928,8 +2959,13 @@ async function savePdf() {
    signed in several copies (the hiring contract) repeated that many
    times. Where a browser will not print a PDF from a frame, it opens in
    a new tab with its own print button. */
+/* "Save as PDF" in the print dialog names the file after the page's
+   title, so while a form is printed the page takes the form's file name
+   ("iEnergy — HR Documents" otherwise); it goes back on leaving the form. */
+const PAGE_TITLE = document.title
 async function printPdf() {
   const blob = await buildPdf({ print: true })
+  document.title = pdfName(state.def, state.employee).replace(/\.pdf$/, '')
   const url = URL.createObjectURL(blob)
   const frame = $('printFrame')
   const done = () => setTimeout(() => URL.revokeObjectURL(url), 120000)
@@ -3803,6 +3839,7 @@ async function openDocument(def) {
 }
 
 function closeDocument() {
+  document.title = PAGE_TITLE
   state.def = null
   state.employee = null
   state.dateSet = {}
