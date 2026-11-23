@@ -364,7 +364,7 @@ const DOCUMENTS = [
        the printout matches Word's print preview. A change to the Word
        file needs a new PDF from Word. */
     scan: {
-      pages: ['templates/performance-evaluation-1.png?v=1', 'templates/performance-evaluation-2.png?v=1'],
+      pages: ['templates/performance-evaluation-1.png?v=1', 'templates/performance-evaluation-2.png?v=2'],
       size: [1654, 2339],
       paper: 'a4',
       typed: true,
