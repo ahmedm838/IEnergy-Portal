@@ -625,6 +625,49 @@ export function employmentCertificateValues(emp, d, inputs = {}) {
   }
 }
 
+/* --- Investigation report (محضر تحقيق إداري) --------------------------- */
+
+/* Dated today unless the user sets it; the hiring date is the record's. */
+export function investigationDates(emp, set = {}, today = todayUTC()) {
+  return {
+    today: has(set, 'today') ? set.today : today,
+    hired: emp ? parseISO(emp.hired_on) : null,
+  }
+}
+
+/* The investigator and those attending are chosen from the employees;
+   "بصفته" is each one's job title from their record. The start time is
+   typed and shown in Arabic digits. The employee's and the
+   investigator's names are written again above each pair of signatures. */
+export function investigationValues(emp, d, inputs = {}, ctx = {}) {
+  const find = (k) => (ctx.find ? ctx.find(inputs[k]) : null)
+  const inv = find('investigator')
+  const a1 = find('attendee1')
+  const a2 = find('attendee2')
+  const name = emp?.arabic_name || ''
+  const invName = inv?.arabic_name || ''
+  return {
+    1: arDate(d.today),
+    2: toArabicDigits((inputs.startTime || '').trim()),
+    3: invName,
+    4: inv ? jobTitle(inv) : '',
+    5: a1?.arabic_name || '',
+    6: a1 ? jobTitle(a1) : '',
+    7: a2?.arabic_name || '',
+    8: a2 ? jobTitle(a2) : '',
+    9: name,
+    10: jobTitle(emp),
+    11: department(emp),
+    12: arDate(d.hired),
+    13: name,
+    14: invName,
+    15: name,
+    16: invName,
+    17: name,
+    18: invName,
+  }
+}
+
 /* --- Resignation (استقالة مسببة) --------------------------------------- */
 
 /* The resignation date (1) is the notice date on the record and the last
@@ -1664,6 +1707,42 @@ DOCUMENTS.push({
   ],
   // From the acknowledgement to the end of the page.
   sections: [{ input: 'acknowledge', from: 'أقر أنا الموقع أدناه' }],
+})
+
+/* An administrative investigation report, last in the list. The date,
+   the start time, who investigates and who attends, and the employee's
+   details are filled in; the subject, the questions' answers, the end
+   time and the outcome are written by hand at the investigation. */
+DOCUMENTS.push({
+  id: 'investigation-report',
+  title: 'محضر تحقيق إداري',
+  subtitle: 'Administrative investigation report',
+  template: 'templates/investigation-report.docx?v=1',
+  fields: {
+    1: 'تاريخ التحقيق', 2: 'وقت بدء التحقيق', 3: 'القائم بالتحقيق', 4: 'وظيفة القائم بالتحقيق',
+    5: 'الحاضر الأول', 6: 'وظيفة الحاضر الأول', 7: 'الحاضر الثاني', 8: 'وظيفة الحاضر الثاني',
+    9: 'الاسم بالعربية', 10: 'الوظيفة', 11: 'الإدارة', 12: 'تاريخ التعيين',
+    13: 'الاسم بالعربية', 14: 'القائم بالتحقيق', 15: 'الاسم بالعربية', 16: 'القائم بالتحقيق',
+    17: 'الاسم بالعربية', 18: 'القائم بالتحقيق',
+  },
+  // A second person attending is not always there.
+  optional: [7, 8],
+  // Two pages, as in Word: the second starts at question 4.
+  pageStarts: ['س٤'],
+  dates: investigationDates,
+  values: investigationValues,
+  info: [
+    [10, 'الوظيفة'],
+    [11, 'الإدارة'],
+    [12, 'تاريخ التعيين'],
+  ],
+  dateFields: [['today', 'تاريخ التحقيق', [1]]],
+  inputs: [
+    ['startTime', 'وقت بدء التحقيق', 'text', [2], 'مثال: 10:30 صباحًا'],
+    ['investigator', 'القائم بالتحقيق', 'employee', [3, 4, 14, 16, 18]],
+    ['attendee1', 'بحضور (الأول)', 'employee', [5, 6]],
+    ['attendee2', 'وأيضًا (الثاني — اختياري)', 'employee', [7, 8]],
+  ],
 })
 
 for (const def of DOCUMENTS) def.blanks = Object.keys(def.fields).map(Number)
