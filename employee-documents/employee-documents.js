@@ -342,7 +342,7 @@ const DOCUMENTS = [
     id: 'custody-loss',
     title: 'مذكرة إدارية (فقد عهدة)',
     subtitle: 'Lost custody memo',
-    template: 'templates/custody-loss.docx?v=2',
+    template: 'templates/custody-loss.docx?v=3',
     fields: {
       1: 'تاريخ المذكرة', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
     },
