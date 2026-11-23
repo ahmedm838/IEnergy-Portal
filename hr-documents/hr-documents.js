@@ -1717,7 +1717,7 @@ DOCUMENTS.push({
   id: 'investigation-report',
   title: 'محضر تحقيق إداري',
   subtitle: 'Administrative investigation report',
-  template: 'templates/investigation-report.docx?v=1',
+  template: 'templates/investigation-report.docx?v=2',
   fields: {
     1: 'تاريخ التحقيق', 2: 'وقت بدء التحقيق', 3: 'القائم بالتحقيق', 4: 'وظيفة القائم بالتحقيق',
     5: 'الحاضر الأول', 6: 'وظيفة الحاضر الأول', 7: 'الحاضر الثاني', 8: 'وظيفة الحاضر الثاني',
