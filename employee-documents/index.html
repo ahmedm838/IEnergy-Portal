@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="../favicon.png?v=2" />
   <link rel="stylesheet" href="../responsive.css?v=1" />
   <link rel="stylesheet" href="../home.css?v=20" />
-  <link rel="stylesheet" href="../hr-documents/hr-documents.css?v=19" />
+  <link rel="stylesheet" href="../hr-documents/hr-documents.css?v=20" />
   <script src="../theme.js?v=4"></script>
   <script src="../print-stamp.js?v=1"></script>
 </head>
@@ -58,6 +58,16 @@
           <img class="page-bar-logo" src="../logo-mark.png?v=2" alt="" />
           <span class="page-bar-name">Employee Documents</span>
         </div>
+        <!-- Shown while a document is open: back, the document title and
+             its actions sit in the page bar so the document starts higher. -->
+        <div class="hr-editor-top" id="editorBar" hidden>
+          <button class="btn" type="button" id="backBtn">&larr; Documents</button>
+          <h2 id="editorTitle" class="hr-editor-title" dir="rtl"></h2>
+          <div class="hr-actions">
+            <button class="btn primary" type="button" id="savePdfBtn" disabled>Save PDF</button>
+            <button class="btn" type="button" id="printBtn" disabled>Print</button>
+          </div>
+        </div>
         <div class="page-bar-right">
           <span class="page-bar-who" id="whoami"></span>
           <span class="role-badge" id="roleBadge" hidden></span>
@@ -80,15 +90,6 @@
       <!-- The editor: fields on one side, the Word document on the other,
            updating as the fields change. -->
       <section class="section" id="editorView" hidden>
-        <div class="hr-editor-top">
-          <button class="btn" type="button" id="backBtn">&larr; Documents</button>
-          <h2 id="editorTitle" class="hr-editor-title" dir="rtl"></h2>
-          <div class="hr-actions">
-            <button class="btn primary" type="button" id="savePdfBtn" disabled>Save PDF</button>
-            <button class="btn" type="button" id="printBtn" disabled>Print</button>
-          </div>
-        </div>
-
         <div class="hr-editor">
           <aside class="hr-fields" dir="rtl">
             <label class="hr-label" for="employeeSearch">اسم الموظف</label>
@@ -124,6 +125,6 @@
   <iframe id="printFrame" class="hr-print-frame" title="Print" aria-hidden="true" tabindex="-1"></iframe>
 
   <script src="../auth.js?v=14"></script>
-  <script type="module" src="employee-documents.js?v=69"></script>
+  <script type="module" src="employee-documents.js?v=70"></script>
 </body>
 </html>

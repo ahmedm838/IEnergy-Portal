@@ -3712,6 +3712,7 @@ async function openDocument(def) {
   if (def.refTable) buildRefTable(def.refTable)
   $('listView').hidden = true
   $('editorView').hidden = false
+  $('editorBar').hidden = false
   history.replaceState(null, '', `#${def.id}`)
   try {
     await drawDocument(def)
@@ -3729,6 +3730,7 @@ function closeDocument() {
   state.inputs = {}
   state.skip = new Set()
   $('editorView').hidden = true
+  $('editorBar').hidden = true
   $('listView').hidden = false
   $('preview').innerHTML = ''
   history.replaceState(null, '', location.pathname)
