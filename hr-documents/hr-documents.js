@@ -2350,12 +2350,16 @@ function textNodes(root) {
 }
 
 /* Turn each ⟦n⟧ into a locked field, and write every other number in
-   the document in Arabic digits. */
+   the document in Arabic digits -- except in a footer that prints as it
+   is (keepFooter: a letterhead's address and phone numbers), which keeps
+   its digits as written. */
 function lockBlanks(root) {
+  const keepFooter = !!root.classList?.contains('keeps-footer')
   for (const node of textNodes(root)) {
     const s = node.nodeValue
     MARK_RE.lastIndex = 0
     if (!MARK_RE.test(s)) {
+      if (keepFooter && node.parentElement.closest('footer')) continue
       if (/[0-9]/.test(s)) node.nodeValue = toArabicDigits(s)
       continue
     }
@@ -2513,7 +2517,8 @@ async function drawDocument(def) {
     if (part.def.ownDirection) keepDirection(box)
     else rightToLeft(box, t.rtlTables)
     frame(box, t.border)
-    numberPages(box)
+    // A footer that prints as it is has no page number to write.
+    if (!part.def.keepFooter) numberPages(box)
     layoutTabs(box)
     rememberLines(box)
     splitColumns(box)
