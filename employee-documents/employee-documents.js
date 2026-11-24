@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=93'
+} from '../hr-documents/hr-documents.js?v=95'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -305,6 +305,8 @@ const DOCUMENTS = [
     // The violations table is right to left in Word, its first column on
     // the right; the page keeps that.
     ownDirection: true,
+    // Printed on both sides, flipped on the long edge.
+    duplex: true,
     // Two pages, as in Word: the second starts at this row of the table.
     pageStarts: ['العبث أو ارتكاب أي فعل'],
     dates: penaltyDates,
@@ -417,8 +419,8 @@ const DOCUMENTS = [
       6: 'فترة التقييم من', 7: 'فترة التقييم حتى', 8: 'المدير المباشر', 9: 'الاسم بالعربية',
     },
     // Its two pages print front and back of one sheet, flipped on the
-    // short edge.
-    duplex: 'short',
+    // long edge.
+    duplex: true,
     dates: evaluationDates,
     values: evaluationValues,
     info: [

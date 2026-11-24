@@ -1053,7 +1053,10 @@ export function absenceCheck(emp, d, inputs = {}, ctx = {}) {
                opening words of the paragraph (or table row) that starts
                each page after the first; each page prints on one sheet
    duplex      printed on both sides: true flips on the long edge,
-               'short' on the short edge
+               'short' on the short edge. Every other form prints on one
+               side. In a pack, a part's duplex makes the whole PDF
+               two-sided, and each part (and each copy of it) then
+               starts on a sheet of its own
    pool        whose form it is: 'active' employees (the default) or
                'resigned' ones, those with a notice date
    fetch       { key(emp, dates), load(supabase, emp, dates) }: more data
@@ -1072,6 +1075,8 @@ const DOCUMENTS = [
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
     template: 'templates/hiring-contract.docx?v=15',
+    // Printed on both sides, flipped on the long edge.
+    duplex: true,
     fields: {
       1: 'اليوم', 2: 'تاريخ تحرير العقد', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
       5: 'شهر وسنة إصدار البطاقة', 6: 'العنوان', 7: 'المؤهل', 8: 'الرقم التأميني',
@@ -1379,8 +1384,8 @@ DOCUMENTS.push({
   inputs: [],
 })
 /* A form handed out empty, for the applicant to fill in by hand: no
-   employee, no blanks, nothing to check. It prints on both sides of the
-   paper (duplex). */
+   employee, no blanks, nothing to check. Like most forms it prints on
+   one side, A4, scaled to fit. */
 DOCUMENTS.push({
   id: 'experience-certificate',
   title: 'شهادة خبرة',
@@ -1408,10 +1413,9 @@ DOCUMENTS.push({
   subtitle: 'Job application · blank form',
   template: 'templates/job-application.docx?v=1',
   blankForm: true,
-  duplex: true,
   ownDirection: true,
-  // Its two pages stay two, front and back: a page that runs a little
-  // long here is shrunk onto its sheet, never cut onto a third.
+  // Its two pages stay two: a page that runs a little long here is
+  // shrunk onto its sheet, never cut onto a third.
   shrinkPages: true,
   fields: {},
   dates: () => ({}),
@@ -1447,8 +1451,8 @@ DOCUMENTS.push({
   },
   // From the company details in the tracker's Settings, not the employee.
   companyFields: [1, 18, 19, 24, 25, 26, 28, 29, 30],
-  // Front and back of one sheet, flipped on the short edge.
-  duplex: 'short',
+  // Front and back of one sheet, flipped on the long edge.
+  duplex: true,
   dates: form1Dates,
   values: form1Values,
   info: [
@@ -1481,7 +1485,8 @@ DOCUMENTS.push({
     spots: FORM6_SPOTS,
   },
   pool: 'resigned',
-  duplex: 'short',
+  // Front and back of one sheet, flipped on the long edge.
+  duplex: true,
   fields: {
     1: 'مكتب التأمينات', 2: 'مقدم الطلب', 3: 'صفة مقدم الطلب (وظيفته)', 4: 'الرقم التأميني لمقدم الطلب',
     5: 'موبايل مقدم الطلب', 6: 'الرقم القومي لمقدم الطلب',
@@ -1718,6 +1723,8 @@ DOCUMENTS.push({
   title: 'محضر تحقيق إداري',
   subtitle: 'Administrative investigation report',
   template: 'templates/investigation-report.docx?v=2',
+  // Printed on both sides, flipped on the long edge.
+  duplex: true,
   fields: {
     1: 'تاريخ التحقيق', 2: 'وقت بدء التحقيق', 3: 'القائم بالتحقيق', 4: 'وظيفة القائم بالتحقيق',
     5: 'الحاضر الأول', 6: 'وظيفة الحاضر الأول', 7: 'الحاضر الثاني', 8: 'وظيفة الحاضر الثاني',
@@ -2466,7 +2473,8 @@ async function drawDocument(def) {
             with "|" in it gives each box a part of its own (a date's day,
             month and year).
      mark   a tick in a box
-   The pages are A4 or legal (def.scan.paper) and print at that size.
+   The pages are A4 or legal (def.scan.paper); in the PDF every page is
+   A4, a legal page scaled down to fit it (see buildPdf).
    typed: true sets the text on lines as plain Times New Roman, 12 pt, as
    if typed in Word -- for pages saved from Word itself, whose labels are
    set that way -- instead of the large bold lettering a scan needs. */
@@ -2752,17 +2760,29 @@ async function buildPdf({ print = false } = {}) {
   // In a pack, only the parts ticked to print (state.skip lists the rest).
   const pages = Array.from(preview.querySelectorAll('section.docx'))
     .filter((page) => !state.skip.has(+page.closest('.hr-part')?.dataset.part))
-  // A scanned form prints on its own paper size; every other form on A4.
+  // A scanned form is drawn at its own paper size (A4 or legal); every
+  // other form at A4.
   const paper = PAPER[state.def?.scan?.paper || 'a4']
-  const pdf = new jsPDF({ unit: 'mm', format: [paper.w, paper.h], orientation: 'portrait', compress: true })
+  // Every PDF is A4: a page drawn at another size (a legal scan) is
+  // scaled down to fit the A4 sheet, whole, and centred on it.
+  const a4 = PAPER.a4
+  const pdf = new jsPDF({ unit: 'mm', format: [a4.w, a4.h], orientation: 'portrait', compress: true })
+  const fitScale = Math.min(1, a4.w / paper.w, a4.h / paper.h)
+  const fitW = paper.w * fitScale
+  const fitH = paper.h * fitScale
   // A two-sided form asks the print dialog for both sides: duplex: true
   // flips them on the long edge, as a book turns; duplex: 'short' on the
-  // short edge, as a notepad turns.
-  if (state.def?.duplex) {
-    pdf.viewerPreferences({ Duplex: state.def.duplex === 'short' ? 'DuplexFlipShortEdge' : 'DuplexFlipLongEdge' })
+  // short edge, as a notepad turns. In a pack, any part that is two-sided
+  // makes the whole PDF two-sided. Every other form prints on one side.
+  const duplex = state.def?.duplex || (state.def?.parts || []).map((pt) => pt.def?.duplex).find(Boolean)
+  if (duplex) {
+    pdf.viewerPreferences({ Duplex: duplex === 'short' ? 'DuplexFlipShortEdge' : 'DuplexFlipLongEdge' })
+  } else {
+    pdf.viewerPreferences({ Duplex: 'Simplex' })
   }
-  // Scaled to the paper in the print dialog, as far as a PDF can ask it.
-  pdf.viewerPreferences({ PrintScaling: 'AppDefault' })
+  // Scaled to fit the paper in the print dialog, and A4 paper picked to
+  // match the PDF's pages.
+  pdf.viewerPreferences({ PrintScaling: 'AppDefault', PickTrayByPDFSize: true })
   // One time for the whole PDF, the same on every page.
   const stamp = printStamp()
   state.capturing = true
@@ -2918,12 +2938,17 @@ async function buildPdf({ print = false } = {}) {
     const out = []
     runs.forEach(({ first: from, copies }, r) => {
       const run = sheets.slice(from, r + 1 < runs.length ? runs[r + 1].first : sheets.length)
-      for (let c = 0; c < copies; c++) out.push(...run)
+      for (let c = 0; c < copies; c++) {
+        // Printed two-sided, each part and each copy starts on a sheet of
+        // its own: an odd one is followed by a blank back (null).
+        if (duplex && out.length % 2) out.push(null)
+        out.push(...run)
+      }
     })
     if (!runs.length) out.push(...sheets)
     out.forEach((c, i) => {
       if (i) pdf.addPage()
-      pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, paper.w, paper.h)
+      if (c) pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', (a4.w - fitW) / 2, (a4.h - fitH) / 2, fitW, fitH)
     })
   } finally {
     preview.classList.remove('is-capturing')
