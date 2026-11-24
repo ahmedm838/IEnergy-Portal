@@ -3037,6 +3037,69 @@ function pdfName(def, emp) {
   return emp ? `${safe(def.title)} - ${safe(emp.arabic_name)}.pdf` : `${safe(def.title)}.pdf`
 }
 
+/* wordFile (on a document): Save gives the Word file itself, each blank
+   typed in where it stands in the template -- in that blank's own run,
+   so in its font and size -- and nothing else changed. Word lays the
+   page out when it is opened and printed, so it prints exactly as the
+   template does in Word. Print is not offered: the file is printed from
+   Word. */
+export function fillWordXml(xml, values) {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml')
+  for (const p of Array.from(doc.getElementsByTagNameNS(W_NS, 'p'))) {
+    const nodes = Array.from(p.getElementsByTagNameNS(W_NS, 't'))
+    if (!nodes.length) continue
+    const texts = nodes.map((t) => t.textContent)
+    const text = texts.join('')
+    const matches = Array.from(text.matchAll(BLANK)).filter((m) => (+m[1]) in values)
+    // Last first, so earlier offsets stay valid.
+    for (const m of matches.reverse()) {
+      const from = m.index
+      const to = m.index + m[0].length
+      const value = String(values[+m[1]] ?? '').split('|').join('/')
+      let pos = 0
+      let first = true
+      nodes.forEach((t, i) => {
+        const a = pos
+        const b = pos + texts[i].length
+        pos = b
+        if (b <= from || a >= to) return
+        const before = texts[i].slice(0, Math.max(0, from - a))
+        const after = texts[i].slice(Math.max(0, to - a))
+        texts[i] = before + (first ? value : '') + after
+        t.textContent = texts[i]
+        t.setAttributeNS(XML_NS, 'xml:space', 'preserve')
+        first = false
+      })
+    }
+  }
+  return new XMLSerializer().serializeToString(doc)
+}
+
+async function saveWord() {
+  const def = state.def
+  const res = await fetch(def.template, { cache: 'no-cache' })
+  if (!res.ok) throw new Error(`Template not found (${res.status})`)
+  const zip = await JSZip.loadAsync(await res.arrayBuffer())
+  const values = state.values || {}
+  for (const name of Object.keys(zip.files)) {
+    if (/^word\/(document|header\d*|footer\d*)\.xml$/.test(name)) {
+      zip.file(name, fillWordXml(await zip.file(name).async('string'), values), { createFolders: false })
+    }
+  }
+  const blob = await zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = pdfName(def, state.employee).replace(/\.pdf$/, '.docx')
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
+}
+
 async function savePdf() {
   const blob = await buildPdf()
   const url = URL.createObjectURL(blob)
@@ -3718,6 +3781,7 @@ function refresh() {
   const inputs = currentInputs()
   const ctx = { find: findEmployee, choice: chosen, company: state.company, ...fetchFor(def, emp, dates) }
   const values = def.values(emp, dates, inputs, ctx)
+  state.values = values
   releaseLines($('preview'))
   fillFields(values)
   showSections(def, inputs)
@@ -3915,6 +3979,10 @@ async function openDocument(def) {
   document.querySelector('label[for="employeeSearch"]').hidden = !!def.blankForm
   if ($('fieldsHint')) $('fieldsHint').hidden = !!def.blankForm
   $('editorTitle').textContent = def.title
+  // A form given as a Word file (wordFile) is saved as Word and printed
+  // from Word.
+  $('savePdfBtn').textContent = def.wordFile ? 'Save Word' : 'Save PDF'
+  $('printBtn').hidden = !!def.wordFile
   buildDateInputs(def)
   buildInputs(def)
   fillPersonLists()
@@ -4006,7 +4074,7 @@ async function onAuthed() {
     if (f && focusDateFor(f.dataset.field)) e.preventDefault()
   })
   $('backBtn').addEventListener('click', closeDocument)
-  $('savePdfBtn').addEventListener('click', busy($('savePdfBtn'), 'Saving…', savePdf))
+  $('savePdfBtn').addEventListener('click', busy($('savePdfBtn'), 'Saving…', () => (state.def?.wordFile ? saveWord() : savePdf())))
   $('printBtn').addEventListener('click', busy($('printBtn'), 'Preparing…', printPdf))
 
   const hint = $('employeeHint')
