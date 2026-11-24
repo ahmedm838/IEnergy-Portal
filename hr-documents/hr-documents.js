@@ -2035,6 +2035,8 @@ async function loadTemplate(def, off = 0) {
       const border = pageBorder(xml)
       const tabStops = readTabStops(xml)
       const rtlTables = readTableDirections(xml)
+      const stylesXml = zip.file('word/styles.xml') ? await zip.file('word/styles.xml').async('string') : ''
+      const cellMargins = readCellMargins(xml, stylesXml)
       const settings = zip.file('word/settings.xml') ? await zip.file('word/settings.xml').async('string') : ''
       const defaultTab = +(/<w:defaultTabStop w:val="(\d+)"/.exec(settings)?.[1] || 720) / 20
       // Kashida justification is how Word justifies Arabic; the renderer
@@ -2046,7 +2048,7 @@ async function loadTemplate(def, off = 0) {
           zip.file(name, useArabicRunProps(await zip.file(name).async('string')))
         }
       }
-      return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab, rtlTables }
+      return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab, rtlTables, cellMargins }
     })())
   }
   return templateCache.get(key)
@@ -2059,6 +2061,61 @@ async function loadTemplate(def, off = 0) {
 /* The tab stops of every paragraph in the body that has a tab in its
    text, in document order, in points: [{ pos, type }]. Read from the
    template, since the renderer keeps them to itself. */
+/* Each body table's cell margins, in CSS pixels, as Word lays the table
+   out: the table's own tblCellMar, else its style's, else Word's default
+   (0.08" left and right, nothing top and bottom). In document order. */
+const TWIP_PX = 96 / 1440
+export function readCellMargins(xml, stylesXml = '') {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml')
+  const styles = stylesXml ? new DOMParser().parseFromString(stylesXml, 'application/xml') : null
+  const child = (el, name) => el && [...el.children].find((c) => c.localName === name)
+  const side = (mar, names) => {
+    for (const n of names) {
+      const el = child(mar, n)
+      if (el && (el.getAttributeNS(W_NS, 'type') || 'dxa') === 'dxa') return +el.getAttributeNS(W_NS, 'w')
+    }
+    return null
+  }
+  const styleMargins = (id) => {
+    if (!styles || !id) return null
+    const st = [...styles.getElementsByTagNameNS(W_NS, 'style')].find((x) => x.getAttributeNS(W_NS, 'styleId') === id)
+    return st ? st.getElementsByTagNameNS(W_NS, 'tblCellMar')[0] || null : null
+  }
+  return [...doc.getElementsByTagNameNS(W_NS, 'tbl')].map((tbl) => {
+    const pr = child(tbl, 'tblPr')
+    const own = child(pr, 'tblCellMar')
+    const style = styleMargins(child(pr, 'tblStyle')?.getAttributeNS(W_NS, 'val'))
+    const pick = (names, dflt) => (side(own, names) ?? side(style, names) ?? dflt) * TWIP_PX
+    return { top: pick(['top'], 0), right: pick(['right', 'end'], 108), bottom: pick(['bottom'], 0), left: pick(['left', 'start'], 108) }
+  })
+}
+
+/* wordMetrics (on a document): lay its tables and lines out by Word's
+   measures rather than the renderer's, so the page is as long as Word
+   makes it. Each table's cells take the margins the template sets
+   (readCellMargins) in place of the renderer's own padding, and a line of
+   small text is as tall as that text, as in Word, not as tall as the
+   paragraph's larger default size. */
+function wordMetrics(box, margins) {
+  const tables = [...box.querySelectorAll('section.docx table')].filter((t) => !t.closest('header, footer'))
+  if (margins && margins.length === tables.length) {
+    tables.forEach((table, i) => {
+      const m = margins[i]
+      for (const row of table.rows) {
+        for (const cell of row.cells) cell.style.padding = `${m.top}px ${m.right}px ${m.bottom}px ${m.left}px`
+      }
+    })
+  }
+  for (const p of box.querySelectorAll('section.docx p')) {
+    if (p.closest('header, footer') || getComputedStyle(p).lineHeight !== 'normal') continue
+    const runs = [...p.querySelectorAll('span')]
+      .filter((r) => !r.querySelector('span') && r.textContent.replace(/\u200b/g, '').trim())
+    if (!runs.length) continue
+    const size = Math.max(...runs.map((r) => parseFloat(getComputedStyle(r).fontSize) || 0))
+    if (size > 0 && size < parseFloat(getComputedStyle(p).fontSize)) p.style.fontSize = `${size}px`
+  }
+}
+
 export function readTabStops(xml) {
   const out = []
   const body = xml.slice(xml.indexOf('<w:body'))
@@ -2446,6 +2503,7 @@ async function drawDocument(def) {
     markTabs(box)
     lockBlanks(box)
     matchFieldSize(box)
+    if (part.def.wordMetrics) wordMetrics(box, t.cellMargins)
     if (part.def.ownDirection) keepDirection(box)
     else rightToLeft(box, t.rtlTables)
     frame(box, t.border)
