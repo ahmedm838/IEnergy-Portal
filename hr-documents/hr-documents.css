@@ -129,7 +129,8 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
 .hr-preview.is-capturing section.docx { box-shadow: none; margin: 0; }
 /* The frame and page numbers are drawn on each PDF sheet instead. */
 .hr-preview.is-capturing .hr-page-frame { display: none; }
-.hr-preview.is-capturing section.docx footer { visibility: hidden; }
+/* ...except a template's own footer that prints as it is (keepFooter). */
+.hr-preview.is-capturing .hr-part:not(.keeps-footer) section.docx footer { visibility: hidden; }
 
 .hr-print-frame {
   position: fixed; width: 1px; height: 1px; left: -9999px; top: 0;

@@ -2479,6 +2479,9 @@ async function drawDocument(def) {
     const box = document.createElement('div')
     box.className = 'hr-part'
     box.dataset.part = String(i)
+    // keepFooter: the template's own footer (a letterhead's address)
+    // prints on every sheet as it is, in place of a drawn page number.
+    if (part.def.keepFooter) box.classList.add('keeps-footer')
     if (state.skip.has(i)) box.classList.add('is-skipped')
     box._hr = { ...t, def: part.def, copies: part.copies || 1 }
     preview.appendChild(box)
@@ -2868,14 +2871,17 @@ async function buildPdf({ print = false } = {}) {
         runs.push({ first, copies: (print && box?._hr?.copies) || 1 })
         border = box?._hr?.border || null
         def = box?._hr?.def || state.def
-        numbered = [...(box || preview).querySelectorAll('section.docx')]
+        numbered = !def?.keepFooter && [...(box || preview).querySelectorAll('section.docx')]
           .some((p) => /\d|[٠-٩]/.test(p.querySelector('footer')?.textContent || ''))
       }
       const number = () => (numbered ? sheets.length - first + 1 : 0)
       const cssWidth = page.offsetWidth
       const cssSheet = cssWidth * (paper.h / paper.w)
       const padBottom = parseFloat(getComputedStyle(page).paddingBottom) || 48
-      const needed = contentBottom(page, { ignoreEmpty: !!def?.fitPages }) + padBottom
+      let needed = contentBottom(page, { ignoreEmpty: !!def?.fitPages }) + padBottom
+      // A footer that prints (keepFooter) sits at the foot of the page:
+      // the whole page, footer and all, goes on the sheet.
+      if (def?.keepFooter && page.querySelector('footer')) needed = Math.max(needed, page.offsetHeight)
       const capture = (el) => toCanvas(el, {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
@@ -2898,8 +2904,10 @@ async function buildPdf({ print = false } = {}) {
         .filter(Boolean)
         .map((el) => el.getBoundingClientRect().top - pageTop())
         // A page that already starts there (the template has Word's page
-        // break before it) is not split again into an empty sheet.
-        .filter((top) => top > (parseFloat(getComputedStyle(page).paddingTop) || 48) + 2)
+        // break before it, and only the header above it) is not split
+        // again: a split needs something of the page's own above it.
+        .filter((top) => paras.some((q) => q.textContent.replace(/\u200b/g, '').trim() &&
+          q.getBoundingClientRect().bottom - pageTop() <= top + 1))
         .sort((a, b) => a - b)
       if (starts.length) {
         /* Each of those pages is copied on its own, with the paragraphs

@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=97'
+} from '../hr-documents/hr-documents.js?v=98'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -398,6 +398,9 @@ const DOCUMENTS = [
     // Its tables and lines measured as Word measures them, so page 1 is as
     // long on screen and in the PDF as it is in Word.
     wordMetrics: true,
+    // Its footer (the company address) prints on both pages, as in Word;
+    // no page number is drawn over it.
+    keepFooter: true,
     // The score tables are right to left in Word, their first column on
     // the right; the page keeps that.
     ownDirection: true,
