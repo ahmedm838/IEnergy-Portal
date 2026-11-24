@@ -401,9 +401,6 @@ const DOCUMENTS = [
     // Its footer (the company address) prints on both pages, as in Word;
     // no page number is drawn over it.
     keepFooter: true,
-    // Saved as the Word file itself, each blank typed in, and printed
-    // from Word, so it prints exactly as Word lays it out.
-    wordFile: true,
     // The score tables are right to left in Word, their first column on
     // the right; the page keeps that.
     ownDirection: true,
