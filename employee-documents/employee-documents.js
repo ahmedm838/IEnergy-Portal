@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=95'
+} from '../hr-documents/hr-documents.js?v=96'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -387,12 +387,14 @@ const DOCUMENTS = [
     id: 'performance-evaluation',
     title: 'تقييم أداء',
     subtitle: 'Performance evaluation',
-    template: 'templates/performance-evaluation.docx?v=7',
+    template: 'templates/performance-evaluation.docx?v=8',
     /* Drawn from the Word file, so it can be changed in Word and
-       uploaded again. Its two pages are the two Word makes (split at
-       the page break in the file): each prints on exactly one A4 sheet,
-       drawn smaller only if it runs long here, never cut onto a third. */
+       uploaded again. Two pages, the second starting at the strengths
+       section, whether or not the file has a page break there: each
+       prints on exactly one A4 sheet, drawn smaller only if it runs long
+       here, never cut onto a third. */
     fitPages: true,
+    pageStarts: ['نقاط القوة الرئيسية'],
     // The score tables are right to left in Word, their first column on
     // the right; the page keeps that.
     ownDirection: true,

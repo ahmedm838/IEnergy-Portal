@@ -1052,6 +1052,7 @@ export function absenceCheck(emp, d, inputs = {}, ctx = {}) {
    pageStarts  for a template saved without Word's page breaks: the
                opening words of the paragraph (or table row) that starts
                each page after the first; each page prints on one sheet
+               (where the template has the break already, it is kept)
    duplex      printed on both sides: true flips on the long edge,
                'short' on the short edge. Every other form prints on one
                side. In a pack, a part's duplex makes the whole PDF
@@ -2838,6 +2839,9 @@ async function buildPdf({ print = false } = {}) {
         })
         .filter(Boolean)
         .map((el) => el.getBoundingClientRect().top - pageTop())
+        // A page that already starts there (the template has Word's page
+        // break before it) is not split again into an empty sheet.
+        .filter((top) => top > (parseFloat(getComputedStyle(page).paddingTop) || 48) + 2)
         .sort((a, b) => a - b)
       if (starts.length) {
         /* Each of those pages is copied on its own, with the paragraphs
