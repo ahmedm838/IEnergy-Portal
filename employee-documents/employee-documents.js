@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=99'
+} from '../hr-documents/hr-documents.js?v=100'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -387,7 +387,7 @@ const DOCUMENTS = [
     id: 'performance-evaluation',
     title: 'تقييم أداء',
     subtitle: 'Performance evaluation',
-    template: 'templates/performance-evaluation.docx?v=9',
+    template: 'templates/performance-evaluation.docx?v=10',
     /* Drawn from the Word file, so it can be changed in Word and
        uploaded again. Two pages, the second starting at the strengths
        section, whether or not the file has a page break there: each

@@ -1052,7 +1052,8 @@ export function absenceCheck(emp, d, inputs = {}, ctx = {}) {
    pageStarts  for a template saved without Word's page breaks: the
                opening words of the paragraph (or table row) that starts
                each page after the first; each page prints on one sheet
-               (where the template has the break already, it is kept)
+               (where the template has the break already, it is kept);
+               the page ends Word saved in the file are not used
    duplex      printed on both sides: true flips on the long edge,
                'short' on the short edge. Every other form prints on one
                side. In a pack, a part's duplex makes the whole PDF
@@ -2492,8 +2493,10 @@ async function drawDocument(def) {
       ignoreHeight: false,
       breakPages: true,
       // Start a new page where Word last did when the template was saved,
-      // so a contract of several pages splits where it does in Word.
-      ignoreLastRenderedPageBreak: false,
+      // so a contract of several pages splits where it does in Word --
+      // unless the document names its own page starts (pageStarts): then
+      // those alone split it, wherever Word last happened to.
+      ignoreLastRenderedPageBreak: !!part.def.pageStarts,
       // Off: its only effect is the renderer's own tab layout, which
       // measures from the left and runs again half a second after drawing,
       // over the right-to-left layout done here (layoutTabs).
