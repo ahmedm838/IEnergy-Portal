@@ -1070,7 +1070,7 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=19',
+    template: 'templates/hiring-contract.docx?v=20',
     // Laid out as in Word: its pages are Word's (split where Word split
     // them when the template was saved), each printed on one sheet, and
     // its lines and tables measured as Word measures them.
