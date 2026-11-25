@@ -13,7 +13,7 @@
    - Save PDF downloads the page as a PDF; Print sends that same PDF
      to the printer.
 */
-import { renderAsync, JSZip, toCanvas, jsPDF } from '../vendor/hr-docs-libs-1.js'
+import { renderAsync, JSZip, toCanvas, jsPDF } from '../vendor/hr-docs-libs-1.js?v=2'
 
 const $ = (id) => document.getElementById(id)
 
@@ -2438,7 +2438,11 @@ function rightToLeft(root, rtlTables = []) {
      right, as in Word. */
   const tables = [...root.querySelectorAll('section.docx article table')]
   if (tables.length === rtlTables.length) tables.forEach((t, i) => { if (rtlTables[i]) t.dir = 'rtl' })
+  // A letterhead's footer that prints as it is (keepFooter: the company
+  // address, in English) keeps the direction Word gives it.
+  const keepFooter = !!root.classList?.contains('keeps-footer')
   for (const p of root.querySelectorAll('section.docx p')) {
+    if (keepFooter && p.closest('footer')) continue
     p.dir = 'rtl'
     const align = getComputedStyle(p).textAlign
     if (align === 'left' || align === 'start' || align === '-webkit-left') p.style.textAlign = 'right'

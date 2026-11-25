@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=102'
+} from '../hr-documents/hr-documents.js?v=103'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -230,7 +230,10 @@ const DOCUMENTS = [
     id: 'salary-advance',
     title: 'طلب سلفة (بوجود ضامن)',
     subtitle: 'Salary advance request with a guarantor',
-    template: 'templates/salary-advance.docx?v=3',
+    template: 'templates/salary-advance.docx?v=4',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on the performance evaluation.
+    keepFooter: true,
     fields: {
       1: 'تاريخ الطلب', 2: 'قيمة السلفة', 3: 'عدد الأقساط', 4: 'قيمة القسط',
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة', 8: 'تاريخ التعيين',
@@ -258,7 +261,10 @@ const DOCUMENTS = [
     id: 'financial-grant',
     title: 'طلب صرف منحة مالية',
     subtitle: 'Financial grant request',
-    template: 'templates/financial-grant.docx?v=4',
+    template: 'templates/financial-grant.docx?v=5',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on the performance evaluation.
+    keepFooter: true,
     fields: {
       1: 'تاريخ الطلب', 2: 'نوع المنحة', 3: 'نوع المنحة', 4: 'نوع المنحة',
       5: 'الاسم بالعربية', 6: 'الوظيفة', 7: 'الإدارة',
@@ -285,7 +291,10 @@ const DOCUMENTS = [
     id: 'penalty-notice',
     title: 'إخطار بشأن وقوع مخالفة',
     subtitle: 'Penalty notice',
-    template: 'templates/penalty-notice.docx?v=5',
+    template: 'templates/penalty-notice.docx?v=6',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on the performance evaluation.
+    keepFooter: true,
     fields: { 1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين' },
     // The violations table is right to left in Word, its first column on
     // the right; the page keeps that.
@@ -308,7 +317,10 @@ const DOCUMENTS = [
     id: 'custody',
     title: 'إقرار استلام عهدة',
     subtitle: 'Custody receipt',
-    template: 'templates/custody.docx?v=1',
+    template: 'templates/custody.docx?v=2',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on the performance evaluation.
+    keepFooter: true,
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'شهر وسنة إصدار البطاقة',
       5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'مدير الإدارة المسئولة',
@@ -329,7 +341,10 @@ const DOCUMENTS = [
     id: 'custody-loss',
     title: 'مذكرة إدارية (فقد عهدة)',
     subtitle: 'Lost custody memo',
-    template: 'templates/custody-loss.docx?v=3',
+    template: 'templates/custody-loss.docx?v=4',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on the performance evaluation.
+    keepFooter: true,
     fields: {
       1: 'تاريخ المذكرة', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
     },
@@ -347,7 +362,10 @@ const DOCUMENTS = [
     id: 'hiring-request',
     title: 'طلب تعيين',
     subtitle: 'Hiring request',
-    template: 'templates/hiring-request.docx?v=2',
+    template: 'templates/hiring-request.docx?v=3',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on the performance evaluation.
+    keepFooter: true,
     fields: { 1: 'تاريخ الطلب', 2: 'الإدارة الطالبة', 3: 'المسمى الوظيفي المطلوب', 4: 'تاريخ التعيين المطلوب' },
     dates: hiringRequestDates,
     values: hiringRequestValues,
@@ -365,7 +383,10 @@ const DOCUMENTS = [
     id: 'purchase-request',
     title: 'طلب شراء',
     subtitle: 'Purchase request',
-    template: 'templates/purchase-request.docx?v=2',
+    template: 'templates/purchase-request.docx?v=3',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on the performance evaluation.
+    keepFooter: true,
     fields: { 1: 'تاريخ الطلب', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التوريد المطلوب' },
     // The supply date is written by hand: dots on screen, room on paper.
     optional: [5],
