@@ -2045,6 +2045,7 @@ async function loadTemplate(def, off = 0) {
       xml = xml.replace(/(<w:jc w:val=")(?:low|medium|high)Kashida(")/g, '$1both$2')
       zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(mergeParagraphBorders(useAutoSpacing(xml)))), def.blanks, off))
       const anchors = readPageAnchors(xml)
+      const footerGaps = []
       for (const name of Object.keys(zip.files)) {
         if (/^word\/(styles|header\d*|footer\d*)\.xml$/.test(name)) {
           const part = await zip.file(name).async('string')
@@ -2052,11 +2053,14 @@ async function loadTemplate(def, off = 0) {
           // A letterhead footer that prints as it is (keepFooter) is the
           // company address in English: its bold and size are the ones
           // Word uses for English text, kept as they are.
-          if (def.keepFooter && /^word\/footer\d*\.xml$/.test(name)) continue
+          if (def.keepFooter && /^word\/footer\d*\.xml$/.test(name)) {
+            for (const m of part.matchAll(/<w:pBdr>[\s\S]*?<w:top\b[^>]*\bw:space="(\d+)"/g)) footerGaps.push(+m[1])
+            continue
+          }
           zip.file(name, useArabicRunProps(part))
         }
       }
-      return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab, rtlTables, cellMargins, anchors }
+      return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab, rtlTables, cellMargins, anchors, footerGaps }
     })())
   }
   return templateCache.get(key)
@@ -2101,7 +2105,15 @@ function placePageAnchors(root, anchors) {
    size as well (and, in some templates, a least height), which sets a
    line's height: a 9 pt address line came out as tall as 12 or 14 pt
    text, depending on the template. */
-function footerLines(root) {
+function footerLines(root, gaps = []) {
+  for (const footer of root.querySelectorAll('section.docx footer')) {
+    // The space Word leaves between a paragraph's top border and its
+    // text (the line above the address), which the renderer leaves out.
+    let k = 0
+    for (const p of footer.querySelectorAll('p')) {
+      if (parseFloat(getComputedStyle(p).borderTopWidth) > 0 && k < gaps.length) p.style.paddingTop = `${gaps[k++]}pt`
+    }
+  }
   for (const p of root.querySelectorAll('section.docx footer p')) {
     const sizes = [...p.querySelectorAll('span')]
       .filter((s) => s.textContent.trim())
@@ -2573,7 +2585,7 @@ async function drawDocument(def) {
       renderFooters: true,
     })
     placePageAnchors(box, t.anchors)
-    if (part.def.keepFooter) footerLines(box)
+    if (part.def.keepFooter) footerLines(box, t.footerGaps)
     countLists(box)
     if (parts.length > 1) scopeStyles(box)
     markTabs(box)
