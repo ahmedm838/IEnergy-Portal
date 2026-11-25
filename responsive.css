@@ -93,3 +93,10 @@ input, select, textarea, button{
     padding-right: var(--space-sm);
   }
 }
+
+/* Fit the screen, always. If anything on a page is a few pixels wider
+   than the phone, iPhone Safari makes the whole page that wide and the
+   user has to pinch out to see it. Clipping sideways overflow at the
+   page edge stops that. `clip` (not `hidden`) so sticky headers keep
+   working; wide tables still scroll inside their own .table-wrap. */
+@media screen { html, body { overflow-x: clip; } }

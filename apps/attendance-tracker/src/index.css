@@ -128,6 +128,19 @@ body,
   height: 100%;
 }
 
+/* Fit the phone, always. Anything a few pixels wider than the screen
+   makes iPhone Safari widen the whole page, and the user has to pinch
+   out. Sideways overflow is clipped at the page edge instead; `clip`,
+   not `hidden`, so the sticky header keeps working. Wide tables still
+   scroll inside their own overflow-x-auto wrappers. Screen only, so
+   printing is untouched. */
+@media screen {
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
 body {
   background: var(--canvas);
   color: var(--ink);

@@ -64,10 +64,14 @@ export default function Layout() {
     <div className="flex min-h-full flex-col">
       <IdleTimeout />
       <header className="no-print sticky top-0 z-30 border-b border-line bg-panel/90 backdrop-blur">
-        <div className="flex w-full items-center gap-4 px-3 py-3 sm:px-5">
-          <div className="flex items-center gap-2.5">
-            <Logo className="h-8" />
-            <span className="text-sm font-semibold text-ink">{wordmark}</span>
+        {/* On a phone the bar has to fit across the screen: one row wider
+            than the phone makes the whole page that wide, and iPhone users
+            had to pinch out to see it. Below sm the wordmark goes (the logo
+            stays), the gaps shrink and nothing wraps. */}
+        <div className="flex w-full items-center gap-2 px-3 py-3 sm:gap-4 sm:px-5">
+          <div className="flex shrink-0 items-center gap-2.5">
+            <Logo className="h-7 sm:h-8" />
+            <span className="hidden whitespace-nowrap text-sm font-semibold text-ink sm:inline">{wordmark}</span>
           </div>
 
           {/* Tighter than it was: seven tabs now, and on a laptop the
@@ -94,13 +98,15 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap sm:gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-ink">{profile?.name}</p>
             </div>
-            <Badge tone={isSuperAdmin ? 'green' : isAdmin ? 'blue' : 'slate'}>
-              {isSuperAdmin ? 'Super admin' : isAdmin ? 'Admin' : 'User'}
-            </Badge>
+            <span className="hidden min-[400px]:inline-flex">
+              <Badge tone={isSuperAdmin ? 'green' : isAdmin ? 'blue' : 'slate'}>
+                {isSuperAdmin ? 'Super admin' : isAdmin ? 'Admin' : 'User'}
+              </Badge>
+            </span>
             <ThemeToggle />
             {/* Back to the portal with the session intact -- the other
                 button is the one that ends it.

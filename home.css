@@ -724,6 +724,7 @@ body.home .container { max-width: none; padding-left: 20px; padding-right: 20px;
   .page-bar-who { max-width: 34vw; }
   .page-bar-name { display: none; }
 }
+
 @media print { .page-bar { display: none; } }
 
 /* The page bar carries its own border, so the container's 28px top
@@ -875,3 +876,29 @@ body.dash-popup-open { overflow: hidden; }
 .pw-change-ok { margin: 4px 0 4px; padding: 10px 12px; border-radius: 10px; font-size: 13.5px;
   color: var(--success-text, #2e7d32); border: 1px solid currentColor; }
 .pw-change-ok[hidden] { display: none; }
+
+/* Phones. Everything in the bar has to fit across the screen, or the
+   whole page grows wider than the phone and iPhone users have to pinch
+   out to see it. The name is dropped (the role badge stays), gaps and
+   button padding shrink, and nothing is allowed to wrap onto two lines. */
+@media (max-width: 520px) {
+  .page-bar-inner { gap: 8px; padding: 8px 10px; }
+  .page-bar-brand { flex-shrink: 0; }
+  .page-bar-logo { height: 22px; }
+  .page-bar-right { gap: 6px; }
+  .page-bar-who { display: none; }
+  .page-bar-right > * { flex-shrink: 0; white-space: nowrap; }
+  .page-bar .role-badge { padding: 3px 7px; font-size: 11px; }
+  .page-bar .main-page-btn,
+  .page-bar .logout-btn { padding: 6px 9px; font-size: 12px; }
+  .page-bar .lang-btn { padding: 6px 8px; }
+  .page-bar .lang-globe { display: none; }
+}
+@media (max-width: 360px) {
+  .page-bar .role-badge { display: none; }
+}
+/* The policy page carries a language button as well, so it needs the
+   room sooner. */
+@media (max-width: 440px) {
+  .page-bar-right:has(.lang-btn) .role-badge { display: none; }
+}
