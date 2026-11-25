@@ -1076,7 +1076,12 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=16',
+    template: 'templates/hiring-contract.docx?v=17',
+    // Laid out as in Word: its pages are Word's (split where Word split
+    // them when the template was saved), each printed on one sheet, and
+    // its lines and tables measured as Word measures them.
+    fitPages: true,
+    wordMetrics: true,
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on Employee Documents.
     keepFooter: true,
@@ -1213,7 +1218,12 @@ DOCUMENTS.push({
   id: 'confidentiality',
   title: 'إقرار سرية البيانات',
   subtitle: 'Confidentiality declaration',
-  template: 'templates/confidentiality.docx?v=7',
+  template: 'templates/confidentiality.docx?v=8',
+  // Laid out as in Word: its pages are Word's (split where Word split
+  // them when the template was saved), each printed on one sheet, and
+  // its lines and tables measured as Word measures them.
+  fitPages: true,
+  wordMetrics: true,
   // The company letterhead: logo and title in the header, address in the
   // footer printed as it is, as on Employee Documents.
   keepFooter: true,
@@ -1240,7 +1250,12 @@ DOCUMENTS.push({
   id: 'bank-account',
   title: 'خطاب فتح حساب مرتب - البنك الأهلي الكويتي',
   subtitle: 'Salary account letter (ABK)',
-  template: 'templates/bank-account.docx?v=3',
+  template: 'templates/bank-account.docx?v=4',
+  // Laid out as in Word: its pages are Word's (split where Word split
+  // them when the template was saved), each printed on one sheet, and
+  // its lines and tables measured as Word measures them.
+  fitPages: true,
+  wordMetrics: true,
   // The company letterhead: logo and title in the header, address in the
   // footer printed as it is, as on Employee Documents.
   keepFooter: true,
@@ -1449,15 +1464,17 @@ DOCUMENTS.push({
   id: 'job-application',
   title: 'طلب توظيف',
   subtitle: 'Job application · blank form',
-  template: 'templates/job-application.docx?v=2',
+  template: 'templates/job-application.docx?v=3',
+  // Laid out as in Word: its pages are Word's (split where Word split
+  // them when the template was saved), each printed on one sheet, and
+  // its lines and tables measured as Word measures them.
+  fitPages: true,
+  wordMetrics: true,
   // The company letterhead: logo and title in the header, address in the
   // footer printed as it is, as on Employee Documents.
   keepFooter: true,
   blankForm: true,
   ownDirection: true,
-  // Its two pages stay two: a page that runs a little long here is
-  // shrunk onto its sheet, never cut onto a third.
-  shrinkPages: true,
   fields: {},
   dates: () => ({}),
   values: () => ({}),
@@ -1769,7 +1786,12 @@ DOCUMENTS.push({
   id: 'investigation-report',
   title: 'محضر تحقيق إداري',
   subtitle: 'Administrative investigation report',
-  template: 'templates/investigation-report.docx?v=3',
+  template: 'templates/investigation-report.docx?v=4',
+  // Laid out as in Word: its pages are Word's (split where Word split
+  // them when the template was saved), each printed on one sheet, and
+  // its lines and tables measured as Word measures them.
+  fitPages: true,
+  wordMetrics: true,
   // The company letterhead: logo and title in the header, address in the
   // footer printed as it is, as on Employee Documents.
   keepFooter: true,
@@ -1784,8 +1806,6 @@ DOCUMENTS.push({
   },
   // A second person attending is not always there.
   optional: [7, 8],
-  // Two pages, as in Word: the second starts at question 4.
-  pageStarts: ['س٤'],
   dates: investigationDates,
   values: investigationValues,
   info: [
@@ -1997,6 +2017,38 @@ export function useArabicRunProps(xml) {
    everything after them out of place. Each empty paragraph is given one
    invisible character (a zero-width space) in its paragraph mark's
    formatting, so it is exactly one line of the right size. */
+/* Word's pages, as Word last laid them out (the page ends it saves in
+   the file, w:lastRenderedPageBreak), in a form the renderer splits on:
+   - a page end saved just after a page break the template has (nothing
+     but formatting between them) is that same page break: kept, it
+     made a blank page of its own;
+   - a page that starts inside a table (the renderer does not split a
+     table) starts before that table instead: the page end moves to the
+     paragraph just before it. */
+export function wordPageBreaks(xml) {
+  const LRPB = '<w:lastRenderedPageBreak/>'
+  const hasText = (s) => /<w:t(?:\s[^>]*)?>[^<]*\S/.test(s)
+  // A page end that repeats a page break.
+  xml = xml.replace(/<w:br w:type="page"\/>([\s\S]*?)<w:lastRenderedPageBreak\/>/g, (all, between) =>
+    hasText(between) || between.includes('<w:br w:type="page"/>') ? all : `<w:br w:type="page"/>${between}`)
+  // A page end inside a table: before the table.
+  let out = ''
+  let at = 0
+  for (const m of xml.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g)) {
+    let tbl = m[0]
+    if (!tbl.includes(LRPB) || /<w:tbl>[\s\S]*<w:tbl>/.test(tbl)) continue
+    const before = xml.slice(at, m.index)
+    // The paragraph just before the table, if the table follows one.
+    const last = [...before.matchAll(/<w:p\b(?:(?!<w:p[ >\/])[\s\S])*?<\/w:p>/g)].pop()
+    if (!last || before.slice(last.index + last[0].length).trim()) continue
+    tbl = tbl.split(LRPB).join('')
+    const p = last[0].replace(/(<w:p\b[^>]*>(?:<w:pPr>[\s\S]*?<\/w:pPr>)?)/, `$1<w:r>${LRPB}</w:r>`)
+    out += before.slice(0, last.index) + p + tbl
+    at = m.index + m[0].length
+  }
+  return out + xml.slice(at)
+}
+
 export function holdEmptyLines(xml) {
   return xml.replace(/<w:p\b(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/g, (p) => {
     if (/<w:p\b[^>]*\/>/.test(p.slice(0, p.indexOf('>') + 1))) return p
@@ -2091,7 +2143,7 @@ async function loadTemplate(def, off = 0) {
       // Kashida justification is how Word justifies Arabic; the renderer
       // does not know it and would leave those paragraphs unaligned.
       xml = xml.replace(/(<w:jc w:val=")(?:low|medium|high)Kashida(")/g, '$1both$2')
-      zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(mergeParagraphBorders(useAutoSpacing(xml)))), def.blanks, off))
+      zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(mergeParagraphBorders(useAutoSpacing(wordPageBreaks(xml))))), def.blanks, off))
       const anchors = readPageAnchors(xml)
       const footerGaps = []
       for (const name of Object.keys(zip.files)) {
