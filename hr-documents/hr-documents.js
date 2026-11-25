@@ -1111,7 +1111,10 @@ const DOCUMENTS = [
     id: 'renewal',
     title: 'اتفاق تجديد عقد عمل محدد المدة',
     subtitle: 'Contract renewal',
-    template: 'templates/contract-renewal.docx?v=3',
+    template: 'templates/contract-renewal.docx?v=4',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on Employee Documents.
+    keepFooter: true,
     fields: {
       1: 'اليوم', 2: 'تاريخ الاتفاق', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
       5: 'تاريخ التعيين', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد', 8: 'الاسم بالعربية',
@@ -1132,7 +1135,10 @@ const DOCUMENTS = [
     id: 'work-start',
     title: 'إقرار استلام عمل',
     subtitle: 'Work start acknowledgement',
-    template: 'templates/work-start.docx?v=7',
+    template: 'templates/work-start.docx?v=8',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on Employee Documents.
+    keepFooter: true,
     fields: {
       1: 'الاسم بالعربية', 2: 'الرقم القومي',
       5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'تاريخ الإقرار',
@@ -1157,7 +1163,10 @@ const DOCUMENTS = [
     id: 'social-status',
     title: 'إقرار الحالة الاجتماعية',
     subtitle: 'Social status declaration',
-    template: 'templates/social-status.docx?v=9',
+    template: 'templates/social-status.docx?v=10',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on Employee Documents.
+    keepFooter: true,
     fields: {
       1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم التأميني', 4: 'الوظيفة', 5: 'الإدارة',
       7: 'النوع (من الرقم القومي)', 8: 'الجنسية (من الرقم القومي)', 9: 'الديانة',
@@ -1201,7 +1210,10 @@ DOCUMENTS.push({
   id: 'confidentiality',
   title: 'إقرار سرية البيانات',
   subtitle: 'Confidentiality declaration',
-  template: 'templates/confidentiality.docx?v=6',
+  template: 'templates/confidentiality.docx?v=7',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   // The signature line is left for the employee to sign by hand.
   fields: {
     1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
@@ -1225,7 +1237,10 @@ DOCUMENTS.push({
   id: 'bank-account',
   title: 'خطاب فتح حساب مرتب - البنك الأهلي الكويتي',
   subtitle: 'Salary account letter (ABK)',
-  template: 'templates/bank-account.docx?v=2',
+  template: 'templates/bank-account.docx?v=3',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   // Signed and stamped by hand.
   /* Each paragraph keeps the direction and alignment it has in Word: the
      logo at the top and the company stamp line sit on the left. */
@@ -1251,7 +1266,10 @@ DOCUMENTS.splice(DOCUMENTS.findIndex((d) => d.id === 'renewal') + 1, 0, {
   id: 'employment-certificate',
   title: 'إفادة عمل',
   subtitle: 'Employment certificate',
-  template: 'templates/employment-certificate.docx?v=5',
+  template: 'templates/employment-certificate.docx?v=6',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   fields: {
     1: 'تاريخ الإفادة', 2: 'الجهة الموجه إليها', 3: 'الاسم بالعربية', 4: 'الرقم القومي',
     5: 'شهر وسنة إصدار البطاقة', 6: 'الوظيفة', 7: 'تاريخ التعيين', 8: 'الراتب الشامل',
@@ -1276,7 +1294,10 @@ DOCUMENTS.push({
   id: 'resignation',
   title: 'استقالة مسببة',
   subtitle: 'Resignation',
-  template: 'templates/resignation.docx?v=5',
+  template: 'templates/resignation.docx?v=6',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   pool: 'resigned',
   fields: {
     1: 'تاريخ الاستقالة', 2: 'تاريخ الاستقالة (آخر يوم عمل)', 3: 'تاريخ الاستقالة (آخر يوم عمل)',
@@ -1307,7 +1328,10 @@ DOCUMENTS.push({
   id: 'termination-notice',
   title: 'إخطار بعدم تجديد عقد العمل',
   subtitle: 'Termination notice (contract not renewed)',
-  template: 'templates/termination-notice.docx?v=4',
+  template: 'templates/termination-notice.docx?v=5',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   fields: {
     1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ التعيين',
     5: 'تاريخ انتهاء آخر تجديد', 6: 'تاريخ انتهاء العقد', 7: 'تاريخ انتهاء العقد',
@@ -1365,7 +1389,10 @@ DOCUMENTS.push({
   id: 'termination-settlement',
   title: 'اتفاق إنهاء علاقة عمل والتسوية النهائية',
   subtitle: 'Termination and final settlement',
-  template: 'templates/termination-settlement.docx?v=1',
+  template: 'templates/termination-settlement.docx?v=2',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   // It rests on the employee's resignation.
   pool: 'resigned',
   // The address can run onto a second line.
@@ -1392,7 +1419,10 @@ DOCUMENTS.push({
   id: 'experience-certificate',
   title: 'شهادة خبرة',
   subtitle: 'Experience certificate',
-  template: 'templates/experience-certificate.docx?v=3',
+  template: 'templates/experience-certificate.docx?v=4',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   pool: 'resigned',
   fields: {
     1: 'تاريخ الشهادة', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'الوظيفة',
@@ -1625,7 +1655,10 @@ DOCUMENTS.push({
   id: 'leave-balance',
   title: 'إقرار برصيد الإجازات',
   subtitle: 'Leave balance acknowledgement',
-  template: 'templates/leave-balance.docx?v=2',
+  template: 'templates/leave-balance.docx?v=3',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   fields: {
     1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
     6: 'بداية الفترة', 7: 'نهاية الفترة', 8: 'المدير المباشر',
@@ -1674,7 +1707,10 @@ DOCUMENTS.push({
   id: 'absence-warning',
   title: 'إخطار رسمي بشأن الغياب عن العمل',
   subtitle: 'Absence warning',
-  template: 'templates/absence-warning.docx?v=3',
+  template: 'templates/absence-warning.docx?v=4',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   fields: {
     1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'شهر وسنة إصدار البطاقة',
     5: 'الرقم التأميني', 6: 'العنوان', 7: 'تاريخ التعيين', 8: 'الوظيفة', 9: 'الإدارة',

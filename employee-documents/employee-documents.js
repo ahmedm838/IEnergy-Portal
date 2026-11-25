@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=105'
+} from '../hr-documents/hr-documents.js?v=106'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -230,7 +230,7 @@ const DOCUMENTS = [
     id: 'salary-advance',
     title: 'طلب سلفة (بوجود ضامن)',
     subtitle: 'Salary advance request with a guarantor',
-    template: 'templates/salary-advance.docx?v=7',
+    template: 'templates/salary-advance.docx?v=8',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -261,7 +261,7 @@ const DOCUMENTS = [
     id: 'financial-grant',
     title: 'طلب صرف منحة مالية',
     subtitle: 'Financial grant request',
-    template: 'templates/financial-grant.docx?v=8',
+    template: 'templates/financial-grant.docx?v=9',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -291,7 +291,7 @@ const DOCUMENTS = [
     id: 'penalty-notice',
     title: 'إخطار بشأن وقوع مخالفة',
     subtitle: 'Penalty notice',
-    template: 'templates/penalty-notice.docx?v=9',
+    template: 'templates/penalty-notice.docx?v=10',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -320,7 +320,7 @@ const DOCUMENTS = [
     id: 'custody',
     title: 'إقرار استلام عهدة',
     subtitle: 'Custody receipt',
-    template: 'templates/custody.docx?v=5',
+    template: 'templates/custody.docx?v=6',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -344,7 +344,7 @@ const DOCUMENTS = [
     id: 'custody-loss',
     title: 'مذكرة إدارية (فقد عهدة)',
     subtitle: 'Lost custody memo',
-    template: 'templates/custody-loss.docx?v=7',
+    template: 'templates/custody-loss.docx?v=8',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -365,7 +365,7 @@ const DOCUMENTS = [
     id: 'hiring-request',
     title: 'طلب تعيين',
     subtitle: 'Hiring request',
-    template: 'templates/hiring-request.docx?v=6',
+    template: 'templates/hiring-request.docx?v=7',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -386,7 +386,7 @@ const DOCUMENTS = [
     id: 'purchase-request',
     title: 'طلب شراء',
     subtitle: 'Purchase request',
-    template: 'templates/purchase-request.docx?v=6',
+    template: 'templates/purchase-request.docx?v=7',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -411,7 +411,7 @@ const DOCUMENTS = [
     id: 'performance-evaluation',
     title: 'تقييم أداء',
     subtitle: 'Performance evaluation',
-    template: 'templates/performance-evaluation.docx?v=17',
+    template: 'templates/performance-evaluation.docx?v=18',
     /* Drawn from the Word file, so it can be changed in Word and
        uploaded again. Two pages, the second starting at the strengths
        section, whether or not the file has a page break there: each
