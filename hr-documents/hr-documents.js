@@ -1076,7 +1076,10 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=15',
+    template: 'templates/hiring-contract.docx?v=16',
+    // The company letterhead: logo and title in the header, address in the
+    // footer printed as it is, as on Employee Documents.
+    keepFooter: true,
     // Printed on both sides, flipped on the long edge.
     duplex: true,
     fields: {
@@ -1360,7 +1363,10 @@ DOCUMENTS.push({
   id: 'clearance',
   title: 'إخلاء طرف',
   subtitle: 'Clearance notice',
-  template: 'templates/clearance-notice.docx?v=3',
+  template: 'templates/clearance-notice.docx?v=4',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   // Its dates are the resignation's, so it is for those who have resigned.
   pool: 'resigned',
   // The delivered / not delivered boxes, the signatures and the line on
@@ -1443,7 +1449,10 @@ DOCUMENTS.push({
   id: 'job-application',
   title: 'طلب توظيف',
   subtitle: 'Job application · blank form',
-  template: 'templates/job-application.docx?v=1',
+  template: 'templates/job-application.docx?v=2',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   blankForm: true,
   ownDirection: true,
   // Its two pages stay two: a page that runs a little long here is
@@ -1760,7 +1769,10 @@ DOCUMENTS.push({
   id: 'investigation-report',
   title: 'محضر تحقيق إداري',
   subtitle: 'Administrative investigation report',
-  template: 'templates/investigation-report.docx?v=2',
+  template: 'templates/investigation-report.docx?v=3',
+  // The company letterhead: logo and title in the header, address in the
+  // footer printed as it is, as on Employee Documents.
+  keepFooter: true,
   // Printed on both sides, flipped on the long edge.
   duplex: true,
   fields: {
