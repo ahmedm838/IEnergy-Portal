@@ -659,12 +659,6 @@ export function investigationValues(emp, d, inputs = {}, ctx = {}) {
     10: jobTitle(emp),
     11: department(emp),
     12: arDate(d.hired),
-    13: name,
-    14: invName,
-    15: name,
-    16: invName,
-    17: name,
-    18: invName,
   }
 }
 
@@ -1076,7 +1070,7 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=18',
+    template: 'templates/hiring-contract.docx?v=19',
     // Laid out as in Word: its pages are Word's (split where Word split
     // them when the template was saved), each printed on one sheet, and
     // its lines and tables measured as Word measures them.
@@ -1786,7 +1780,7 @@ DOCUMENTS.push({
   id: 'investigation-report',
   title: 'محضر تحقيق إداري',
   subtitle: 'Administrative investigation report',
-  template: 'templates/investigation-report.docx?v=5',
+  template: 'templates/investigation-report.docx?v=6',
   // Laid out as in Word: its pages are Word's (split where Word split
   // them when the template was saved), each printed on one sheet, and
   // its lines and tables measured as Word measures them.
@@ -1801,8 +1795,6 @@ DOCUMENTS.push({
     1: 'تاريخ التحقيق', 2: 'وقت بدء التحقيق', 3: 'القائم بالتحقيق', 4: 'وظيفة القائم بالتحقيق',
     5: 'الحاضر الأول', 6: 'وظيفة الحاضر الأول', 7: 'الحاضر الثاني', 8: 'وظيفة الحاضر الثاني',
     9: 'الاسم بالعربية', 10: 'الوظيفة', 11: 'الإدارة', 12: 'تاريخ التعيين',
-    13: 'الاسم بالعربية', 14: 'القائم بالتحقيق', 15: 'الاسم بالعربية', 16: 'القائم بالتحقيق',
-    17: 'الاسم بالعربية', 18: 'القائم بالتحقيق',
   },
   // A second person attending is not always there.
   optional: [7, 8],
@@ -1816,7 +1808,7 @@ DOCUMENTS.push({
   dateFields: [['today', 'تاريخ التحقيق', [1]]],
   inputs: [
     ['startTime', 'وقت بدء التحقيق', 'text', [2], 'مثال: 10:30 صباحًا'],
-    ['investigator', 'القائم بالتحقيق', 'employee', [3, 4, 14, 16, 18]],
+    ['investigator', 'القائم بالتحقيق', 'employee', [3, 4]],
     ['attendee1', 'بحضور (الأول)', 'employee', [5, 6]],
     ['attendee2', 'وأيضًا (الثاني — اختياري)', 'employee', [7, 8]],
   ],
