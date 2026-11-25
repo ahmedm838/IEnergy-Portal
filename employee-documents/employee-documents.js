@@ -291,11 +291,14 @@ const DOCUMENTS = [
     id: 'penalty-notice',
     title: 'إخطار بشأن وقوع مخالفة',
     subtitle: 'Penalty notice',
-    template: 'templates/penalty-notice.docx?v=6',
+    template: 'templates/penalty-notice.docx?v=7',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
     fields: { 1: 'تاريخ الإخطار', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين' },
+    // Its table and lines measured as Word measures them, so each page is
+    // as long here as it is in Word.
+    wordMetrics: true,
     // The violations table is right to left in Word, its first column on
     // the right; the page keeps that.
     ownDirection: true,
