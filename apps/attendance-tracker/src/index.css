@@ -141,6 +141,31 @@ body,
   }
 }
 
+/* Employee report on a phone: the day list replaces the nine-column
+   table, which could only be read by scrolling sideways. Screen only;
+   what prints is decided further down and is untouched. */
+.employee-report-mobile-list {
+  display: none;
+}
+@media screen and (max-width: 639.98px) {
+  .employee-report-mobile-list {
+    display: block;
+  }
+  .employee-report-records-screen {
+    display: none;
+  }
+  /* The two small tables (days by type, leave balances) only just
+     overflowed on a narrow phone; tighter cell padding fits them. */
+  .employee-report-cards th,
+  .employee-report-cards td {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .employee-report-cards th {
+    letter-spacing: 0;
+  }
+}
+
 body {
   background: var(--canvas);
   color: var(--ink);

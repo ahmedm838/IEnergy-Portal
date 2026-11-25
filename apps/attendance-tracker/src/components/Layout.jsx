@@ -77,8 +77,10 @@ export default function Layout() {
           {/* Tighter than it was: seven tabs now, and on a laptop the
               last of them was dropping off the end. The gap is gone and
               the padding halved, which buys about 90px across the row
-              without the tabs touching each other. */}
-          <nav className="hidden flex-1 items-center lg:flex">
+              without the tabs touching each other. From xl (1280px) only:
+              between 1024 and 1280 the tabs pushed Sign out off the edge,
+              so tablets use the menu button instead. */}
+          <nav className="hidden flex-1 items-center xl:flex">
             {items.map((item) => (
               <NavLink
                 key={item.to}
@@ -98,7 +100,7 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap sm:gap-3">
+          <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-ink">{profile?.name}</p>
             </div>
@@ -122,7 +124,7 @@ export default function Layout() {
             </Button>
             <button
               hidden={items.length === 0}
-              className="rounded-lg p-2 text-ink-2 hover:bg-hover lg:hidden"
+              className="rounded-lg p-2 text-ink-2 hover:bg-hover xl:hidden"
               onClick={() => setMenuOpen((open) => !open)}
               aria-label="Toggle navigation"
               aria-expanded={menuOpen}
@@ -135,7 +137,7 @@ export default function Layout() {
         </div>
 
         {menuOpen && (
-          <nav className="grid gap-1 border-t border-line px-4 py-3 lg:hidden">
+          <nav className="grid gap-1 border-t border-line px-4 py-3 xl:hidden">
             {items.map((item) => (
               <NavLink
                 key={item.to}

@@ -561,7 +561,9 @@ export default function EmployeeReport() {
             </p>
           </div>
 
-          <div className="employee-report-totals grid grid-flow-col auto-cols-[minmax(124px,1fr)] gap-1.5 overflow-x-auto pb-1">
+          {/* Two to a row on a phone, so every figure is on screen; one
+              scrolling strip from sm up, as before. */}
+          <div className="employee-report-totals grid grid-cols-2 gap-1.5 pb-1 sm:grid-flow-col sm:grid-cols-none sm:auto-cols-[minmax(124px,1fr)] sm:overflow-x-auto">
             <Stat
               dense
               label="Required hours"
@@ -783,7 +785,7 @@ export default function EmployeeReport() {
                    onto a line of its own as soon as the subtitle grew --
                    and the subtitle grows exactly when a filter is on, so
                    the section got taller the moment it was used. */
-                <div className="no-print flex shrink-0 flex-nowrap items-center gap-2">
+                <div className="no-print flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap">
                   {(activeColumnFilters.length > 0 || sort.key) && (
                     <Button
                       size="sm"
@@ -845,7 +847,7 @@ export default function EmployeeReport() {
             ) : (
               <>
               <div
-                className={`employee-report-records max-h-[70vh] overflow-auto${
+                className={`employee-report-records employee-report-records-screen max-h-[70vh] overflow-auto${
                   splitForPrint ? ' employee-report-records-single' : ''
                 }`}
               >
@@ -906,6 +908,50 @@ export default function EmployeeReport() {
                 </table>
               </div>
 
+              {/* The same days as a list, for phones only (index.css shows it
+                  below 640px on screen and hides the nine-column table,
+                  which would otherwise need scrolling sideways). One card
+                  per day, everything the table row carries; the day
+                  filters above still apply. Never printed. */}
+              <ul className="employee-report-mobile-list no-print divide-y divide-line">
+                {visibleRecords.length === 0 && (
+                  <li className="px-4 py-6 text-center text-sm text-ink-3">
+                    No days match the column filters.{' '}
+                    <button
+                      type="button"
+                      className="font-medium text-brand-600 hover:underline"
+                      onClick={() => setColumnFilters({})}
+                    >
+                      Clear them
+                    </button>
+                  </li>
+                )}
+                {visibleRecords.map((r) => {
+                  const inT = trimTime(r.clock_in)
+                  const outT = trimTime(r.clock_out)
+                  return (
+                    <li key={r.id} className="px-4 py-3 text-sm">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="font-medium text-ink">{dayLabel(r.work_date)}</span>
+                        <span className="min-w-0 text-right text-ink-2">
+                          {r.attendance_types?.name_en}{' '}
+                          <span className="arabic text-ink-4">{r.attendance_types?.name_ar}</span>
+                        </span>
+                      </div>
+                      <dl className="mt-1.5 grid grid-cols-3 gap-x-3 gap-y-1 text-xs">
+                        <MobileFigure label="In" value={inT || '—'} />
+                        <MobileFigure label="Out" value={outT || '—'} />
+                        <MobileFigure label="Worked" value={hoursToHHMM(workedHours(inT, outT))} />
+                        <MobileFigure label="Late" value={minutesToHHMM(r.late_minutes)} />
+                        <MobileFigure label="Transport" value={num(r.transport)} />
+                        <MobileFigure label="Added" value={r.add_to_leave_balance ? '✓' : '—'} />
+                      </dl>
+                      {r.note?.trim() && <p className="mt-1.5 text-xs text-ink-3">{r.note}</p>}
+                    </li>
+                  )
+                })}
+              </ul>
+
               {/* The same days again, in two columns, for paper only.
 
                   A month of records in one column runs past the foot of
@@ -957,6 +1003,16 @@ export default function EmployeeReport() {
           </Card>
         </>
       )}
+    </div>
+  )
+}
+
+/* One figure in a day's card on the phone list: small label, value under. */
+function MobileFigure({ label, value }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-ink-4">{label}</dt>
+      <dd className="tabular font-medium text-ink-2">{value || '—'}</dd>
     </div>
   )
 }
