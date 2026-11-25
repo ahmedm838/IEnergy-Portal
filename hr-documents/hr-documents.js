@@ -1076,7 +1076,7 @@ const DOCUMENTS = [
     id: 'hiring',
     title: 'عقد عمل محدد المدة',
     subtitle: 'Limited hiring contract',
-    template: 'templates/hiring-contract.docx?v=17',
+    template: 'templates/hiring-contract.docx?v=18',
     // Laid out as in Word: its pages are Word's (split where Word split
     // them when the template was saved), each printed on one sheet, and
     // its lines and tables measured as Word measures them.
@@ -1218,7 +1218,7 @@ DOCUMENTS.push({
   id: 'confidentiality',
   title: 'إقرار سرية البيانات',
   subtitle: 'Confidentiality declaration',
-  template: 'templates/confidentiality.docx?v=8',
+  template: 'templates/confidentiality.docx?v=9',
   // Laid out as in Word: its pages are Word's (split where Word split
   // them when the template was saved), each printed on one sheet, and
   // its lines and tables measured as Word measures them.
@@ -1250,7 +1250,7 @@ DOCUMENTS.push({
   id: 'bank-account',
   title: 'خطاب فتح حساب مرتب - البنك الأهلي الكويتي',
   subtitle: 'Salary account letter (ABK)',
-  template: 'templates/bank-account.docx?v=4',
+  template: 'templates/bank-account.docx?v=5',
   // Laid out as in Word: its pages are Word's (split where Word split
   // them when the template was saved), each printed on one sheet, and
   // its lines and tables measured as Word measures them.
@@ -1786,7 +1786,7 @@ DOCUMENTS.push({
   id: 'investigation-report',
   title: 'محضر تحقيق إداري',
   subtitle: 'Administrative investigation report',
-  template: 'templates/investigation-report.docx?v=4',
+  template: 'templates/investigation-report.docx?v=5',
   // Laid out as in Word: its pages are Word's (split where Word split
   // them when the template was saved), each printed on one sheet, and
   // its lines and tables measured as Word measures them.
