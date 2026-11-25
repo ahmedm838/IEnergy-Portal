@@ -2044,15 +2044,52 @@ async function loadTemplate(def, off = 0) {
       // does not know it and would leave those paragraphs unaligned.
       xml = xml.replace(/(<w:jc w:val=")(?:low|medium|high)Kashida(")/g, '$1both$2')
       zip.file('word/document.xml', markBlanks(useArabicRunProps(holdEmptyLines(mergeParagraphBorders(useAutoSpacing(xml)))), def.blanks, off))
+      const anchors = readPageAnchors(xml)
       for (const name of Object.keys(zip.files)) {
         if (/^word\/(styles|header\d*|footer\d*)\.xml$/.test(name)) {
-          zip.file(name, useArabicRunProps(await zip.file(name).async('string')))
+          const part = await zip.file(name).async('string')
+          if (name !== 'word/styles.xml') anchors.push(...readPageAnchors(part))
+          zip.file(name, useArabicRunProps(part))
         }
       }
-      return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab, rtlTables, cellMargins }
+      return { blob: await zip.generateAsync({ type: 'blob' }), border, tabStops, defaultTab, rtlTables, cellMargins, anchors }
     })())
   }
   return templateCache.get(key)
+}
+
+/* Pictures Word floats in front of the text (wrapNone) at a set place
+   on the page -- a logo dragged into the corner of the header: where
+   each sits, in points from the page's left and top edges. Read from the
+   template, since the renderer places such a picture from where its
+   paragraph happens to start, not from the page, and draws it in a box
+   no wider than nothing. */
+const EMU_PT = 1 / 12700
+function readPageAnchors(xml) {
+  const out = []
+  for (const m of xml.matchAll(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g)) {
+    const a = m[0]
+    if (!/<wp:wrapNone\/>/.test(a)) continue
+    const h = /<wp:positionH relativeFrom="page"><wp:posOffset>(-?\d+)<\/wp:posOffset>/.exec(a)
+    const v = /<wp:positionV relativeFrom="page"><wp:posOffset>(-?\d+)<\/wp:posOffset>/.exec(a)
+    if (h && v) out.push({ left: +h[1] * EMU_PT, top: +v[1] * EMU_PT })
+  }
+  return out
+}
+
+/* Put each such picture where Word puts it: that far from the page's own
+   edges, at its own size, on every page that draws it. */
+function placePageAnchors(root, anchors) {
+  if (!anchors?.length) return
+  const near = (css, pt) => Math.abs(parseFloat(css) - pt) < 0.05 && /pt$/.test(css)
+  for (const box of root.querySelectorAll('section.docx div')) {
+    const st = box.style
+    if (st.position !== 'relative' || st.width !== '0px' || st.height !== '0px' || !box.querySelector('img')) continue
+    const a = anchors.find((x) => near(st.left, x.left) && near(st.top, x.top))
+    if (!a) continue
+    Object.assign(st, { position: 'absolute', display: 'block', direction: 'ltr', zIndex: '1', left: `${a.left}pt`, top: `${a.top}pt` })
+    for (const img of box.querySelectorAll('img')) img.style.maxWidth = 'none'
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -2508,6 +2545,7 @@ async function drawDocument(def) {
       renderHeaders: true,
       renderFooters: true,
     })
+    placePageAnchors(box, t.anchors)
     countLists(box)
     if (parts.length > 1) scopeStyles(box)
     markTabs(box)
