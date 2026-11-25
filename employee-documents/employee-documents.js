@@ -230,7 +230,7 @@ const DOCUMENTS = [
     id: 'salary-advance',
     title: 'طلب سلفة (بوجود ضامن)',
     subtitle: 'Salary advance request with a guarantor',
-    template: 'templates/salary-advance.docx?v=4',
+    template: 'templates/salary-advance.docx?v=5',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -261,7 +261,7 @@ const DOCUMENTS = [
     id: 'financial-grant',
     title: 'طلب صرف منحة مالية',
     subtitle: 'Financial grant request',
-    template: 'templates/financial-grant.docx?v=5',
+    template: 'templates/financial-grant.docx?v=6',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -320,7 +320,7 @@ const DOCUMENTS = [
     id: 'custody',
     title: 'إقرار استلام عهدة',
     subtitle: 'Custody receipt',
-    template: 'templates/custody.docx?v=2',
+    template: 'templates/custody.docx?v=3',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -344,7 +344,7 @@ const DOCUMENTS = [
     id: 'custody-loss',
     title: 'مذكرة إدارية (فقد عهدة)',
     subtitle: 'Lost custody memo',
-    template: 'templates/custody-loss.docx?v=4',
+    template: 'templates/custody-loss.docx?v=5',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -365,7 +365,7 @@ const DOCUMENTS = [
     id: 'hiring-request',
     title: 'طلب تعيين',
     subtitle: 'Hiring request',
-    template: 'templates/hiring-request.docx?v=3',
+    template: 'templates/hiring-request.docx?v=4',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -386,7 +386,7 @@ const DOCUMENTS = [
     id: 'purchase-request',
     title: 'طلب شراء',
     subtitle: 'Purchase request',
-    template: 'templates/purchase-request.docx?v=3',
+    template: 'templates/purchase-request.docx?v=4',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
@@ -411,7 +411,7 @@ const DOCUMENTS = [
     id: 'performance-evaluation',
     title: 'تقييم أداء',
     subtitle: 'Performance evaluation',
-    template: 'templates/performance-evaluation.docx?v=14',
+    template: 'templates/performance-evaluation.docx?v=15',
     /* Drawn from the Word file, so it can be changed in Word and
        uploaded again. Two pages, the second starting at the strengths
        section, whether or not the file has a page break there: each
