@@ -387,7 +387,7 @@ const DOCUMENTS = [
     id: 'performance-evaluation',
     title: 'تقييم أداء',
     subtitle: 'Performance evaluation',
-    template: 'templates/performance-evaluation.docx?v=11',
+    template: 'templates/performance-evaluation.docx?v=12',
     /* Drawn from the Word file, so it can be changed in Word and
        uploaded again. Two pages, the second starting at the strengths
        section, whether or not the file has a page break there: each
