@@ -2049,6 +2049,10 @@ async function loadTemplate(def, off = 0) {
         if (/^word\/(styles|header\d*|footer\d*)\.xml$/.test(name)) {
           const part = await zip.file(name).async('string')
           if (name !== 'word/styles.xml') anchors.push(...readPageAnchors(part))
+          // A letterhead footer that prints as it is (keepFooter) is the
+          // company address in English: its bold and size are the ones
+          // Word uses for English text, kept as they are.
+          if (def.keepFooter && /^word\/footer\d*\.xml$/.test(name)) continue
           zip.file(name, useArabicRunProps(part))
         }
       }
@@ -2089,6 +2093,25 @@ function placePageAnchors(root, anchors) {
     if (!a) continue
     Object.assign(st, { position: 'absolute', display: 'block', direction: 'ltr', zIndex: '1', left: `${a.left}pt`, top: `${a.top}pt` })
     for (const img of box.querySelectorAll('img')) img.style.maxWidth = 'none'
+  }
+}
+
+/* A letterhead footer's lines as tall as their own text, as Word makes
+   them. The renderer gives every paragraph the document's Normal text
+   size as well (and, in some templates, a least height), which sets a
+   line's height: a 9 pt address line came out as tall as 12 or 14 pt
+   text, depending on the template. */
+function footerLines(root) {
+  for (const p of root.querySelectorAll('section.docx footer p')) {
+    const sizes = [...p.querySelectorAll('span')]
+      .filter((s) => s.textContent.trim())
+      .map((s) => parseFloat(getComputedStyle(s).fontSize))
+    if (!sizes.length) continue
+    p.style.fontSize = `${Math.max(...sizes)}px`
+    p.style.minHeight = '0'
+    // Word's single line spacing for Times New Roman is about 1.15 times
+    // the text size; the renderer draws it as exactly 1.
+    if (getComputedStyle(p).lineHeight === p.style.fontSize) p.style.lineHeight = '1.15'
   }
 }
 
@@ -2550,6 +2573,7 @@ async function drawDocument(def) {
       renderFooters: true,
     })
     placePageAnchors(box, t.anchors)
+    if (part.def.keepFooter) footerLines(box)
     countLists(box)
     if (parts.length > 1) scopeStyles(box)
     markTabs(box)
