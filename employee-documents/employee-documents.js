@@ -9,7 +9,7 @@
 import {
   startDocumentsPage, todayUTC, has, parseISO, arDate, toArabicDigits,
   amountDigits, installment, jobTitle, department, parseAmount, arMonth,
-} from '../hr-documents/hr-documents.js?v=114'
+} from '../hr-documents/hr-documents.js?v=116'
 
 /* --- Salary advance with a guarantor (طلب سلفة بوجود ضامن) -------------- */
 
@@ -452,4 +452,7 @@ const DOCUMENTS = [
   },
 ]
 
-if (window.IEnergyAuth) startDocumentsPage({ documents: DOCUMENTS, allowedRoles: ['user', 'admin'] })
+if (window.IEnergyAuth) // Any employee can be picked -- the person a request is for, a
+// guarantor, a manager -- from the whole company, not only the user's
+// sector (see employee_directory).
+startDocumentsPage({ documents: DOCUMENTS, allowedRoles: ['user', 'admin'], page: 'employee-documents', anyEmployee: true })

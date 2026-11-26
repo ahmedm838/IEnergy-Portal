@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="description" content="iEnergy company structure: sectors, departments and people by level" />
+  <title>iEnergy | Company structure</title>
+
+  <link rel="icon" type="image/png" href="../favicon.png?v=2" />
+  <link rel="stylesheet" href="../responsive.css?v=2" />
+  <link rel="stylesheet" href="../home.css?v=24" />
+  <link rel="stylesheet" href="company-structure.css?v=1" />
+  <script src="../theme.js?v=4"></script>
+  <script src="../print-stamp.js?v=1"></script>
+  <!-- Fetch a page when the pointer settles on its link, so the click
+       lands on something already in the cache. Same-origin GETs only. -->
+  <script type="speculationrules">
+    {"prefetch":[{"where":{"href_matches":"/*"},"eagerness":"moderate"}]}
+  </script>
+</head>
+<body>
+
+  <!-- Sign-in, shown only when there is no session. -->
+  <div id="auth" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">← iEnergy Home</a>
+          <h1>Company structure</h1>
+          <p>Please sign in to continue.</p>
+        </div>
+      </div>
+
+      <label class="auth-label" for="usernameInput">Username</label>
+      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" />
+
+      <label class="auth-label" for="passwordInput">Password</label>
+      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" />
+
+      <div class="auth-actions">
+        <button id="btnLogin" class="primary" type="button">Sign in</button>
+      </div>
+
+      <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
+    </div>
+  </div>
+
+  <div id="accessDenied" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-title">
+        <a class="back-link" href="../index.html">&larr; iEnergy Home</a>
+        <h1>Company structure</h1>
+        <p>This page is not open to your role.</p>
+      </div>
+    </div>
+  </div>
+
+  <main id="app" hidden>
+    <header class="page-bar">
+      <div class="page-bar-inner">
+        <div class="page-bar-brand">
+          <img class="page-bar-logo" src="../logo-mark.png?v=2" alt="" />
+          <span class="page-bar-name">Company structure</span>
+        </div>
+        <div class="page-bar-right">
+          <span class="page-bar-who" id="whoami"></span>
+          <span class="role-badge" id="roleBadge" hidden></span>
+          <span id="themeSlot"></span>
+          <a class="main-page-btn" href="../">Main page</a>
+          <button id="logoutBtn" class="btn logout-btn" type="button">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="container">
+      <section class="section">
+        <div class="cs-head">
+          <div>
+            <h2>Company structure</h2>
+            <p class="section-sub" id="summary">Loading…</p>
+          </div>
+          <input id="search" class="cs-search" type="search" autocomplete="off"
+                 placeholder="Find a person, title, department or sector…" aria-label="Search" />
+        </div>
+        <div class="cs-levels" id="levels" aria-label="Levels"></div>
+        <div id="status" class="cs-status" hidden></div>
+        <div id="tree" class="cs-tree"></div>
+      </section>
+
+      <footer class="footer">
+        <small>&copy; <span id="year"></span> iEnergy. Internal use.</small>
+      </footer>
+    </div>
+  </main>
+
+  <script src="../auth.js?v=16"></script>
+  <script type="module" src="company-structure.js?v=1"></script>
+</body>
+</html>

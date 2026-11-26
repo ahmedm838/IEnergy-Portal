@@ -130,7 +130,7 @@
 
   <script src="contacts-list.js?v=10"></script>
 
-  <script src="../auth.js?v=14"></script>
+  <script src="../auth.js?v=16"></script>
 
   <script>
     (function () {
@@ -170,6 +170,7 @@
 
         IEnergyAuth.ensureAuth({
           allowedRoles: ['admin', 'user'],
+          page: 'contacts-list',
           homeHref: '../index.html',
           onAuthed: fillPageBar
         });

@@ -3406,6 +3406,21 @@ async function loadEmployees() {
     ;({ data, error } = await query(columns))
   }
   if (error) throw error
+  /* A page that lets any employee be picked (Employee Documents) adds,
+     from the company directory, everyone row level security keeps out of
+     employee_profiles: name, title, department and hiring date only.
+     Their full records stay out of reach, so a form that needs more of
+     them (a national ID) says so rather than printing a blank. */
+  if (pageDirectory) {
+    const dir = await supabase.rpc('employee_directory')
+    if (!dir.error) {
+      const have = new Set((data || []).map((e) => String(e.id)))
+      const extra = (dir.data || [])
+        .filter((e) => e.arabic_name && !have.has(String(e.id)))
+        .map((e) => ({ ...e, is_active: true, limited: true }))
+      data = [...(data || []), ...extra].sort((x, y) => String(x.arabic_name).localeCompare(String(y.arabic_name), 'ar'))
+    }
+  }
   const [departments, statuses] = await lists
   state.employees = (data || []).map((e) => ({
     ...e,
@@ -4039,7 +4054,10 @@ function refresh() {
   const toFill = empty.filter((n) => editable.has(n) && !later.has(n))
   const warn = $('fieldWarning')
   const notes = []
-  if (emp && fromRecord.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${names(fromRecord)}. أكملها أولاً ثم أعد الاختيار.`)
+  // Picked from the company directory (limited): the rest of the record
+  // is not this user's to read, rather than missing.
+  if (emp && fromRecord.length && emp.limited) notes.push(`بيانات هذا الموظف خارج نطاق صلاحيتك ولا يمكن عرضها: ${names(fromRecord)}. اطلب من الموارد البشرية إصدار هذا النموذج.`)
+  else if (emp && fromRecord.length) notes.push(`بيانات ناقصة في قاعدة بيانات الموظفين: ${names(fromRecord)}. أكملها أولاً ثم أعد الاختيار.`)
   if (emp && fromCompany.length) notes.push(`بيانات الشركة ناقصة في صفحة الإعدادات (Settings ← Company details): ${names(fromCompany)}.`)
   if (emp && toFill.length) notes.push(`أدخل ${names(toFill)}.`)
   const problem = def.check ? def.check(emp, dates, inputs, ctx) : ''
@@ -4415,14 +4433,20 @@ function startDesignerMode() {
 /* The documents this page lists: HR Documents' own unless another page
    (Employee Documents) has started the engine with its list. */
 let pageDocs = DOCUMENTS
+// Whether any employee can be picked here, not only those row level
+// security shows in full (see loadEmployees).
+let pageDirectory = false
 
-export function startDocumentsPage({ documents, allowedRoles }) {
+export function startDocumentsPage({ documents, allowedRoles, page, anyEmployee = false }) {
   pageDocs = documents
+  pageDirectory = anyEmployee
   for (const def of pageDocs) def.blanks = Object.keys(def.fields).map(Number)
-  start(allowedRoles)
+  start(allowedRoles, page)
 }
 
-function start(allowedRoles = ['admin']) {
+/* page: the page's name in Settings > Page access, which decides who may
+   open it; allowedRoles stands in while that cannot be read. */
+function start(allowedRoles = ['admin'], page = 'hr-documents') {
   $('year').textContent = String(new Date().getFullYear())
   const out = $('logoutBtn')
   out.addEventListener('click', () => {
@@ -4430,7 +4454,7 @@ function start(allowedRoles = ['admin']) {
     out.textContent = 'Signing out…'
     IEnergyAuth.signOutAndLeave('../index.html')
   })
-  IEnergyAuth.ensureAuth({ allowedRoles, homeHref: '../index.html', onAuthed })
+  IEnergyAuth.ensureAuth({ allowedRoles, page, homeHref: '../index.html', onAuthed })
 }
 
 /* HR Documents starts itself. A page that marks its <html> with

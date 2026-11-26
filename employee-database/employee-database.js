@@ -900,6 +900,41 @@ function cachedProfile() {
 
 const mayEdit = (role) => role === 'admin' || role === 'super_admin'
 
+/* Who may open this page: Settings > Page access (the page_access table,
+   kept in this tab by auth.js on the portal's pages), and where that has
+   no answer, administrators as before. A super admin always may and
+   no_access never. Opening the page is all this decides: what a role can
+   read or change is still row level security's, and editing stays an
+   administrator's (mayEdit). */
+const PAGE = 'employee-database'
+const PAGE_ACCESS_KEY = 'ienergy_page_access_v1'
+const PAGE_ACCESS_FRESH_MS = 2 * 60 * 1000
+function cachedPageAccess() {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(PAGE_ACCESS_KEY))
+    return raw && raw.map && raw.at ? raw : null
+  } catch (_) {
+    return null
+  }
+}
+async function readPageAccess() {
+  const cached = cachedPageAccess()
+  if (cached && Date.now() - cached.at < PAGE_ACCESS_FRESH_MS) return cached
+  const { data, error } = await supabase.from('page_access').select('page, role, allowed')
+  if (error) return cached
+  const map = {}
+  for (const row of data || []) (map[row.page] ||= {})[row.role] = !!row.allowed
+  const out = { map, at: Date.now() }
+  try { sessionStorage.setItem(PAGE_ACCESS_KEY, JSON.stringify(out)) } catch (_) {}
+  return out
+}
+function mayOpen(role, access) {
+  if (role === 'super_admin') return true
+  if (!role || role === 'no_access') return false
+  const row = access?.map?.[PAGE]
+  return row && typeof row[role] === 'boolean' ? row[role] : mayEdit(role)
+}
+
 /* Everything that happens once somebody is known to be allowed in.
    Pulled out of start() because it now runs from two places: once
    straight away from the cache, and once more if the confirmation
@@ -938,7 +973,7 @@ async function start() {
   const known = hasToken ? cachedProfile() : null
   let drawn = false
 
-  if (known && mayEdit(known.role)) {
+  if (known && mayOpen(known.role, cachedPageAccess())) {
     openPage(known)
     drawn = true
     // The lists and the totals need no permission beyond the session,
@@ -980,9 +1015,9 @@ async function start() {
   // read them, and the whole file -- national IDs, wages, documents -- is
   // not something to put in front of somebody who has no business editing
   // it. Row level security says the same thing from the other side.
-  if (!mayEdit(data.role)) {
+  if (!mayOpen(data.role, await readPageAccess())) {
     showGate(
-      `Signed in as ${data.name}, but the Employee Database is open to administrators only.`,
+      `Signed in as ${data.name}, but the Employee Database is not open to your role.`,
     )
     return
   }

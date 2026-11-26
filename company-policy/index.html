@@ -786,7 +786,7 @@
     })();
   </script>
 
-  <script src="../auth.js?v=14"></script>
+  <script src="../auth.js?v=16"></script>
   <script>
     (function () {
       'use strict';
@@ -825,6 +825,7 @@
 
         IEnergyAuth.ensureAuth({
           allowedRoles: ['admin', 'user'],
+          page: 'company-policy',
           homeHref: '../index.html',
           onAuthed: fillPageBar
         });

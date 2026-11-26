@@ -138,6 +138,66 @@
     return clientPromise;
   }
 
+  /* Which pages each role may open: Settings > Page access, kept in the
+     page_access table. A super admin opens every page and no_access
+     none; for the others the table decides, and where it says nothing --
+     not read yet, not reachable, a page it does not list -- the page's
+     own rule (allowedRoles) still holds, so a failed read can neither
+     lock anybody out nor let anybody in that the page would refuse.
+
+     Read once and kept in this tab for a couple of minutes: a change in
+     Settings reaches every page within that time, or at once on the next
+     sign-in. What a page can read is still row level security's call. */
+  const PAGE_ACCESS_KEY = 'ienergy_page_access_v1';
+  const PAGE_ACCESS_FRESH_MS = 2 * 60 * 1000;
+  let pageAccess = null; // { map: { page: { user: bool, admin: bool } }, at }
+
+  (function readPageAccessCache() {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem(PAGE_ACCESS_KEY));
+      if (raw && raw.map && raw.at) pageAccess = raw;
+    } catch (_) { /* nothing cached */ }
+  })();
+
+  function pageAccessFresh() {
+    return !!pageAccess && Date.now() - pageAccess.at < PAGE_ACCESS_FRESH_MS;
+  }
+
+  async function loadPageAccess(force) {
+    if (!force && pageAccessFresh()) return pageAccess;
+    try {
+      const supabase = await getClient();
+      const { data, error } = await supabase.from('page_access').select('page, role, allowed');
+      if (error) throw error;
+      const map = {};
+      for (const row of data || []) {
+        if (!map[row.page]) map[row.page] = {};
+        map[row.page][row.role] = !!row.allowed;
+      }
+      pageAccess = { map, at: Date.now() };
+      try { sessionStorage.setItem(PAGE_ACCESS_KEY, JSON.stringify(pageAccess)); } catch (_) {}
+    } catch (_) {
+      /* Kept as it was, stale or not there: the pages' own rules stand in. */
+    }
+    return pageAccess;
+  }
+
+  function forgetPageAccess() {
+    pageAccess = null;
+    try { sessionStorage.removeItem(PAGE_ACCESS_KEY); } catch (_) {}
+  }
+
+  /* true or false when the table answers; null when it does not, and the
+     page's own rule applies. trackerRole is the database role. */
+  function canOpenPage(page, trackerRole) {
+    if (!page) return null;
+    if (trackerRole === 'super_admin') return true;
+    if (!trackerRole || trackerRole === 'no_access') return false;
+    const row = pageAccess && pageAccess.map && pageAccess.map[page];
+    if (!row || typeof row[trackerRole] !== 'boolean') return null;
+    return row[trackerRole];
+  }
+
   // Who is signed in, once we know. Null until then, and null is not the
   // same as "nobody" -- it also means "not asked yet".
   let profile = null;
@@ -277,6 +337,7 @@
   async function logout() {
     profile = null;
     rememberProfile(null);
+    forgetPageAccess();
     clearLegacy();
     try {
       const supabase = await getClient();
@@ -828,6 +889,16 @@
       ? opts.homeHref
       : '../index.html';
     const onAuthed = (opts && typeof opts.onAuthed === 'function') ? opts.onAuthed : null;
+    // The page's name in Settings > Page access, if it is one listed there.
+    const page = (opts && typeof opts.page === 'string') ? opts.page : '';
+
+    /* May this person open this page: the Page access table's answer
+       where it has one, the page's own allowedRoles where it has not. */
+    function mayOpen(who) {
+      if (!who || !who.role) return false;
+      const byTable = canOpenPage(page, who.trackerRole);
+      return byTable === null ? allowedRoles.includes(who.role) : byTable;
+    }
 
     const authEl = $('auth');
     const appEl = $('app');
@@ -894,11 +965,16 @@
       }
     }
 
-    function settle() {
-      if (!isSessionValid()) { showLogin(); return false; }
-      if (!allowedRoles.includes(getRole())) { showDenied(); return false; }
+    function decide() {
+      if (!mayOpen(profile)) { showDenied(); return false; }
       showApp();
       return true;
+    }
+
+    function settle() {
+      if (!isSessionValid()) { showLogin(); return false; }
+      if (page && !pageAccessFresh()) return loadPageAccess().then(decide);
+      return decide();
     }
 
     let busy = false;
@@ -956,7 +1032,7 @@
     if (!hasToken) {
       // Nothing stored: the panel is the right answer, immediately.
       showLogin();
-    } else if (known && known.role && allowedRoles.includes(known.role)) {
+    } else if (known && known.role && (!page || pageAccess) && mayOpen(known)) {
       // Seen before in this tab. Draw the page straight away; the check
       // below still runs and will correct it if anything has changed.
       profile = known;
@@ -977,7 +1053,7 @@
        for. Only an answer, or nothing to fall back on, closes the page. */
     function confirm(who, isRetry) {
       if (who === UNKNOWN) {
-        if (profile && allowedRoles.includes(getRole())) return true;  // leave it up
+        if (profile && mayOpen(profile)) return true;  // leave it up
         if (!isRetry) return loadProfile().then((again) => confirm(again, true));
         showLogin();
         return false;
@@ -1025,6 +1101,9 @@
     setPassword,
     openChangePassword,
     getClient,
+    loadPageAccess,
+    canOpenPage,
+    forgetPageAccess,
     IDLE_MS,
     // Kept so older pages reading it do not trip over undefined. The
     // session now ends on inactivity rather than at a fixed time.
