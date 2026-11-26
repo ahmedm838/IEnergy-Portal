@@ -133,28 +133,12 @@ function balanceMessage(employee, l, other, year) {
   ].join('\n')
 }
 
-/* A reminder to come to HR and bring their file up to date. Needs nothing
-   from the attendance data, so it is ready as soon as the row is. */
-function updateDocumentsMessage(employee) {
-  const name = employee.arabic_name || employee.name
-  return [
-    `السيد ${name}،`,
-    '',
-    'برجاء التوجه إلى إدارة الموارد البشرية في أقرب وقت ممكن لتحديث مستنداتك وبياناتك الشخصية المسجلة لدينا.',
-    '',
-    'وفي حال وجود أي تغيير في بياناتك أو مستندات حديثة، برجاء إحضار الأصل وصورة منه.',
-    '',
-    'شكرًا لتعاونك،',
-    'مع تحيات إدارة الموارد البشرية',
-  ].join('\n')
-}
-
 const isMobileDevice = () =>
   /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
   // iPadOS reports itself as a Mac; a touch screen gives it away.
   (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
 
-function WhatsAppButton({ phone, message, label = 'Send', title = 'Open WhatsApp with the leave balance ready to send' }) {
+function WhatsAppButton({ phone, message }) {
   if (!phone) return <span className="text-xs text-ink-4" title="No valid mobile number on record">No number</span>
   function open() {
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
@@ -166,11 +150,11 @@ function WhatsAppButton({ phone, message, label = 'Send', title = 'Open WhatsApp
   }
   return (
     <Button size="sm" variant="secondary" onClick={open} disabled={!message}
-      title={title}>
+      title="Open WhatsApp with the leave balance ready to send">
       <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="#25D366">
         <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.1 5.1 0 0 0 1.1 2.7 11.6 11.6 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z" />
       </svg>
-      {label}
+      Send
     </Button>
   )
 }
@@ -480,7 +464,7 @@ export default function Employees() {
                   <Th>Login</Th>
                   <Th>Status</Th>
                   <Th title="Meal · Allowance · Overtime · Incentive · Deductions">Payroll</Th>
-                  <Th className="no-print" title="Send the leave balance, or a reminder to update their documents at HR, on WhatsApp">WhatsApp</Th>
+                  <Th className="no-print" title="Send the leave balance on WhatsApp">WhatsApp</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -537,23 +521,10 @@ export default function Employees() {
                       <PayrollSwitches employee={e} />
                     </Td>
                     <Td className="no-print">
-                      {whatsAppNumber(e) ? (
-                        <div className="flex flex-nowrap gap-1">
-                          <WhatsAppButton
-                            phone={whatsAppNumber(e)}
-                            label="Balance"
-                            message={leavesLoading || leavesError || !otherLeaves ? null : balanceMessage(e, leaves(e), otherLeaves.get(e.id), year)}
-                          />
-                          <WhatsAppButton
-                            phone={whatsAppNumber(e)}
-                            label="Update docs"
-                            title="Open WhatsApp with a reminder to come to HR and update their documents"
-                            message={updateDocumentsMessage(e)}
-                          />
-                        </div>
-                      ) : (
-                        <WhatsAppButton phone={null} />
-                      )}
+                      <WhatsAppButton
+                        phone={whatsAppNumber(e)}
+                        message={leavesLoading || leavesError || !otherLeaves ? null : balanceMessage(e, leaves(e), otherLeaves.get(e.id), year)}
+                      />
                     </Td>
                   </tr>
                 ))}
