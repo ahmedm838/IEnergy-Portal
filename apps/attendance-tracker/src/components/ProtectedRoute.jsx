@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { canOpenPage, usePageAccess } from '../lib/pageAccess'
 import { Alert, Button, Card, Spinner } from './ui'
 
 /**
@@ -13,6 +14,8 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
   const { session, sessionResolved, profile, profileError, loading, role, signOut, mustSetPassword, profileLoading } =
     useAuth()
   const location = useLocation()
+  // Settings > Page access: whether this role may open the tracker at all.
+  const access = usePageAccess(!!session)
 
   // Only blank the page when there is nothing to show yet. Returning a
   // spinner once a profile exists UNMOUNTS the page behind it, and Chrome
@@ -91,6 +94,30 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
         </div>
       </Shell>
     )
+  }
+
+  /* The tracker is a page in Settings > Page access. Settings itself
+     (requireSuperAdmin) is not: it stays open to super admins, so the
+     page that sets this can never be closed to the people who set it.
+     Waited for only the first time in a tab; after that the copy kept
+     in the tab answers at once. */
+  if (!requireSuperAdmin && role !== 'super_admin') {
+    if (access === undefined) return <Spinner label="Checking your access…" />
+    if (canOpenPage(access, 'attendance-tracker', role) === false) {
+      return (
+        <Shell>
+          <Alert tone="error" title="Not open to your role">
+            The Attendance Tracker is not open to your role. A super admin can change this in
+            Settings, under Page access.
+          </Alert>
+          <div className="mt-4">
+            <Button variant="secondary" href="../">
+              Back to the portal
+            </Button>
+          </div>
+        </Shell>
+      )
+    }
   }
 
   if (requireSuperAdmin && role !== 'super_admin') {

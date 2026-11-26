@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import LockedPeriods from '../components/LockedPeriods'
 import DepartmentsCard from '../components/DepartmentsCard'
 import AccessCard from '../components/AccessCard'
+import PageAccessCard from '../components/PageAccessCard'
 import BusRoutesCard from '../components/BusRoutesCard'
 import FinancialGrantsCard from '../components/FinancialGrantsCard'
 import CompanyDetailsCard from '../components/CompanyDetailsCard'
@@ -762,6 +763,8 @@ export default function Settings() {
       <SalaryTaxCard readOnly={readOnly} />
 
       <CompanyDetailsCard readOnly={readOnly} />
+
+      <PageAccessCard readOnly={readOnly} />
 
       <AccessCard readOnly={readOnly} />
 

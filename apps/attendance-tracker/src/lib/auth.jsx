@@ -31,6 +31,8 @@ function purgeStoredSession() {
       if (key && /^sb-.*-auth-token$/.test(key)) keys.push(key)
     }
     keys.forEach((key) => localStorage.removeItem(key))
+    // The page access read for this person goes with their session.
+    sessionStorage.removeItem('ienergy_page_access_v1')
   } catch {
     // Storage can be unavailable in private mode; signOut below still runs.
   }

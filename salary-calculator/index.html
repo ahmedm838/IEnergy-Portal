@@ -260,7 +260,7 @@
   </main>
 
   <script src="app.js?v=20261122_2"></script>
-  <script src="../auth.js?v=14"></script>
+  <script src="../auth.js?v=16"></script>
   <script>
     (function () {
       'use strict';
@@ -299,6 +299,7 @@
 
         IEnergyAuth.ensureAuth({
           allowedRoles: ['admin'],
+          page: 'salary-calculator',
           homeHref: '../index.html',
           onAuthed: function () {
             fillPageBar();

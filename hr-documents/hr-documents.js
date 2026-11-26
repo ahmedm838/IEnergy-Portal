@@ -4416,13 +4416,15 @@ function startDesignerMode() {
    (Employee Documents) has started the engine with its list. */
 let pageDocs = DOCUMENTS
 
-export function startDocumentsPage({ documents, allowedRoles }) {
+export function startDocumentsPage({ documents, allowedRoles, page }) {
   pageDocs = documents
   for (const def of pageDocs) def.blanks = Object.keys(def.fields).map(Number)
-  start(allowedRoles)
+  start(allowedRoles, page)
 }
 
-function start(allowedRoles = ['admin']) {
+/* page: the page's name in Settings > Page access, which decides who may
+   open it; allowedRoles stands in while that cannot be read. */
+function start(allowedRoles = ['admin'], page = 'hr-documents') {
   $('year').textContent = String(new Date().getFullYear())
   const out = $('logoutBtn')
   out.addEventListener('click', () => {
@@ -4430,7 +4432,7 @@ function start(allowedRoles = ['admin']) {
     out.textContent = 'Signing out…'
     IEnergyAuth.signOutAndLeave('../index.html')
   })
-  IEnergyAuth.ensureAuth({ allowedRoles, homeHref: '../index.html', onAuthed })
+  IEnergyAuth.ensureAuth({ allowedRoles, page, homeHref: '../index.html', onAuthed })
 }
 
 /* HR Documents starts itself. A page that marks its <html> with
