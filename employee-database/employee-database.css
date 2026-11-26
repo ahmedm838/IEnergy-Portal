@@ -699,6 +699,48 @@ body:has(#app) .container { max-width: 1500px; }
 /* Buttons at the tracker's small size. Declared at the tracker's own
    numbers and then drawn through the zoom above, so the two pages match
    on screen rather than only in the stylesheet. */
+/* The one-page print sheet of an employee record (printEmployee). Hidden
+   on screen; .measuring lays it out off screen for fitEmployeePrint. */
+.employee-print-area { display: none; }
+.employee-print-area.measuring {
+  display: block; position: absolute; left: -10000px; top: 0;
+  visibility: hidden; background: #fff;
+}
+.employee-print-area {
+  font-family: Arial, "Segoe UI", Tahoma, sans-serif;
+  font-size: 8.5pt; line-height: 1.25; color: #000;
+}
+.employee-print-area .ep-head {
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 6px;
+}
+.employee-print-area .ep-head img { height: 34px; width: auto; }
+.employee-print-area .ep-titles { flex: 1; min-width: 0; }
+.employee-print-area h1 { font-size: 14pt; margin: 0; line-height: 1.1; }
+.employee-print-area .ep-who { font-size: 9.5pt; font-weight: 600; margin-top: 2px; }
+.employee-print-area .ep-arabic {
+  font-family: "Times New Roman", Times, serif; font-size: 13pt; font-weight: 700;
+}
+.employee-print-area .ep-section { margin: 0 0 5px; break-inside: avoid; }
+.employee-print-area h2 {
+  font-size: 9pt; margin: 0; padding: 2px 5px;
+  background: #e6e6e6; border: 1px solid #999; border-bottom: 0;
+  text-transform: uppercase; letter-spacing: .04em;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.employee-print-area .ep-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.employee-print-area .ep-table th,
+.employee-print-area .ep-table td {
+  border: 1px solid #999; padding: 2px 4px; vertical-align: top;
+  overflow-wrap: anywhere; text-align: start;
+}
+.employee-print-area .ep-table th {
+  width: 11%; font-weight: 600; color: #333; background: #f5f5f5;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.employee-print-area .ep-table td { width: 14%; }
+.employee-print-area .ep-table .ep-empty { background: #fff; }
+
 #app .btn {
   padding: 6px 10px;
   font-size: 12px;
@@ -823,4 +865,11 @@ body:has(#app) .container { max-width: 1500px; }
   /* The scroll box is a screen thing: on paper it would clip the list
      to one box-height and print the rest nowhere. */
   .total-print-area .total-list-scroll { overflow: visible; max-height: none; }
+
+  /* ---- Printing an employee record --------------------------------
+     The one-page sheet, and nothing else. */
+  body.printing-record > *:not(.employee-print-area) { display: none !important; }
+  body.printing-record { margin: 0 !important; padding: 0 !important; }
+  body.printing-record .employee-print-area { display: block; }
 }
+@page { size: A4; margin: 10mm 10mm 15mm; }

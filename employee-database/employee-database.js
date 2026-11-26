@@ -1673,6 +1673,7 @@ function renderForm(employee) {
 
   updateFileStatus()
   renderDerived()
+  syncWhatsAppButton()
   $('editorTitle').textContent = employee.id
     ? `Edit ${employee.name || employee.arabic_name || 'employee'}`
     : 'New employee'
@@ -2172,24 +2173,214 @@ function exportRow(e) {
 }
 
 
-// Use the browser print dialog, just like the employee report.
-$('employeePrintBtn').addEventListener('click', () => window.print())
+/* ------------------------------------------------------------------ */
+/* Printing an employee record: everything on one A4 page             */
+/* ------------------------------------------------------------------ */
 
-// Printed values wrap instead of being clipped inside single-line controls.
+/* The form is laid out for typing into, and on paper it ran to several
+   pages. Print builds a separate sheet from what the form holds right
+   now -- saved or not -- as compact label/value tables, four pairs to a
+   row, and scales it down if it still would not fit one page. */
+
+const PRINT_PAGE_MM = { width: 190, height: 272 } // A4 less the @page margins
+const MM = 96 / 25.4
+
+function formValueText(input) {
+  if (!input) return '—'
+  if (input.type === 'checkbox') return input.checked ? 'Yes' : 'No'
+  if (input.tagName === 'SELECT') {
+    const text = input.value === '' ? '' : (input.selectedOptions[0]?.textContent ?? '')
+    return text.trim() || '—'
+  }
+  return String(input.value ?? '').trim() || '—'
+}
+
+/* Rows of [label, value] cells, `per` pairs to a row. */
+function printTable(pairs, per = 4) {
+  const table = document.createElement('table')
+  table.className = 'ep-table'
+  for (let i = 0; i < pairs.length; i += per) {
+    const tr = table.insertRow()
+    for (let j = i; j < i + per; j++) {
+      const [label, value] = pairs[j] ?? ['', '']
+      const th = document.createElement('th')
+      th.textContent = label
+      const td = document.createElement('td')
+      td.textContent = value
+      td.dir = 'auto'
+      if (!pairs[j]) { th.className = 'ep-empty'; td.className = 'ep-empty' }
+      tr.append(th, td)
+    }
+  }
+  return table
+}
+
+function printSection(title, pairs, per) {
+  const section = document.createElement('section')
+  section.className = 'ep-section'
+  const h = document.createElement('h2')
+  h.textContent = title
+  section.append(h, printTable(pairs, per))
+  return section
+}
+
+function buildEmployeePrint() {
+  const area = $('employeePrintArea')
+  area.replaceChildren()
+  const form = $('employeeForm')
+
+  const val = (key) => formValueText($(`f_${key}`))
+  const name = val('name')
+  const arabic = val('arabic_name')
+  const code = val('code')
+
+  const head = document.createElement('header')
+  head.className = 'ep-head'
+  const logo = document.createElement('img')
+  logo.src = '../logo.png?v=2'
+  logo.alt = ''
+  const titles = document.createElement('div')
+  titles.className = 'ep-titles'
+  const h1 = document.createElement('h1')
+  h1.textContent = 'Employee Record'
+  const who = document.createElement('div')
+  who.className = 'ep-who'
+  who.textContent = [code !== '—' ? `#${code}` : '', name !== '—' ? name : ''].filter(Boolean).join('  ·  ')
+  titles.append(h1, who)
+  const ar = document.createElement('div')
+  ar.className = 'ep-arabic'
+  ar.dir = 'rtl'
+  ar.textContent = arabic !== '—' ? arabic : ''
+  head.append(logo, titles, ar)
+  area.appendChild(head)
+
+  // The data groups, in the form's own order and with its labels.
+  for (const group of form.querySelectorAll(':scope > fieldset.db-group')) {
+    const title = group.querySelector('legend')?.textContent ?? ''
+    const pairs = []
+    for (const field of group.querySelectorAll('.db-field')) {
+      const label = (field.querySelector('.db-label')?.textContent ?? '').replace(/\s*\*$/, '')
+      pairs.push([label, formValueText(field.querySelector('[id^="f_"]'))])
+    }
+    // Payroll and the personnel file are ticks rather than fields.
+    for (const doc of group.querySelectorAll('.db-switches > .db-doc, .db-docs > .db-doc')) {
+      const box = doc.querySelector('input[type="checkbox"]')
+      const label = doc.querySelector('span')?.textContent ?? ''
+      pairs.push([label, doc.classList.contains('is-off') ? 'N/A' : formValueText(box)])
+    }
+    if (pairs.length) area.appendChild(printSection(title, pairs, 4))
+  }
+
+  // What the system works out: service, age, contract dates, file status.
+  const derived = [...document.querySelectorAll('#derivedPanel .derived-item')].map((item) => [
+    item.querySelector('.derived-key')?.textContent ?? '',
+    item.querySelector('.derived-val')?.textContent ?? '',
+  ])
+  if (derived.length && !$('derivedPanel').hidden) area.appendChild(printSection('Calculated', derived, 4))
+
+  fitEmployeePrint()
+}
+
+/* Shrink the sheet to one page if it is taller than one. Measured at the
+   printed width, off screen, so the numbers are the paper's. */
+function fitEmployeePrint() {
+  const area = $('employeePrintArea')
+  area.style.zoom = ''
+  area.classList.add('measuring')
+  area.style.width = `${PRINT_PAGE_MM.width * MM}px`
+  const height = area.scrollHeight
+  area.classList.remove('measuring')
+  area.style.width = ''
+  const limit = PRINT_PAGE_MM.height * MM
+  // A little short of the full page: the browser's own rounding and the
+  // sections that will not split across a page need the slack.
+  const fits = limit * 0.95
+  if (height > fits) area.style.zoom = String(Math.floor((fits / height) * 1000) / 1000)
+}
+
+function printingRecord() {
+  return !$('editor').hidden && !document.body.classList.contains('printing-list')
+}
+
+$('employeePrintBtn').addEventListener('click', () => {
+  buildEmployeePrint()
+  document.body.classList.add('printing-record')
+  window.print()
+})
+
+// Ctrl+P with a record open prints the same sheet.
 window.addEventListener('beforeprint', () => {
-  document.querySelectorAll('.db-print-value').forEach(el => el.remove())
-  $('employeeForm').querySelectorAll('[id^="f_"]').forEach(input => {
-    const value = document.createElement('span')
-    value.className = 'db-print-value'
-    value.dir = input.dir || 'auto'
-    value.textContent = input.type === 'checkbox' ? (input.checked ? 'Yes' : 'No')
-      : input.tagName === 'SELECT' ? (input.selectedOptions[0]?.textContent || '—')
-      : input.value || '—'
-    input.after(value)
-  })
+  if (!printingRecord()) return
+  if (!document.body.classList.contains('printing-record')) {
+    buildEmployeePrint()
+    document.body.classList.add('printing-record')
+  }
 })
 window.addEventListener('afterprint', () => {
-  document.querySelectorAll('.db-print-value').forEach(el => el.remove())
+  document.body.classList.remove('printing-record')
+  $('employeePrintArea').replaceChildren()
+})
+
+/* ------------------------------------------------------------------ */
+/* WhatsApp: remind the employee to come to HR and update their file  */
+/* ------------------------------------------------------------------ */
+
+/* A click-to-chat link with the message typed in; nothing is sent by the
+   portal -- WhatsApp opens on the HR user's own account and they press
+   send. The number is the personal mobile, falling back to the company
+   one, as the form holds them now. Stored as 010-1234-5678; WhatsApp
+   wants 201012345678. */
+function employeeWhatsAppNumber() {
+  for (const key of ['personal_mobile', 'company_mobile']) {
+    const digits = String($(`f_${key}`)?.value ?? current?.[key] ?? '').replace(/\D/g, '')
+    if (/^01\d{9}$/.test(digits)) return `2${digits}`
+    if (/^201\d{9}$/.test(digits)) return digits
+  }
+  return null
+}
+
+function updateDocumentsMessage() {
+  const arabic = String($('f_arabic_name')?.value ?? '').trim()
+  const name = arabic || String($('f_name')?.value ?? '').trim() || current?.arabic_name || current?.name || ''
+  return [
+    `السيد ${name}،`,
+    '',
+    'برجاء التوجه إلى إدارة الموارد البشرية في أقرب وقت ممكن لتحديث مستنداتك وبياناتك الشخصية المسجلة لدينا.',
+    '',
+    'وفي حال وجود أي تغيير في بياناتك أو مستندات حديثة، برجاء إحضار الأصل وصورة منه.',
+    '',
+    'شكرًا لتعاونك،',
+    'مع تحيات إدارة الموارد البشرية',
+  ].join('\n')
+}
+
+function syncWhatsAppButton() {
+  const btn = $('employeeWhatsAppBtn')
+  const ok = !!employeeWhatsAppNumber()
+  btn.disabled = !ok
+  btn.title = ok
+    ? 'Open WhatsApp with a reminder to come to HR and update their documents'
+    : 'No valid mobile number on this record'
+}
+
+const isMobileDevice = () =>
+  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+  // iPadOS reports itself as a Mac; a touch screen gives it away.
+  (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+
+$('employeeWhatsAppBtn').addEventListener('click', () => {
+  const phone = employeeWhatsAppNumber()
+  if (!phone) return
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(updateDocumentsMessage())}`
+  // Phone: the same tab hands straight over to the WhatsApp app.
+  // Computer: a new tab, where WhatsApp offers its app or WhatsApp Web.
+  if (isMobileDevice()) window.location.href = url
+  else window.open(url, '_blank', 'noopener')
+})
+
+// Typing a number in, or clearing one, turns the button on or off.
+$('employeeForm').addEventListener('input', (event) => {
+  if (/^f_(personal|company)_mobile$/.test(event.target.id ?? '')) syncWhatsAppButton()
 })
 
 $('exportBtn').addEventListener('click', async () => {
