@@ -1,16 +1,15 @@
 /* Form Designer
-   - Super admins only, opened from the tracker's Settings page. Opens HR Documents or Employee Documents in
-     a frame below (?designer=1), so a form is drawn by the very engine
-     the portal uses: same layout, same pages, same blanks.
-   - "Get live Word file" saves the form's live template to the computer
-     and watches that file; "open my Word file" watches one already
-     there. Each time the file is saved in Word the frame is handed the
-     new file and redraws the form from it. Chrome and Edge can watch a
-     file; other browsers pick the file again after each save.
-   - "Replace on portal" writes the file over the template in the GitHub
-     repository (one commit, so GitHub's history can undo it) and can
-     start the "Deploy to cPanel" workflow. It uses a fine-grained token
-     the admin pastes in once, kept in this browser only.
+   - Super admins only, opened from the tracker's Settings page.
+   - Two panes in one tab. Right: the form's Word file, opened in an
+     editor in the page (SuperDoc). Left: HR Documents or Employee
+     Documents in a frame (?designer=1), so the form is drawn by the very
+     engine the portal uses -- same layout, pages and blanks. Each edit
+     on the right is saved to a Word file in memory and handed to the
+     frame, which redraws the form a moment after typing stops.
+   - "Replace on portal" writes that Word file over the template in the
+     GitHub repository (one commit, so GitHub's history can undo it) and
+     can start the "Deploy to cPanel" workflow. It uses a fine-grained
+     token the super admin pastes in once, kept in this browser only.
 */
 
 const REPO = 'ahmedm838/ienergy-portal'
@@ -22,7 +21,9 @@ const PAGES = {
   employee: { dir: 'employee-documents', label: 'Employee Documents' },
 }
 const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-const CAN_WATCH = typeof window.showOpenFilePicker === 'function'
+const SUPERDOC = '../vendor/superdoc-2.35.0/superdoc.js'
+// How long typing has to pause before the preview is redrawn.
+const QUIET_MS = 400
 
 const $ = (id) => document.getElementById(id)
 
@@ -30,16 +31,18 @@ const state = {
   page: 'hr',
   forms: [],
   form: null, // the entry chosen in the list
-  handle: null, // the file being watched
-  seen: null, // { lastModified, size } of the file last read
-  pending: null, // a change seen once, read when it holds still
+  editor: null, // the SuperDoc in the right pane
+  loadId: 0, // which load the editor is showing; older ones are dropped
   bytes: null, // the edited Word file, once there is one
+  quiet: 0, // the timer that waits for typing to pause
+  exporting: false,
+  dirty: false, // edits not yet saved to state.bytes
+  again: false, // an edit came in while a save was running
   fileName: '',
   replaced: false,
   livePages: {}, // template -> pages, as the live file draws
   liveOver: {}, // template -> { page: % past A4 }, as the live file draws
   report: null, // the frame's last report for the open form
-  timer: 0,
 }
 
 /* ------------------------------------------------------------------ */
@@ -56,7 +59,7 @@ function loadPage(page, wanted = '') {
   state.forms = []
   state.form = null
   state.report = null
-  stopWatching()
+  closeEditor()
   clearFile()
   for (const t of document.querySelectorAll('.fd-tab')) t.classList.toggle('is-on', t.dataset.page === state.page)
   const sel = $('formSelect')
@@ -101,22 +104,20 @@ function fillForms(forms) {
 }
 
 function chooseForm(form) {
-  if (state.bytes && !state.replaced && !confirm('Your edited file has not been replaced on the portal. Switch forms anyway?')) {
+  if (state.bytes && !state.replaced && !confirm('Your edits have not been replaced on the portal. Switch forms anyway?')) {
     $('formSelect').value = String(state.forms.indexOf(state.form))
     return
   }
-  stopWatching()
   if (state.form) tellFrame({ type: 'template', template: state.form.template, data: null })
+  closeEditor()
   clearFile()
   state.form = form
   state.report = null
   setHash()
   showCheck()
-  if (!form) { status('Pick a form, then get its Word file and open it in Word.'); return }
-  status(CAN_WATCH
-    ? 'Get the live Word file (or open your own), edit it in Word and press Save — the preview updates on its own.'
-    : 'Get the live Word file, edit it in Word, then open it here. Pick it again after each save (this browser cannot watch files; Chrome can).')
+  if (!form) { status('Pick a form: it opens on the right for editing, and the left shows it as the portal will.'); return }
   tellFrame({ type: 'open', doc: form.doc })
+  loadLive().catch(fail)
 }
 
 function onRendered(msg) {
@@ -152,7 +153,7 @@ function showCheck() {
   const r = checkResult()
   if (!r) { bar.hidden = true; return }
   const lines = []
-  const which = state.bytes ? 'Your file' : 'Live file'
+  const which = state.bytes ? 'Your edits' : 'Live form'
   lines.push(`${which}: ${r.part.pages} page${r.part.pages === 1 ? '' : 's'}${state.bytes && r.live != null ? ` (live: ${r.live})` : ''}.`)
   if (r.missing.length) lines.push(`Blanks not found: ${r.missing.map((n) => `(${n})`).join(' ')} — the portal fills these, so keep them in the text as (number).`)
   else lines.push('All blanks found.')
@@ -165,21 +166,41 @@ function showCheck() {
 }
 
 /* ------------------------------------------------------------------ */
-/* The Word file                                                        */
+/* The editor                                                           */
 /* ------------------------------------------------------------------ */
 
-function status(text, live = false) {
-  const s = $('watchStatus')
+function status(text, busy = false) {
+  const s = $('editStatus')
   s.textContent = text
-  s.classList.toggle('is-live', live)
+  s.classList.toggle('is-live', busy)
 }
 
+function fail(err) {
+  console.error(err)
+  status(`Something went wrong: ${err.message || err}`)
+}
+
+const clock = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+const templateName = () => state.form?.template.split('/').pop() || 'form.docx'
+
 function clearFile() {
+  clearTimeout(state.quiet)
+  state.dirty = false
   state.bytes = null
   state.fileName = ''
   state.replaced = false
   $('replaceBtn').disabled = true
-  $('revertBtn').hidden = true
+  $('revertBtn').disabled = true
+}
+
+function closeEditor() {
+  state.loadId++
+  clearTimeout(state.quiet)
+  try { state.editor?.destroy() } catch (_) {}
+  state.editor = null
+  $('downloadBtn').disabled = true
+  $('toolbar').innerHTML = ''
+  $('editorHost').innerHTML = '<p class="fd-empty">Choose a form above to start editing.</p>'
 }
 
 const isDocx = (buf) => {
@@ -187,119 +208,177 @@ const isDocx = (buf) => {
   return b.length === 4 && b[0] === 0x50 && b[1] === 0x4b
 }
 
+let SuperDocClass = null
+async function superDoc() {
+  if (!SuperDocClass) {
+    status('Loading the editor…', true)
+    SuperDocClass = (await import(SUPERDOC)).SuperDoc
+  }
+  return SuperDocClass
+}
+
+/* Open a Word file in the right pane. changed: it differs from the live
+   form (a file from the computer), so the preview takes it at once. */
+async function openInEditor(buf, name, { changed = false } = {}) {
+  if (!isDocx(buf)) throw new Error(`${name} is not a Word (.docx) file`)
+  const SuperDoc = await superDoc()
+  closeEditor()
+  const id = state.loadId
+  $('editorHost').innerHTML = ''
+  const host = document.createElement('div')
+  host.id = `doc${id}`
+  $('editorHost').appendChild(host)
+  status(`Opening ${name}…`, true)
+  const file = new File([buf], name, { type: DOCX_TYPE })
+  await new Promise((resolve, reject) => {
+    try {
+      state.editor = new SuperDoc({
+        selector: `#${host.id}`,
+        toolbar: '#toolbar',
+        document: file,
+        documentMode: 'editing',
+        // Never reports to SuperDoc's servers what is opened here.
+        telemetry: { enabled: false },
+        zoom: { mode: 'fit-width' },
+        onReady: () => resolve(),
+        onEditorUpdate: () => { if (state.loadId === id) edited() },
+        onException: (e) => console.error(e?.error || e),
+      })
+    } catch (err) { reject(err) }
+  })
+  if (state.loadId !== id) return
+  state.fileName = name
+  $('downloadBtn').disabled = false
+  if (changed) {
+    useFile(buf, name)
+    status(`Editing ${name}. The preview shows your file.`)
+  } else {
+    status(`Editing ${name}. Type on the right; the preview on the left follows.`)
+  }
+}
+
+async function loadLive() {
+  const f = state.form
+  const res = await fetch(`../${PAGES[state.page].dir}/${f.template}`, { cache: 'no-cache' })
+  if (!res.ok) throw new Error(`Could not get the live file (${res.status})`)
+  const buf = await res.arrayBuffer()
+  if (state.form !== f) return
+  await openInEditor(buf, templateName())
+}
+
+/* An edit in the editor: once typing pauses, save the document to a Word
+   file in memory and hand it to the preview. Only one save runs at a
+   time; edits made during it are caught by one more save after it. */
+function edited() {
+  state.dirty = true
+  state.replaced = false
+  $('revertBtn').disabled = false
+  status('Editing… the preview updates when you pause.', true)
+  clearTimeout(state.quiet)
+  state.quiet = setTimeout(pushEdits, QUIET_MS)
+}
+
+async function exportDocx() {
+  const blob = await state.editor.export({ triggerDownload: false, isFinalDoc: false, commentsType: 'clean' })
+  return blob.arrayBuffer()
+}
+
+async function pushEdits() {
+  if (!state.editor) return
+  if (state.exporting) { state.again = true; return }
+  state.exporting = true
+  state.dirty = false
+  const id = state.loadId
+  try {
+    const buf = await exportDocx()
+    if (state.loadId === id) {
+      useFile(buf, state.fileName || templateName())
+      status(`Preview updated ${clock()}.`)
+    }
+  } catch (err) {
+    fail(err)
+  } finally {
+    state.exporting = false
+    if (state.again) { state.again = false; pushEdits() }
+  }
+}
+
+/* Every edit waiting for its save is saved now (before Replace or a
+   download). */
+async function flushEdits() {
+  clearTimeout(state.quiet)
+  while (state.exporting) await new Promise((r) => setTimeout(r, 50))
+  if (state.editor && state.dirty) {
+    state.dirty = false
+    const buf = await exportDocx()
+    useFile(buf, state.fileName || templateName())
+  }
+}
+
 function useFile(buf, name) {
   if (!state.form) return
-  if (!isDocx(buf)) { status(`${name} is not a Word (.docx) file.`); return }
   state.bytes = buf
   state.fileName = name
-  state.replaced = false
   $('replaceBtn').disabled = false
-  $('revertBtn').hidden = false
+  $('revertBtn').disabled = false
   tellFrame({ type: 'template', template: state.form.template, data: buf.slice(0), stamp: `${Date.now()}` })
 }
 
-function stopWatching() {
-  clearInterval(state.timer)
-  state.timer = 0
-  state.handle = null
-  state.seen = null
-  state.pending = null
-}
-
-const clock = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-
-function watch(handle, { loadNow }) {
-  stopWatching()
-  state.handle = handle
-  const tick = async () => {
-    if (state.handle !== handle) return
-    let file
-    try {
-      file = await handle.getFile()
-    } catch (err) {
-      // Word holds the file for a moment while it saves.
-      status(`Watching ${handle.name} — waiting for Word to finish saving…`, true)
-      return
-    }
-    const now = { lastModified: file.lastModified, size: file.size }
-    const same = (a, b) => a && b && a.lastModified === b.lastModified && a.size === b.size
-    if (same(now, state.seen)) return
-    // Read a change only once it has held still for one tick, so a file
-    // caught half-written is never drawn.
-    if (!same(now, state.pending)) { state.pending = now; return }
-    state.pending = null
-    state.seen = now
-    try {
-      const buf = await file.arrayBuffer()
-      useFile(buf, handle.name)
-      status(`Watching ${handle.name} — updated ${clock()}. Keep editing in Word and press Save.`, true)
-    } catch (err) {
-      state.seen = null
-    }
-  }
-  if (!loadNow) {
-    handle.getFile().then((f) => { state.seen = { lastModified: f.lastModified, size: f.size } }).catch(() => {})
-  }
-  state.timer = setInterval(tick, 700)
-  status(`Watching ${handle.name} — open it in Word, edit, and press Save (Ctrl+S). The preview follows.`, true)
-  if (loadNow) tick()
-}
-
-async function getLiveFile() {
-  const f = state.form
-  if (!f) { status('Choose a form first.'); return }
-  const name = f.template.split('/').pop()
-  const res = await fetch(`../${PAGES[state.page].dir}/${f.template}`, { cache: 'no-cache' })
-  if (!res.ok) throw new Error(`Could not get the live file (${res.status})`)
-  const blob = await res.blob()
-  if (typeof window.showSaveFilePicker === 'function') {
-    let handle
-    try {
-      handle = await window.showSaveFilePicker({
-        suggestedName: name,
-        types: [{ description: 'Word document', accept: { [DOCX_TYPE]: ['.docx'] } }],
-      })
-    } catch (err) {
-      if (err.name === 'AbortError') return
-      throw err
-    }
-    const w = await handle.createWritable()
-    await w.write(blob)
-    await w.close()
-    watch(handle, { loadNow: false })
-    status(`Saved ${handle.name}. Open it in Word, edit, and press Save (Ctrl+S) — the preview follows.`, true)
-    return
-  }
+async function downloadDocx() {
+  if (!state.editor) return
+  await flushEdits()
+  const buf = state.bytes || await exportDocx()
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = name
+  a.href = URL.createObjectURL(new Blob([buf], { type: DOCX_TYPE }))
+  a.download = templateName()
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 5000)
-  status(`Downloaded ${name}. Edit it in Word, save, then press “open my Word file” to see it.`)
 }
 
-async function openOwnFile() {
-  if (!state.form) { status('Choose a form first.'); return }
-  if (!CAN_WATCH) { $('fileInput').click(); return }
-  let handle
-  try {
-    ;[handle] = await window.showOpenFilePicker({
-      types: [{ description: 'Word document', accept: { [DOCX_TYPE]: ['.docx'] } }],
-    })
-  } catch (err) {
-    if (err.name === 'AbortError') return
-    throw err
-  }
-  watch(handle, { loadNow: true })
-}
-
-function showLive() {
+async function startOver() {
   if (!state.form) return
-  if (state.bytes && !state.replaced && !confirm('Show the live version and stop using your edited file?')) return
-  stopWatching()
-  clearFile()
+  if (state.bytes && !state.replaced && !confirm('Throw away your edits and start again from the live form?')) return
   tellFrame({ type: 'template', template: state.form.template, data: null })
-  status('Showing the live version.')
+  clearFile()
+  await loadLive()
+}
+
+/* The two panes share the width; the bar between them is dragged to
+   change the share, and remembered. */
+function wireResizer() {
+  const split = $('split')
+  const bar = $('resizer')
+  const set = (pct) => {
+    pct = Math.min(80, Math.max(20, pct))
+    split.style.setProperty('--fd-left', `${pct}%`)
+    try { localStorage.setItem('ienergy.formDesigner.split', String(pct)) } catch (_) {}
+  }
+  try { const saved = +localStorage.getItem('ienergy.formDesigner.split'); if (saved) set(saved) } catch (_) {}
+  bar.addEventListener('pointerdown', (e) => {
+    if (matchMedia('(max-width: 800px)').matches) return
+    e.preventDefault()
+    bar.setPointerCapture(e.pointerId)
+    bar.classList.add('is-dragging')
+    // The frame would swallow the pointer while it is dragged over.
+    $('frame').style.pointerEvents = 'none'
+    const move = (ev) => {
+      const r = split.getBoundingClientRect()
+      set(((ev.clientX - r.left) / r.width) * 100)
+    }
+    const up = () => {
+      bar.classList.remove('is-dragging')
+      $('frame').style.pointerEvents = ''
+      bar.removeEventListener('pointermove', move)
+      bar.removeEventListener('pointerup', up)
+    }
+    bar.addEventListener('pointermove', move)
+    bar.addEventListener('pointerup', up)
+  })
+  bar.addEventListener('keydown', (e) => {
+    const now = parseFloat(getComputedStyle(split).getPropertyValue('--fd-left')) || 50
+    if (e.key === 'ArrowLeft') set(now - 5)
+    if (e.key === 'ArrowRight') set(now + 5)
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -374,12 +453,14 @@ async function saveToken() {
   }
 }
 
-function openReplaceDialog() {
+async function openReplaceDialog() {
   const f = state.form
-  if (!f || !state.bytes) return
+  if (!f) return
+  await flushEdits()
+  if (!state.bytes) return
   if (!getToken()) { openTokenDialog('Add GitHub access first, then press Replace again.'); return }
   const path = `${PAGES[state.page].dir}/${f.template}`
-  $('replaceWhat').textContent = `${state.fileName} will replace ${path} — ${f.inPack ? `${f.docTitle} ← ${f.title}` : f.docTitle}.`
+  $('replaceWhat').textContent = `Your edited ${state.fileName} will replace ${path} — ${f.inPack ? `${f.docTitle} ← ${f.title}` : f.docTitle}.`
   const warn = []
   const r = checkResult()
   if (r?.missing.length) warn.push(`Blanks not found in your file: ${r.missing.map((n) => `(${n})`).join(' ')}. Those details will not be filled on the form.`)
@@ -436,7 +517,7 @@ async function replaceOnPortal() {
       text += ' It reaches the live site with the next “Deploy to cPanel”.'
     }
     msg.textContent = text
-    status(`${state.fileName} replaced on the portal at ${clock()}.${state.handle ? ' Still watching for more saves.' : ''}`, !!state.handle)
+    status(`Replaced on the portal at ${clock()}. Keep editing to make more changes.`)
   } catch (err) {
     msg.textContent = `Not replaced: ${err.message}.`
     msg.classList.add('is-error')
@@ -447,12 +528,6 @@ async function replaceOnPortal() {
 /* ------------------------------------------------------------------ */
 /* Start                                                                */
 /* ------------------------------------------------------------------ */
-
-function wrap(fn) {
-  return async () => {
-    try { await fn() } catch (err) { console.error(err); status(`Something went wrong: ${err.message || err}`) }
-  }
-}
 
 /* Super admins only. The portal's sign-in knows admins and users; a
    super admin is an admin whose tracker role says so. */
@@ -476,33 +551,25 @@ function onAuthed() {
     })
   }
   $('formSelect').addEventListener('change', (e) => chooseForm(state.forms[+e.target.value] || null))
-  $('downloadBtn').addEventListener('click', wrap(getLiveFile))
-  $('openBtn').addEventListener('click', wrap(openOwnFile))
-  $('fileInput').addEventListener('change', wrap(async () => {
+  $('openBtn').addEventListener('click', () => {
+    if (!state.form) { status('Choose a form first.'); return }
+    $('fileInput').click()
+  })
+  $('fileInput').addEventListener('change', async () => {
     const file = $('fileInput').files[0]
     $('fileInput').value = ''
     if (!file) return
-    useFile(await file.arrayBuffer(), file.name)
-    status(`Showing ${file.name} (read ${clock()}). After saving again in Word, open it again here.`)
-  }))
-  $('revertBtn').addEventListener('click', showLive)
-  $('replaceBtn').addEventListener('click', openReplaceDialog)
+    if (state.bytes && !state.replaced && !confirm('Open this file in place of your current edits?')) return
+    try { await openInEditor(await file.arrayBuffer(), file.name, { changed: true }) } catch (err) { fail(err) }
+  })
+  $('downloadBtn').addEventListener('click', () => downloadDocx().catch(fail))
+  $('revertBtn').addEventListener('click', () => startOver().catch(fail))
+  $('replaceBtn').addEventListener('click', () => openReplaceDialog().catch(fail))
   $('replaceGo').addEventListener('click', replaceOnPortal)
   $('tokenBtn').addEventListener('click', () => openTokenDialog())
   $('tokenSave').addEventListener('click', saveToken)
   $('tokenForget').addEventListener('click', () => { setToken(''); $('tokenMsg').textContent = 'Token removed from this browser.' })
-
-  // A Word file dropped anywhere on the bar is used once.
-  const bar = document.querySelector('.fd-bar')
-  bar.addEventListener('dragover', (e) => { e.preventDefault() })
-  bar.addEventListener('drop', async (e) => {
-    e.preventDefault()
-    const file = e.dataTransfer?.files?.[0]
-    if (!file || !state.form) return
-    stopWatching()
-    useFile(await file.arrayBuffer(), file.name)
-    status(`Showing ${file.name} (dropped ${clock()}).`)
-  })
+  wireResizer()
 
   window.addEventListener('beforeunload', (e) => {
     if (state.bytes && !state.replaced) { e.preventDefault(); e.returnValue = '' }

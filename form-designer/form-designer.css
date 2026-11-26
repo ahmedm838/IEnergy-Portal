@@ -37,7 +37,6 @@ body { margin: 0; }
 @keyframes fd-pulse { 50% { opacity: .35; } }
 .fd-check { font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--success-line); }
 .fd-check.is-warn { border-color: var(--danger-line); background: var(--danger-fill); color: var(--danger-text); }
-.fd-frame { flex: 1 1 auto; width: 100%; border: 0; background: var(--bg); }
 
 .fd-dialog {
   max-width: 560px; width: calc(100% - 32px);
@@ -57,3 +56,23 @@ body { margin: 0; }
 
 .fd-bar .btn { padding: 7px 12px; font-size: 13px; }
 #themeSlot .theme-toggle { position: static; }
+
+/* Two panes side by side: the preview on the left, the editor on the
+   right, the bar between them dragged to share the width. Stacked, one
+   above the other, on a narrow screen. */
+.fd-split {
+  flex: 1 1 auto; min-height: 0;
+  display: grid; grid-template-columns: var(--fd-left, 50%) 8px 1fr;
+}
+.fd-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.fd-editor-pane { background: #f3f4f6; color: #111; }
+.fd-toolbar { flex: none; background: #fff; border-bottom: 1px solid #ddd; }
+.fd-editor { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.fd-empty { padding: 24px; color: #666; font-size: 14px; }
+.fd-resizer { background: var(--line-strong); cursor: col-resize; }
+.fd-resizer:hover, .fd-resizer.is-dragging { background: var(--accent); }
+.fd-frame { flex: 1 1 auto; width: 100%; border: 0; background: var(--bg); }
+@media (max-width: 800px) {
+  .fd-split { grid-template-columns: 1fr; grid-template-rows: 1fr 6px 1fr; }
+  .fd-resizer { cursor: default; }
+}

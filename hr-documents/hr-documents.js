@@ -4353,9 +4353,16 @@ function designerReport(error = '') {
   tellDesigner({ type: 'rendered', doc: def.id, parts, error })
 }
 
+/* One redraw at a time, and at most one waiting: edits typed in the
+   designer arrive faster than a form draws, and the waiting redraw
+   picks up the newest file whenever it starts. */
 let designerDrawing = Promise.resolve()
+let designerWaiting = false
 function designerRedraw() {
+  if (designerWaiting) return designerDrawing
+  designerWaiting = true
   designerDrawing = designerDrawing.then(async () => {
+    designerWaiting = false
     if (!state.def) return
     const wrap = document.scrollingElement
     const y = wrap ? wrap.scrollTop : 0
@@ -4378,7 +4385,9 @@ function designerRedraw() {
 function startDesignerMode() {
   document.documentElement.classList.add('in-designer')
   const style = document.createElement('style')
-  style.textContent = '.in-designer #backBtn, .in-designer .page-bar-right, .in-designer .footer { display: none !important }'
+  // The form is the point here: no fields panel, so it gets the width.
+  style.textContent = '.in-designer #backBtn, .in-designer .page-bar-right, .in-designer .footer, .in-designer .hr-fields { display: none !important }' +
+    ' .in-designer .hr-editor { grid-template-columns: 1fr !important }'
   document.head.appendChild(style)
   window.addEventListener('message', async (e) => {
     if (e.origin !== location.origin || e.source !== window.parent) return
