@@ -14,23 +14,49 @@ export const PAGE_ACCESS_KEY = 'ienergy_page_access_v1'
 const FRESH_MS = 2 * 60 * 1000
 
 /* The pages a super admin can open or close per role, in the order the
-   Settings card lists them, each with who may open it until it is set.
-   Settings and the Form Designer are not here: they stay super admin
-   only, so nobody can lock themselves out of the page that sets this. */
+   Settings card lists them, each with who may open it until it is set
+   and what it shows, so the choice is made knowing what it opens.
+   Settings is not here: it stays super admin only, so nobody can lock
+   themselves out of the page that sets this. */
 export const PAGES = [
-  { page: 'attendance-tracker', label: 'Attendance Tracker', defaults: ['user', 'admin'] },
-  { page: 'employee-database', label: 'Employees Database', defaults: ['admin'] },
-  { page: 'hr-documents', label: 'HR Documents', defaults: ['admin'] },
-  { page: 'employee-documents', label: 'Employee Documents', defaults: ['user', 'admin'] },
-  { page: 'company-structure', label: 'Company structure', defaults: ['user', 'admin'] },
-  { page: 'contacts-list', label: 'Contacts List', defaults: ['user', 'admin'] },
-  { page: 'salary-calculator', label: 'Salary Calculator', defaults: ['admin'] },
-  { page: 'company-policy', label: 'Company policy', defaults: ['user', 'admin'] },
-  { page: 'purchasing-request', label: 'Purchasing Request', defaults: ['user', 'admin'] },
+  {
+    page: 'attendance-tracker', label: 'Attendance Tracker', defaults: ['user', 'admin'],
+    about: 'Attendance, adjustments, leave balances and payroll reports. Users get the Employee report only, for themselves and people below them in their sector.',
+  },
+  {
+    page: 'employee-database', label: 'Employees Database', defaults: ['admin'],
+    about: 'Full personnel records: national ID, address, wages, social insurance, contacts and scanned documents. Only admins can edit.',
+  },
+  {
+    page: 'hr-documents', label: 'HR Documents', defaults: ['admin'],
+    about: 'Contracts, renewals, hiring and leaving papers, certificates, warnings and investigations, filled from full records (national ID, wages).',
+  },
+  {
+    page: 'employee-documents', label: 'Employee Documents', defaults: ['user', 'admin'],
+    about: 'Requests: salary advance, financial grant, custody, penalty notice, hiring and purchase requests, performance evaluation. Any employee can be picked by name.',
+  },
+  {
+    page: 'company-structure', label: 'Company structure', defaults: ['user', 'admin'],
+    about: 'Sectors and departments, with every employee\'s name, title and level.',
+  },
+  {
+    page: 'contacts-list', label: 'Contacts List', defaults: ['user', 'admin'],
+    about: 'Work mobile, office number and email of every employee.',
+  },
+  {
+    page: 'salary-calculator', label: 'Salary Calculator', defaults: ['admin'],
+    about: 'Gross, tax, social insurance and net salary calculations. Shows no employee data.',
+  },
+  {
+    page: 'company-policy', label: 'Company policy', defaults: ['user', 'admin'],
+    about: 'Company policies to read and download.',
+  },
 ]
 export const FIXED_PAGES = [
-  { page: 'settings', label: 'Settings' },
-  { page: 'form-designer', label: 'Form Designer' },
+  {
+    page: 'settings', label: 'Settings',
+    about: 'Roles, passwords, page access and the company\'s reference data. Includes the Form Designer.',
+  },
 ]
 
 export function cachedPageAccess() {

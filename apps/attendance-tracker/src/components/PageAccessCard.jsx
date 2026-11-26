@@ -26,8 +26,8 @@ const key = (page, role) => `${page}|${role}`
  * Documents to users, say, shows them the page, but only the employee
  * records their role could already read.
  *
- * Settings and the Form Designer are not on the list: they stay open to
- * super admins only, so nobody can close the page that sets this.
+ * Settings (with the Form Designer in it) stays open to super admins
+ * only, so nobody can close the page that sets this.
  */
 export default function PageAccessCard({ readOnly }) {
   const [saved, setSaved] = useState(null) // { 'page|role': bool }
@@ -109,7 +109,9 @@ export default function PageAccessCard({ readOnly }) {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-line">
+                  <Th className="w-10">#</Th>
                   <Th>Page</Th>
+                  <Th>What it shows</Th>
                   {ROLES.map(([role, label]) => (
                     <Th key={role} className="text-center">{label}</Th>
                   ))}
@@ -117,9 +119,11 @@ export default function PageAccessCard({ readOnly }) {
                 </tr>
               </thead>
               <tbody>
-                {PAGES.map(({ page, label }) => (
-                  <tr key={page} className="border-b border-line last:border-0">
-                    <Td className="font-medium text-ink">{label}</Td>
+                {PAGES.map(({ page, label, about }, i) => (
+                  <tr key={page} className="border-b border-line align-top last:border-0">
+                    <Td className="text-ink-3">{i + 1}</Td>
+                    <PageName label={label} page={page} />
+                    <About text={about} />
                     {ROLES.map(([role, roleLabel]) => {
                       const k = key(page, role)
                       const on = !!draft[k]
@@ -142,11 +146,11 @@ export default function PageAccessCard({ readOnly }) {
                     </Td>
                   </tr>
                 ))}
-                {FIXED_PAGES.map(({ page, label }) => (
-                  <tr key={page} className="border-b border-line last:border-0">
-                    <Td className="font-medium text-ink">
-                      {label} <Badge>super admin only</Badge>
-                    </Td>
+                {FIXED_PAGES.map(({ page, label, about }, i) => (
+                  <tr key={page} className="border-b border-line align-top last:border-0">
+                    <Td className="text-ink-3">{PAGES.length + i + 1}</Td>
+                    <PageName label={label} page={page} fixed />
+                    <About text={about} />
                     {ROLES.map(([role]) => (
                       <Td key={role} className="text-center">
                         <input type="checkbox" className="h-4 w-4" checked={false} disabled aria-label="Not available" />
@@ -177,5 +181,24 @@ export default function PageAccessCard({ readOnly }) {
         />
       )}
     </Card>
+  )
+}
+
+/* The page's name, and under it its ID: the folder it lives in on the
+   portal, which is also how the page_access table names it. */
+function PageName({ label, page, fixed = false }) {
+  return (
+    <Td>
+      <div className="font-medium text-ink">
+        {label} {fixed && <Badge>super admin only</Badge>}
+      </div>
+      <div className="font-mono text-xs text-ink-4">{page}</div>
+    </Td>
+  )
+}
+
+function About({ text }) {
+  return (
+    <Td className="min-w-[16rem] whitespace-normal text-xs leading-relaxed text-ink-3">{text}</Td>
   )
 }
