@@ -22,6 +22,7 @@ export const PAGES = [
   { page: 'employee-database', label: 'Employees Database', defaults: ['admin'] },
   { page: 'hr-documents', label: 'HR Documents', defaults: ['admin'] },
   { page: 'employee-documents', label: 'Employee Documents', defaults: ['user', 'admin'] },
+  { page: 'company-structure', label: 'Company structure', defaults: ['user', 'admin'] },
   { page: 'contacts-list', label: 'Contacts List', defaults: ['user', 'admin'] },
   { page: 'salary-calculator', label: 'Salary Calculator', defaults: ['admin'] },
   { page: 'company-policy', label: 'Company policy', defaults: ['user', 'admin'] },

@@ -8,7 +8,7 @@ import { Alert, Badge, Button, Card, CardHeader, Field, Input, Select, Td, Th } 
 
 const ROLES = [
   ['no_access', 'No access', 'Cannot sign in to anything.'],
-  ['user', 'User', 'Read-only, and only their own department.'],
+  ['user', 'User', 'Read-only: themselves, and people in their sector at lower levels.'],
   ['admin', 'Admin', 'Attendance, adjustments, employees and reports.'],
   ['super_admin', 'Super admin', 'Everything, including this page.'],
 ]
