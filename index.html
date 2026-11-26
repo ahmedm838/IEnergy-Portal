@@ -167,7 +167,7 @@
              admin could see it and only a super admin could change
              anything. It is its own tile now, shown to super admins
              alone, and opens the tracker's shell with one button in it. -->
-        <a class="tile" href="attendance-tracker/?only=settings" data-role="super_admin">
+        <a class="tile" href="attendance-tracker/?only=settings" data-page="settings" data-role="super_admin">
           <div class="tile-title">Settings</div>
           <div class="tile-desc">Attendance types, rates, locked periods, bus routes and roles.</div>
         </a>
@@ -188,7 +188,7 @@
     </div>
   </main>
 
-  <script src="auth.js?v=16"></script>
+  <script src="auth.js?v=17"></script>
   <script src="dashboard.js?v=13"></script>
   <script>
     (function () {
@@ -249,6 +249,19 @@
         /* A tile for a page listed in Settings > Page access shows when
            the table lets this role open it. Where the table has no answer
            yet, the data-role rule above stands. */
+        /* The tiles in the order set in Settings > Page access: pages with
+           a position first, lowest first; the rest (Change password, and
+           any page not given one) after them, in the order written here. */
+        const order = IEnergyAuth.pageOrder && IEnergyAuth.pageOrder();
+        const tiles = document.querySelector('.tiles');
+        if (order && tiles && Object.keys(order).length) {
+          const all = Array.from(tiles.children);
+          const pos = (el) => (el.dataset.page && order[el.dataset.page] != null ? order[el.dataset.page] : Infinity);
+          all
+            .map((el, i) => ({ el, i, p: pos(el) }))
+            .sort((a, b) => a.p - b.p || a.i - b.i)
+            .forEach(({ el }) => tiles.appendChild(el));
+        }
         if (IEnergyAuth.canOpenPage && me) {
           document.querySelectorAll('[data-page]').forEach((el) => {
             const ok = IEnergyAuth.canOpenPage(el.dataset.page, me.trackerRole);

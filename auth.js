@@ -159,27 +159,42 @@
     } catch (_) { /* nothing cached */ }
   })();
 
+  /* Fresh, and carrying the main page's tile order (page_order) -- a
+     copy saved by a page that reads only the access table is read again
+     when the order is wanted. */
   function pageAccessFresh() {
-    return !!pageAccess && Date.now() - pageAccess.at < PAGE_ACCESS_FRESH_MS;
+    return !!pageAccess && !!pageAccess.order && Date.now() - pageAccess.at < PAGE_ACCESS_FRESH_MS;
   }
 
   async function loadPageAccess(force) {
     if (!force && pageAccessFresh()) return pageAccess;
     try {
       const supabase = await getClient();
-      const { data, error } = await supabase.from('page_access').select('page, role, allowed');
-      if (error) throw error;
+      const [access, ordered] = await Promise.all([
+        supabase.from('page_access').select('page, role, allowed'),
+        supabase.from('page_order').select('page, position'),
+      ]);
+      if (access.error) throw access.error;
       const map = {};
-      for (const row of data || []) {
+      for (const row of access.data || []) {
         if (!map[row.page]) map[row.page] = {};
         map[row.page][row.role] = !!row.allowed;
       }
-      pageAccess = { map, at: Date.now() };
+      // The tile order: page -> position. Empty when it cannot be read,
+      // and the main page keeps its own order.
+      const order = {};
+      for (const row of (ordered.error ? [] : ordered.data) || []) order[row.page] = row.position;
+      pageAccess = { map, order, at: Date.now() };
       try { sessionStorage.setItem(PAGE_ACCESS_KEY, JSON.stringify(pageAccess)); } catch (_) {}
     } catch (_) {
       /* Kept as it was, stale or not there: the pages' own rules stand in. */
     }
     return pageAccess;
+  }
+
+  /* The main page's tile order, page -> position, or null when unknown. */
+  function pageOrder() {
+    return (pageAccess && pageAccess.order) || null;
   }
 
   function forgetPageAccess() {
@@ -1103,6 +1118,7 @@
     getClient,
     loadPageAccess,
     canOpenPage,
+    pageOrder,
     forgetPageAccess,
     IDLE_MS,
     // Kept so older pages reading it do not trip over undefined. The
