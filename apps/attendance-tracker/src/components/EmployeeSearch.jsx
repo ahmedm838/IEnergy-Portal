@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cx } from './ui'
+import { employeeMatcher } from '../lib/employeeMatch'
 
 /**
  * Pick an employee by typing, the way the portal's Database page does.
@@ -56,17 +57,8 @@ export default function EmployeeSearch({
 
   const matches = useMemo(() => {
     if (!searching) return employees.slice(0, 50)
-    const needle = text.trim().toLowerCase()
-    if (!needle) return employees.slice(0, 50)
-    const digits = needle.replace(/\D/g, '')
-    return employees
-      .filter(
-        (e) =>
-          e.name?.toLowerCase().includes(needle) ||
-          e.arabic_name?.includes(text.trim()) ||
-          (digits && String(e.code).includes(digits)),
-      )
-      .slice(0, 50)
+    if (!text.trim()) return employees.slice(0, 50)
+    return employees.filter(employeeMatcher(text)).slice(0, 50)
   }, [employees, text, searching])
 
   // Close when the click lands anywhere else on the page.

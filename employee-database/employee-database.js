@@ -1007,7 +1007,8 @@ async function start() {
 /* ------------------------------------------------------------------ */
 
 async function runSearch(term) {
-  const safe = filterValue(term)
+  // Arabic-Indic digits typed for a code count as the same digits.
+  const safe = filterValue(String(term).replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))))
   if (!safe) {
     $('matches').hidden = true
     $('searchHint').textContent = 'Type to search.'

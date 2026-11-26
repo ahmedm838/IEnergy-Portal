@@ -83,6 +83,7 @@ textarea.hr-input { resize: vertical; min-height: 64px; }
   padding: 8px 10px; border-radius: 8px; cursor: pointer;
 }
 .hr-option small { color: rgba(var(--text-rgb), 0.6); }
+.hr-option .hr-option-en { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hr-option:hover, .hr-option.is-active { background: rgba(var(--ink-rgb), 0.08); }
 .hr-option.is-none { cursor: default; color: rgba(var(--text-rgb), 0.6); }
 

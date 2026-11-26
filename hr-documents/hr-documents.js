@@ -3326,7 +3326,7 @@ async function printPdf() {
    document is open, so changing the employee keeps them. */
 const state = { def: null, employee: null, employees: [], dateSet: {}, inputs: {}, loaded: false, capturing: false, busy: false, choices: {}, choiceLabel: {}, company: null, fetched: { key: '' }, fetching: '', skip: new Set() }
 
-const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'national_id', 'hired_on', 'contract_expiry',
+const EMPLOYEE_COLUMNS = ['id', 'code', 'arabic_name', 'name', 'national_id', 'hired_on', 'contract_expiry',
   'si_no', 'si_title', 'title', 'annual_leave_balance', 'unplanned_leave_balance', 'qualification_degree_ar', 'education_field', 'address', 'id_issue_date', 'is_active',
   'department_id', 'personal_mobile', 'gender', 'birth_date', 'governorate', 'religion',
   'marital_status', 'military_service', 'secondary_mobile', 'secondary_mobile_name',
@@ -3402,7 +3402,8 @@ async function loadEmployees() {
     department_en: departments.get(e.department_id)?.en || '',
     sector_ar: departments.get(e.department_id)?.sectorAr || '',
     status_name: statuses.get(e.status_id) || '',
-    _key: foldArabic(e.arabic_name),
+    // Searched by Arabic name, English name or code.
+    _key: foldArabic(`${e.arabic_name || ''} ${e.name || ''}`),
   }))
   return state.employees
 }
@@ -3434,8 +3435,8 @@ function showPoolHint() {
   if (!state.loaded) return
   const n = toArabicDigits(pool().length)
   hint.textContent = state.def?.pool === 'resigned'
-    ? `${n} موظف له تاريخ إشعار استقالة — ابحث بالاسم أو الكود.`
-    : `${n} موظف — ابحث بالاسم أو الكود.`
+    ? `${n} موظف له تاريخ إشعار استقالة — ابحث بالكود أو بالاسم عربي أو إنجليزي.`
+    : `${n} موظف — ابحث بالكود أو بالاسم عربي أو إنجليزي.`
 }
 
 function showOptions(list) {
@@ -3451,7 +3452,12 @@ function showOptions(list) {
     n.textContent = e.arabic_name
     const c = document.createElement('small')
     c.textContent = toArabicDigits(e.code ?? '')
-    li.append(n, c)
+    // The English name between the Arabic name and the code.
+    const en = document.createElement('small')
+    en.className = 'hr-option-en'
+    en.dir = 'ltr'
+    en.textContent = e.name || ''
+    li.append(n, en, c)
     li.addEventListener('mousedown', (ev) => { ev.preventDefault(); pickEmployee(e) })
     ul.appendChild(li)
   }

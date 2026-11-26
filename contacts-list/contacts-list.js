@@ -152,7 +152,8 @@
       sub.className = 'match-sub';
       const office = safeIntString(pickField(it.row, ['Office Number', 'Office', 'Office No.']));
       const level = normStr(pickField(it.row, ['Level', 'Grade']));
-      const bits = [normStr(it.title), level, office ? `Office: ${office}` : ''].filter(Boolean);
+      const arabic = normStr(it.row['Arabic Name']);
+      const bits = [arabic, normStr(it.title), level, office ? `Office: ${office}` : ''].filter(Boolean);
       sub.textContent = bits.join(' • ') || '—';
 
       btn.appendChild(top);
@@ -354,22 +355,41 @@
     return String(q).replace(/[\\"*%]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
-  async function searchDatabase(q) {
-    const safe = filterValue(q);
-    if (!safe) return [];
+  /* Arabic-Indic digits typed for a code count as the same digits. */
+  function westernDigits(s) {
+    return String(s).replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  }
 
+  /* Set to false once the database answers that the view has no Arabic
+     name yet; the search then carries on by code and English name. */
+  let hasArabicName = true;
+
+  async function fetchContacts(safe, withArabic) {
     const pattern = `"*${safe}*"`;
+    const terms = [`name.ilike.${pattern}`, `title.ilike.${pattern}`, `code_text.ilike.${pattern}`];
+    if (withArabic) terms.push(`arabic_name.ilike.${pattern}`);
     const params = new URLSearchParams({
-      select: 'code,name,title,department,sector,site,email,company_mobile,office_number,level',
-      or: `(name.ilike.${pattern},title.ilike.${pattern},code_text.ilike.${pattern})`,
+      select: 'code,name,title,department,sector,site,email,company_mobile,office_number,level' +
+        (withArabic ? ',arabic_name' : ''),
+      or: `(${terms.join(',')})`,
       order: 'code.asc',
       limit: String(SEARCH_LIMIT),
     });
-
-    const resp = await fetch(SUPABASE_URL + '/rest/v1/employee_contacts?' + params.toString(), {
+    return fetch(SUPABASE_URL + '/rest/v1/employee_contacts?' + params.toString(), {
       headers: { apikey: SUPABASE_ANON_KEY, Accept: 'application/json' },
       cache: 'no-store',
     });
+  }
+
+  async function searchDatabase(q) {
+    const safe = filterValue(westernDigits(q));
+    if (!safe) return [];
+
+    let resp = await fetchContacts(safe, hasArabicName);
+    if (!resp.ok && resp.status === 400 && hasArabicName) {
+      hasArabicName = false;
+      resp = await fetchContacts(safe, false);
+    }
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
     const data = await resp.json();
@@ -388,6 +408,7 @@
         'Mobile Number': r.company_mobile,
         'Office Number': r.office_number,
         'Level': r.level,
+        'Arabic Name': r.arabic_name || '',
       };
     });
   }

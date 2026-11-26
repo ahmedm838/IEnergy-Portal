@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { employeeMatcher } from '../lib/employeeMatch'
 import { supabase, run } from '../lib/supabase'
 import { exportSheet, prefetchExcel } from '../lib/exportXlsx'
 import { num } from '../lib/format'
@@ -267,15 +268,15 @@ export default function Employees() {
 
   const loginLabel = (employee) => employee.auth_user_id ? 'Active' : employee.email ? 'Not invited' : 'No email'
 
-  // Searching only what the table shows. Matching a hidden column would
-  // put rows on screen with nothing in them that explains why.
+  // Searching what the table shows, plus the Arabic name -- the code or a
+  // name in English or Arabic finds the person on every page.
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
     if (!needle) return employees
+    const byPerson = employeeMatcher(search)
     return employees.filter(
       (e) =>
-        e.name.toLowerCase().includes(needle) ||
-        String(e.code).includes(needle) ||
+        byPerson(e) ||
         (e.title ?? '').toLowerCase().includes(needle) ||
         (e.sites?.name ?? '').toLowerCase().includes(needle) ||
         (e.departments?.name ?? '').toLowerCase().includes(needle),
@@ -378,7 +379,7 @@ export default function Employees() {
           subtitle={`Annual / Unplanned · 1 Jan–31 Dec ${year}${search ? ` · Search: ${search}` : ''}`}
           actions={
             <Input
-              placeholder="Search name, code, title, department…"
+              placeholder="Search code, English / Arabic name, title, department…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="no-print w-72"
