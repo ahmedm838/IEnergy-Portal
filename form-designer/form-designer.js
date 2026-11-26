@@ -1,5 +1,5 @@
 /* Form Designer
-   - Admins and super admins. Opens HR Documents or Employee Documents in
+   - Super admins only, opened from the tracker's Settings page. Opens HR Documents or Employee Documents in
      a frame below (?designer=1), so a form is drawn by the very engine
      the portal uses: same layout, same pages, same blanks.
    - "Get live Word file" saves the form's live template to the computer
@@ -454,7 +454,17 @@ function wrap(fn) {
   }
 }
 
+/* Super admins only. The portal's sign-in knows admins and users; a
+   super admin is an admin whose tracker role says so. */
 function onAuthed() {
+  const me = window.IEnergyAuth?.getProfile?.()
+  if (me?.trackerRole !== 'super_admin') {
+    $('app').hidden = true
+    const denied = $('accessDenied')
+    denied.hidden = false
+    denied.style.display = 'grid'
+    return
+  }
   const toggle = document.querySelector('.theme-toggle')
   if (toggle && $('themeSlot')) $('themeSlot').appendChild(toggle)
   for (const t of document.querySelectorAll('.fd-tab')) {

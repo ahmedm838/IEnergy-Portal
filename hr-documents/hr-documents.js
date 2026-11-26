@@ -4283,7 +4283,6 @@ async function onAuthed() {
   loadChoices().then(() => { fillChoiceLists(); refresh() }).catch((err) => console.error(err))
 
   if (IN_DESIGNER) { startDesignerMode(); return }
-  addDesignerLink()
   const wanted = pageDocs.find((d) => d.template && `#${d.id}` === location.hash)
   if (wanted) openDocument(wanted)
 }
@@ -4402,25 +4401,6 @@ function startDesignerMode() {
     }
   })
   tellDesigner({ type: 'ready', forms: designerForms() })
-}
-
-/* Admins get a way into the Form Designer from the list of forms. */
-function addDesignerLink() {
-  const me = IEnergyAuth.getProfile && IEnergyAuth.getProfile()
-  if (!me || !['admin', 'super_admin'].includes(me.trackerRole)) return
-  const list = $('listView')
-  if (!list || $('designerLink')) return
-  const page = document.documentElement.dataset.documentsPage === 'employee' ? 'employee' : 'hr'
-  const a = document.createElement('a')
-  a.id = 'designerLink'
-  a.className = 'btn'
-  a.href = `../form-designer/#${page}`
-  a.target = '_blank'
-  a.rel = 'noopener'
-  a.textContent = 'Form Designer ↗'
-  a.title = 'Edit a form in Word and see it here as you save, then replace it on the portal'
-  a.style.cssText = 'float:right;margin-top:-4px'
-  list.insertBefore(a, list.firstChild)
 }
 
 /* The documents this page lists: HR Documents' own unless another page
