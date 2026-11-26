@@ -166,6 +166,20 @@
     elMatches.hidden = false;
   }
 
+  /* Stored as 010-1234-5678; WhatsApp wants 201012345678. */
+  function whatsAppNumber(raw) {
+    const digits = String(raw || '').replace(/\D/g, '');
+    if (/^01\d{9}$/.test(digits)) return `2${digits}`;
+    if (/^201\d{9}$/.test(digits)) return digits;
+    return null;
+  }
+
+  function isMobileDevice() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      // iPadOS reports itself as a Mac; a touch screen gives it away.
+      (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  }
+
   function setResult(row) {
     if (!row) {
       if (elResult) elResult.hidden = true;
@@ -195,6 +209,24 @@
 
     if (elRMobile) elRMobile.textContent = mobile || '—';
     if (elREmail) elREmail.textContent = email || '—';
+
+    /* WhatsApp and email open the app on a new, empty message to this
+       person -- nothing typed in, the user writes it and sends. */
+    const wa = document.getElementById('rWhatsApp');
+    if (wa) {
+      const number = whatsAppNumber(mobile);
+      wa.hidden = !number;
+      wa.href = number ? `https://wa.me/${number}` : '#';
+      // Phone: the same tab hands straight over to the WhatsApp app.
+      // Computer: a new tab, where WhatsApp offers its app or WhatsApp Web.
+      if (isMobileDevice()) wa.removeAttribute('target'); else wa.target = '_blank';
+    }
+    const mail = document.getElementById('rEmailLink');
+    if (mail) {
+      const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
+      mail.hidden = !ok;
+      mail.href = ok ? `mailto:${email}` : '#';
+    }
     if (elROffice) elROffice.textContent = office || '—';
 
     if (elResult) elResult.hidden = false;
