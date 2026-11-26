@@ -8,7 +8,8 @@
   <link rel="icon" type="image/png" href="../favicon.png?v=2" />
   <link rel="stylesheet" href="../responsive.css?v=2" />
   <link rel="stylesheet" href="../home.css?v=24" />
-  <link rel="stylesheet" href="form-designer.css?v=1" />
+  <link rel="stylesheet" href="../vendor/superdoc-2.35.0/superdoc.css" />
+  <link rel="stylesheet" href="form-designer.css?v=2" />
   <script src="../theme.js?v=4"></script>
 </head>
 <body>
@@ -61,18 +62,29 @@
         <button id="logoutBtn" class="btn" type="button">Sign out</button>
       </div>
       <div class="fd-row">
-        <button type="button" class="btn" id="downloadBtn" title="Save the live Word file to your computer and watch it">1 · Get live Word file</button>
-        <button type="button" class="btn" id="openBtn" title="Pick a Word file on your computer and watch it">or open my Word file…</button>
-        <input type="file" id="fileInput" accept=".docx" hidden />
-        <span id="watchStatus" class="fd-status">Pick a form, then get its Word file and open it in Word. Every time you save in Word, the preview below updates.</span>
+        <span id="editStatus" class="fd-status">Pick a form: it opens on the left for editing, and the right shows it as the portal will, updating as you type.</span>
         <span class="fd-spacer"></span>
-        <button type="button" class="btn" id="revertBtn" hidden>Show live version</button>
-        <button type="button" class="btn primary" id="replaceBtn" disabled>2 · Replace on portal</button>
+        <button type="button" class="btn" id="openBtn" title="Edit a Word file from your computer instead">Open .docx…</button>
+        <input type="file" id="fileInput" accept=".docx" hidden />
+        <button type="button" class="btn" id="downloadBtn" disabled title="Save what is in the editor as a Word file">Download .docx</button>
+        <button type="button" class="btn" id="revertBtn" disabled title="Throw away the edits and start again from the live form">Start over</button>
+        <button type="button" class="btn primary" id="replaceBtn" disabled>Replace on portal</button>
       </div>
       <div id="checkBar" class="fd-check" hidden></div>
     </header>
 
-    <iframe id="frame" class="fd-frame" title="Form preview"></iframe>
+    <!-- The Word file being edited on the left, the form as the portal
+         draws it on the right; the bar between them can be dragged. -->
+    <div class="fd-split" id="split">
+      <section class="fd-pane fd-editor-pane" aria-label="Word editor">
+        <div id="toolbar" class="fd-toolbar"></div>
+        <div id="editorHost" class="fd-editor"><p class="fd-empty">Choose a form above to start editing.</p></div>
+      </section>
+      <div class="fd-resizer" id="resizer" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to resize"></div>
+      <section class="fd-pane fd-preview-pane" aria-label="Portal preview">
+        <iframe id="frame" class="fd-frame" title="Form preview"></iframe>
+      </section>
+    </div>
   </main>
 
   <!-- GitHub access: a token kept in this browser only. -->
@@ -117,6 +129,6 @@
   </dialog>
 
   <script src="../auth.js?v=14"></script>
-  <script type="module" src="form-designer.js?v=1"></script>
+  <script type="module" src="form-designer.js?v=2"></script>
 </body>
 </html>
