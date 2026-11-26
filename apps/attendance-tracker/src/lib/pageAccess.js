@@ -74,18 +74,24 @@ export function forgetPageAccess() {
 
 export async function readPageAccess({ force = false } = {}) {
   const cached = cachedPageAccess()
-  if (!force && cached && Date.now() - cached.at < FRESH_MS) return cached
-  const { data, error } = await supabase.from('page_access').select('page, role, allowed')
-  if (error) {
-    if (force) throw error
+  if (!force && cached?.order && Date.now() - cached.at < FRESH_MS) return cached
+  const [access, ordered] = await Promise.all([
+    supabase.from('page_access').select('page, role, allowed'),
+    supabase.from('page_order').select('page, position'),
+  ])
+  if (access.error) {
+    if (force) throw access.error
     return cached
   }
   const map = {}
-  for (const row of data || []) {
+  for (const row of access.data || []) {
     if (!map[row.page]) map[row.page] = {}
     map[row.page][row.role] = !!row.allowed
   }
-  const out = { map, at: Date.now() }
+  // The main page's tile order (page_order): page -> position.
+  const order = {}
+  for (const row of (ordered.error ? [] : ordered.data) || []) order[row.page] = row.position
+  const out = { map, order, at: Date.now() }
   try { sessionStorage.setItem(PAGE_ACCESS_KEY, JSON.stringify(out)) } catch (_) {}
   return out
 }
