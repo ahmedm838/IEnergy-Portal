@@ -363,6 +363,21 @@ export default function Settings() {
         <p className="text-sm text-ink-3">
           Reference data from the workbook. Changes take effect on the next report run.
         </p>
+        {/* The Form Designer replaces the Word templates every HR and
+            employee document is printed from: super admins only. */}
+        {isSuperAdmin && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="ms-auto"
+            href="../form-designer/"
+            target="_blank"
+            rel="noopener"
+            title="Edit the HR and Employee Documents forms in Word, preview them live, then replace them on the portal"
+          >
+            Form Designer ↗
+          </Button>
+        )}
       </div>
 
       {readOnly && (

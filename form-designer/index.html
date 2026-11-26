@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="description" content="iEnergy form designer" />
+  <title>iEnergy | Form Designer</title>
+  <link rel="icon" type="image/png" href="../favicon.png?v=2" />
+  <link rel="stylesheet" href="../responsive.css?v=2" />
+  <link rel="stylesheet" href="../home.css?v=24" />
+  <link rel="stylesheet" href="form-designer.css?v=1" />
+  <script src="../theme.js?v=4"></script>
+</head>
+<body>
+
+  <!-- Sign-in, shown only when there is no session. Super admins only: the
+       designer replaces the forms every HR document is printed from. -->
+  <div id="auth" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-top">
+        <div class="auth-title">
+          <a class="back-link" href="../index.html">&larr; iEnergy Home</a>
+          <h1>Form Designer</h1>
+          <p>Please sign in to continue.</p>
+        </div>
+      </div>
+      <label class="auth-label" for="usernameInput">Username</label>
+      <input id="usernameInput" class="auth-input" type="text" autocomplete="username" />
+      <label class="auth-label" for="passwordInput">Password</label>
+      <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" />
+      <div class="auth-actions">
+        <button id="btnLogin" class="primary" type="button">Sign in</button>
+      </div>
+      <div id="authError" class="auth-error" hidden>Incorrect username or password.</div>
+    </div>
+  </div>
+
+  <div id="accessDenied" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-title">
+        <a class="back-link" href="../index.html">&larr; iEnergy Home</a>
+        <h1>Form Designer</h1>
+        <p>The Form Designer is open to super admins only.</p>
+      </div>
+    </div>
+  </div>
+
+  <main id="app" hidden>
+    <header class="fd-bar">
+      <div class="fd-row">
+        <strong class="fd-name">Form Designer</strong>
+        <div class="fd-tabs" role="tablist">
+          <button type="button" class="fd-tab" data-page="hr" role="tab">HR Documents</button>
+          <button type="button" class="fd-tab" data-page="employee" role="tab">Employee Documents</button>
+        </div>
+        <select id="formSelect" class="fd-select" dir="rtl" aria-label="Form"><option>Loading forms…</option></select>
+        <span class="fd-spacer"></span>
+        <button type="button" class="btn" id="tokenBtn" title="GitHub access used by Replace">GitHub access</button>
+        <span id="themeSlot"></span>
+        <a class="btn" href="../">Main page</a>
+        <button id="logoutBtn" class="btn" type="button">Sign out</button>
+      </div>
+      <div class="fd-row">
+        <button type="button" class="btn" id="downloadBtn" title="Save the live Word file to your computer and watch it">1 · Get live Word file</button>
+        <button type="button" class="btn" id="openBtn" title="Pick a Word file on your computer and watch it">or open my Word file…</button>
+        <input type="file" id="fileInput" accept=".docx" hidden />
+        <span id="watchStatus" class="fd-status">Pick a form, then get its Word file and open it in Word. Every time you save in Word, the preview below updates.</span>
+        <span class="fd-spacer"></span>
+        <button type="button" class="btn" id="revertBtn" hidden>Show live version</button>
+        <button type="button" class="btn primary" id="replaceBtn" disabled>2 · Replace on portal</button>
+      </div>
+      <div id="checkBar" class="fd-check" hidden></div>
+    </header>
+
+    <iframe id="frame" class="fd-frame" title="Form preview"></iframe>
+  </main>
+
+  <!-- GitHub access: a token kept in this browser only. -->
+  <dialog id="tokenDialog" class="fd-dialog">
+    <form method="dialog">
+      <h3>GitHub access</h3>
+      <p>Replace writes the Word file to the portal's GitHub repository. It needs a
+        fine-grained personal access token, kept in this browser only.</p>
+      <ol>
+        <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → Settings → Fine-grained tokens → Generate new token</a>.</li>
+        <li>Repository access: <b>Only select repositories</b> → <b>ienergy-portal</b>.</li>
+        <li>Permissions: <b>Contents: Read and write</b>. Add <b>Actions: Read and write</b> to deploy to the live site from here.</li>
+        <li>Generate, copy the token and paste it below.</li>
+      </ol>
+      <input id="tokenInput" class="auth-input" type="password" placeholder="github_pat_…" autocomplete="off" />
+      <label class="fd-check-label"><input type="checkbox" id="tokenRemember" checked /> Remember on this computer</label>
+      <p id="tokenMsg" class="fd-msg"></p>
+      <div class="fd-dialog-actions">
+        <button type="button" class="btn" id="tokenForget">Forget token</button>
+        <span class="fd-spacer"></span>
+        <button value="cancel" class="btn">Close</button>
+        <button type="button" class="btn primary" id="tokenSave">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Replace: what will happen, and whether to deploy. -->
+  <dialog id="replaceDialog" class="fd-dialog">
+    <form method="dialog">
+      <h3>Replace on portal</h3>
+      <p id="replaceWhat"></p>
+      <div id="replaceWarn" class="fd-warn" hidden></div>
+      <label class="fd-check-label"><input type="checkbox" id="deployNow" checked /> Deploy to the live site now (runs “Deploy to cPanel”)</label>
+      <p class="fd-msg">The old file stays in GitHub's history, so a replace can always be undone.</p>
+      <p id="replaceMsg" class="fd-msg"></p>
+      <div class="fd-dialog-actions">
+        <span class="fd-spacer"></span>
+        <button value="cancel" class="btn">Cancel</button>
+        <button type="button" class="btn primary" id="replaceGo">Replace</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="../auth.js?v=14"></script>
+  <script type="module" src="form-designer.js?v=1"></script>
+</body>
+</html>

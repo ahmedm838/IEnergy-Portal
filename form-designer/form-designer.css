@@ -1,0 +1,59 @@
+/* Form Designer: a bar of controls over the documents page, drawn in a
+   frame below it exactly as the portal draws it. */
+html, body { height: 100%; }
+body { margin: 0; }
+#app:not([hidden]) { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+.fd-bar {
+  flex: none;
+  background: var(--surface-strong);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  color: var(--text);
+}
+.fd-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fd-name { font-size: 15px; margin-inline-end: 4px; }
+.fd-spacer { flex: 1 1 auto; }
+.fd-tabs { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; }
+.fd-tab {
+  border: 0; background: transparent; color: var(--muted);
+  padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.fd-tab.is-on { background: var(--accent-fill-strong); color: var(--text); }
+.fd-select {
+  min-width: 260px; max-width: 100%;
+  padding: 7px 10px; border-radius: 10px;
+  border: 1px solid var(--line-strong); background: var(--sunken); color: var(--text);
+  font: inherit; font-size: 14px;
+}
+.fd-select option { color: #111; }
+.fd-status { font-size: 13px; color: var(--muted); }
+.fd-status.is-live::before {
+  content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: #3ee088; margin-inline-end: 6px; vertical-align: middle;
+  animation: fd-pulse 1.6s infinite;
+}
+@keyframes fd-pulse { 50% { opacity: .35; } }
+.fd-check { font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--success-line); }
+.fd-check.is-warn { border-color: var(--danger-line); background: var(--danger-fill); color: var(--danger-text); }
+.fd-frame { flex: 1 1 auto; width: 100%; border: 0; background: var(--bg); }
+
+.fd-dialog {
+  max-width: 560px; width: calc(100% - 32px);
+  border: 1px solid var(--line-strong); border-radius: 14px;
+  background: var(--card); color: var(--text); padding: 18px 20px;
+}
+.fd-dialog::backdrop { background: rgba(0,0,0,.5); }
+.fd-dialog h3 { margin: 0 0 8px; }
+.fd-dialog p, .fd-dialog li { font-size: 14px; line-height: 1.5; }
+.fd-dialog a { color: var(--accent); }
+.fd-dialog .auth-input { width: 100%; box-sizing: border-box; }
+.fd-dialog-actions { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+.fd-check-label { display: flex; gap: 8px; align-items: center; font-size: 14px; margin-top: 10px; }
+.fd-msg { color: var(--muted); font-size: 13px; min-height: 1em; }
+.fd-msg.is-error { color: var(--danger-text); }
+.fd-warn { font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--danger-line); background: var(--danger-fill); color: var(--danger-text); }
+
+.fd-bar .btn { padding: 7px 12px; font-size: 13px; }
+#themeSlot .theme-toggle { position: static; }
