@@ -82,6 +82,8 @@ const OTHER_LEAVES = [
   ['granted_day', 'منحة'],
   ['deducted_leave', 'بالخصم'],
   ['absent', 'غياب'],
+  // Recorded as whole days, one per day charged, like the others.
+  ['shortage_hrs', 'عجز ساعات'],
 ]
 
 /* Days of each OTHER_LEAVES kind per employee for the calendar year, as
@@ -258,7 +260,7 @@ export default function Employees() {
   const [leaveUsage, setLeaveUsage] = useState(new Map())
   const [leavesLoading, setLeavesLoading] = useState(true)
   const [leavesError, setLeavesError] = useState(null)
-  // Sick, granted, deducted and absent days, for the WhatsApp message only.
+  // Sick, granted, deducted, absent and shortage days, for the WhatsApp message only.
   const [otherLeaves, setOtherLeaves] = useState(null)
   const [exportError, setExportError] = useState(null)
   const [exporting, setExporting] = useState(false)
