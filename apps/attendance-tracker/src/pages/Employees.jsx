@@ -73,14 +73,59 @@ function whatsAppNumber(employee) {
   return null
 }
 
-function balanceMessage(employee, l, year) {
+/* Leave kinds that come off no balance but are still worth telling the
+   employee about, in the order the message lists them. Codes, not
+   effects: sick and granted days both have effect 'none', the same as an
+   ordinary attended day. */
+const OTHER_LEAVES = [
+  ['sick_leave', 'مرضي'],
+  ['granted_day', 'منحة'],
+  ['deducted_leave', 'بالخصم'],
+  ['absent', 'غياب'],
+]
+
+/* Days of each OTHER_LEAVES kind per employee for the calendar year, as
+   Map(employee_id -> { code: days }). The caller's own permissions on
+   attendance_records apply, as they do to the leave counts. */
+async function countOtherLeaves(year, isCancelled) {
+  const usage = new Map()
+  for (let offset = 0; ; offset += 1000) {
+    const records = await run(supabase.from('attendance_records')
+      .select('id, employee_id, attendance_types!inner(code)')
+      .gte('work_date', `${year}-01-01`)
+      .lt('work_date', `${year + 1}-01-01`)
+      .in('attendance_types.code', OTHER_LEAVES.map(([code]) => code))
+      .order('id')
+      .range(offset, offset + 999))
+    if (isCancelled()) return null
+    for (const record of records) {
+      const counts = usage.get(record.employee_id) ?? {}
+      const code = record.attendance_types.code
+      counts[code] = (counts[code] ?? 0) + 1
+      usage.set(record.employee_id, counts)
+    }
+    if (records.length < 1000) break
+  }
+  return usage
+}
+
+function balanceMessage(employee, l, other, year) {
   const name = employee.arabic_name || employee.name
+  const line = (label, start, used, left) =>
+    [`*${label}*`, `الرصيد: ${start} | المستهلك: ${used} | المتبقي: ${left}`]
+  const others = OTHER_LEAVES.filter(([code]) => other?.[code])
   return [
     `السيد/ة ${name}،`,
-    `رصيد إجازاتك المتبقي لعام ${year}:`,
-    `- اعتيادي: ${l.annualRemaining} يوم`,
-    `- عارضة: ${l.unplannedRemaining} يوم`,
-    `- بدل راحة: ${l.addedRemaining} يوم`,
+    `بيان رصيد إجازاتك لعام ${year} (بالأيام):`,
+    '',
+    ...line('اعتيادي', l.annual, l.annualUsed, l.annualRemaining),
+    '',
+    ...line('عارضة', l.unplanned, l.unplannedUsed, l.unplannedRemaining),
+    '',
+    ...line('بدل راحة', l.addedBalance, l.addedUsed, l.addedRemaining),
+    ...(others.length
+      ? ['', '*إجازات أخرى مستهلكة*', ...others.map(([code, label]) => `- ${label}: ${other[code]} يوم`)]
+      : []),
     '',
     'مع تحيات إدارة الموارد البشرية',
   ].join('\n')
@@ -103,7 +148,7 @@ function WhatsAppButton({ phone, message }) {
   }
   return (
     <Button size="sm" variant="secondary" onClick={open} disabled={!message}
-      title="Open WhatsApp with the remaining leave balance ready to send">
+      title="Open WhatsApp with the leave balance ready to send">
       <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="#25D366">
         <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.1 5.1 0 0 0 1.1 2.7 11.6 11.6 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z" />
       </svg>
@@ -213,6 +258,8 @@ export default function Employees() {
   const [leaveUsage, setLeaveUsage] = useState(new Map())
   const [leavesLoading, setLeavesLoading] = useState(true)
   const [leavesError, setLeavesError] = useState(null)
+  // Sick, granted, deducted and absent days, for the WhatsApp message only.
+  const [otherLeaves, setOtherLeaves] = useState(null)
   const [exportError, setExportError] = useState(null)
   const [exporting, setExporting] = useState(false)
   const year = new Date().getFullYear()
@@ -234,6 +281,17 @@ export default function Employees() {
       }
     }
     loadLeaveUsage()
+    return () => { cancelled = true }
+  }, [year])
+
+  useEffect(() => {
+    let cancelled = false
+    setOtherLeaves(null)
+    countOtherLeaves(year, () => cancelled)
+      .then((usage) => { if (!cancelled && usage) setOtherLeaves(usage) })
+      // Without these the message would say nothing about them rather
+      // than something wrong, so a failure leaves the button disabled.
+      .catch(() => {})
     return () => { cancelled = true }
   }, [year])
 
@@ -404,7 +462,7 @@ export default function Employees() {
                   <Th>Login</Th>
                   <Th>Status</Th>
                   <Th title="Meal · Allowance · Overtime · Incentive · Deductions">Payroll</Th>
-                  <Th className="no-print" title="Send the remaining leave balance on WhatsApp">WhatsApp</Th>
+                  <Th className="no-print" title="Send the leave balance on WhatsApp">WhatsApp</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -463,7 +521,7 @@ export default function Employees() {
                     <Td className="no-print">
                       <WhatsAppButton
                         phone={whatsAppNumber(e)}
-                        message={leavesLoading || leavesError ? null : balanceMessage(e, leaves(e), year)}
+                        message={leavesLoading || leavesError || !otherLeaves ? null : balanceMessage(e, leaves(e), otherLeaves.get(e.id), year)}
                       />
                     </Td>
                   </tr>
