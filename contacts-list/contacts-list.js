@@ -178,6 +178,56 @@
       (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   }
 
+  /* Copy buttons beside WhatsApp and Email: copy the number / address. */
+  function setCopy(id, value) {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.dataset.copy = value || '';
+    b.hidden = !value;
+    resetCopy(b);
+  }
+
+  function resetCopy(b) {
+    clearTimeout(b._copyTimer);
+    b.classList.remove('copied');
+    const label = b.querySelector('span');
+    if (label) label.textContent = 'Copy';
+  }
+
+  async function copyText(text) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_) { /* fall back below */ }
+    // Older browsers / plain http: a hidden textarea and execCommand.
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.fontSize = '16px'; // stops iOS zooming in
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('.copy-action');
+    if (!b || !b.dataset.copy) return;
+    const ok = await copyText(b.dataset.copy);
+    const label = b.querySelector('span');
+    if (label) label.textContent = ok ? 'Copied' : 'Copy failed';
+    b.classList.toggle('copied', ok);
+    clearTimeout(b._copyTimer);
+    b._copyTimer = setTimeout(() => resetCopy(b), 1500);
+  });
+
   function setResult(row) {
     if (!row) {
       if (elResult) elResult.hidden = true;
@@ -227,6 +277,8 @@
       mail.hidden = !ok;
       mail.href = ok ? `mailto:${email}` : '#';
     }
+    setCopy('rCopyMobile', mobile);
+    setCopy('rCopyEmail', email);
     if (elROffice) elROffice.textContent = office || '—';
 
     if (elResult) elResult.hidden = false;

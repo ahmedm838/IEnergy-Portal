@@ -79,6 +79,10 @@
 }
 .contact-action:hover { background: rgba(var(--ink-rgb), 0.12); }
 .contact-action[hidden] { display: none; }
+/* WhatsApp/Email and Copy side by side. */
+.contact-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button.contact-action { cursor: pointer; font-family: inherit; line-height: inherit; }
+.copy-action.copied { border-color: #25D366; }
 
 .details { margin-top: 14px; }
 .details summary { cursor: pointer; }
