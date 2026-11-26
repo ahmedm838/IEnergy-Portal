@@ -2116,14 +2116,25 @@ export function readTableDirections(xml) {
 }
 
 const templateCache = new Map()
+/* Word files the Form Designer (form-designer/) has handed this page in
+   place of the live templates, by template path without its ?v=: what
+   is being edited is drawn exactly as the live form would be. */
+const templateOverrides = new Map()
+const templatePath = (url) => String(url || '').split('?')[0]
 async function loadTemplate(def, off = 0) {
   const url = def.template
-  const key = `${url}|${off}`
+  const over = templateOverrides.get(templatePath(url))
+  const key = `${url}|${off}|${over ? over.stamp : ''}`
   if (!templateCache.has(key)) {
     templateCache.set(key, (async () => {
-      const res = await fetch(url, { cache: 'no-cache' })
-      if (!res.ok) throw new Error(`Template not found (${res.status})`)
-      const zip = await JSZip.loadAsync(await res.arrayBuffer())
+      let data
+      if (over) data = over.data
+      else {
+        const res = await fetch(url, { cache: 'no-cache' })
+        if (!res.ok) throw new Error(`Template not found (${res.status})`)
+        data = await res.arrayBuffer()
+      }
+      const zip = await JSZip.loadAsync(data)
       let xml = await zip.file('word/document.xml').async('string')
       const border = pageBorder(xml)
       const tabStops = readTabStops(xml)
@@ -4271,8 +4282,145 @@ async function onAuthed() {
     .catch((err) => { hint.textContent = `تعذر تحميل الموظفين: ${err.message || err}` })
   loadChoices().then(() => { fillChoiceLists(); refresh() }).catch((err) => console.error(err))
 
+  if (IN_DESIGNER) { startDesignerMode(); return }
+  addDesignerLink()
   const wanted = pageDocs.find((d) => d.template && `#${d.id}` === location.hash)
   if (wanted) openDocument(wanted)
+}
+
+/* ------------------------------------------------------------------ */
+/* Form Designer                                                        */
+/* ------------------------------------------------------------------ */
+
+/* Opened as ?designer=1 inside the Form Designer's frame, the page takes
+   its orders from that frame's parent: which form to open, and a Word
+   file to draw in place of a template. After each drawing it tells the
+   parent how many pages each template came to and which of its blanks
+   ((1), (2), ...) were not found in the file. Messages are taken from
+   this site's own pages only. */
+const IN_DESIGNER = new URLSearchParams(location.search).has('designer') && window.parent !== window
+
+function designerForms() {
+  const out = []
+  pageDocs.forEach((def, i) => {
+    if (!def.template || def.scan) return
+    const parts = def.parts || [{ def, off: 0 }]
+    for (const part of parts) {
+      if (!/\.docx$/i.test(templatePath(part.def.template))) continue
+      out.push({
+        doc: def.id,
+        number: i + 1,
+        docTitle: def.title,
+        docSubtitle: def.subtitle,
+        title: part.def.title,
+        subtitle: part.def.subtitle,
+        template: templatePath(part.def.template),
+        inPack: parts.length > 1,
+      })
+    }
+  })
+  return out
+}
+
+function tellDesigner(msg) {
+  try { window.parent.postMessage({ source: 'ienergy-documents', ...msg }, location.origin) } catch (_) {}
+}
+
+function designerReport(error = '') {
+  const def = state.def
+  if (!def) return
+  const parts = []
+  for (const box of $('preview').querySelectorAll('.hr-part')) {
+    const pd = box._hr?.def
+    if (!pd) continue
+    const off = (def.parts || [{ off: 0 }])[+box.dataset.part]?.off || 0
+    const found = new Set([...box.querySelectorAll('.hr-field[data-field]')].map((f) => +f.dataset.field - off))
+    // A page whose text runs past the foot of its sheet: print shrinks
+    // it to fit, or cuts it onto another sheet when it runs far over.
+    const over = []
+    ;[...box.querySelectorAll('section.docx')].forEach((page, i) => {
+      const sheet = page.getBoundingClientRect().width * 297 / 210
+      const used = contentBottom(page, { ignoreEmpty: true })
+      if (sheet && used > sheet * 1.02) over.push({ page: i + 1, by: Math.round((used / sheet - 1) * 100) })
+    })
+    parts.push({
+      template: templatePath(pd.template),
+      title: pd.title,
+      pages: box.querySelectorAll('section.docx').length,
+      over,
+      missing: (pd.blanks || Object.keys(pd.fields || {}).map(Number)).filter((n) => !found.has(n)),
+    })
+  }
+  tellDesigner({ type: 'rendered', doc: def.id, parts, error })
+}
+
+let designerDrawing = Promise.resolve()
+function designerRedraw() {
+  designerDrawing = designerDrawing.then(async () => {
+    if (!state.def) return
+    const wrap = document.scrollingElement
+    const y = wrap ? wrap.scrollTop : 0
+    const old = $('preview').innerHTML
+    try {
+      await drawDocument(state.def)
+      refresh()
+      if (wrap) wrap.scrollTop = y
+      designerReport()
+    } catch (err) {
+      // A file caught half-saved: keep the last good drawing on screen.
+      $('preview').innerHTML = old
+      $('previewStatus').hidden = true
+      designerReport(err.message || String(err))
+    }
+  })
+  return designerDrawing
+}
+
+function startDesignerMode() {
+  document.documentElement.classList.add('in-designer')
+  const style = document.createElement('style')
+  style.textContent = '.in-designer #backBtn, .in-designer .page-bar-right, .in-designer .footer { display: none !important }'
+  document.head.appendChild(style)
+  window.addEventListener('message', async (e) => {
+    if (e.origin !== location.origin || e.source !== window.parent) return
+    const msg = e.data || {}
+    if (msg.source !== 'ienergy-designer') return
+    if (msg.type === 'template') {
+      const path = templatePath(msg.template)
+      if (msg.data) templateOverrides.set(path, { data: msg.data, stamp: String(msg.stamp || Date.now()) })
+      else templateOverrides.delete(path)
+      const uses = state.def && (state.def.parts || [{ def: state.def }]).some((p) => templatePath(p.def.template) === path)
+      if (uses) designerRedraw()
+    } else if (msg.type === 'open') {
+      const def = pageDocs.find((d) => d.id === msg.doc)
+      if (!def) return
+      if (state.def?.id === def.id) designerRedraw()
+      else {
+        await openDocument(def)
+        designerReport()
+      }
+    }
+  })
+  tellDesigner({ type: 'ready', forms: designerForms() })
+}
+
+/* Admins get a way into the Form Designer from the list of forms. */
+function addDesignerLink() {
+  const me = IEnergyAuth.getProfile && IEnergyAuth.getProfile()
+  if (!me || !['admin', 'super_admin'].includes(me.trackerRole)) return
+  const list = $('listView')
+  if (!list || $('designerLink')) return
+  const page = document.documentElement.dataset.documentsPage === 'employee' ? 'employee' : 'hr'
+  const a = document.createElement('a')
+  a.id = 'designerLink'
+  a.className = 'btn'
+  a.href = `../form-designer/#${page}`
+  a.target = '_blank'
+  a.rel = 'noopener'
+  a.textContent = 'Form Designer ↗'
+  a.title = 'Edit a form in Word and see it here as you save, then replace it on the portal'
+  a.style.cssText = 'float:right;margin-top:-4px'
+  list.insertBefore(a, list.firstChild)
 }
 
 /* The documents this page lists: HR Documents' own unless another page
