@@ -1,10 +1,10 @@
 /* Form Designer
    - Super admins only, opened from the tracker's Settings page.
-   - Two panes in one tab. Left: the form's Word file, opened in an
-     editor in the page (SuperDoc). Right: HR Documents or Employee
+   - Two panes in one tab. Right: the form's Word file, opened in an
+     editor in the page (SuperDoc). Left: HR Documents or Employee
      Documents in a frame (?designer=1), so the form is drawn by the very
      engine the portal uses -- same layout, pages and blanks. Each edit
-     on the left is saved to a Word file in memory and handed to the
+     on the right is saved to a Word file in memory and handed to the
      frame, which redraws the form a moment after typing stops.
    - "Replace on portal" writes that Word file over the template in the
      GitHub repository (one commit, so GitHub's history can undo it) and
@@ -31,7 +31,7 @@ const state = {
   page: 'hr',
   forms: [],
   form: null, // the entry chosen in the list
-  editor: null, // the SuperDoc in the left pane
+  editor: null, // the SuperDoc in the right pane
   loadId: 0, // which load the editor is showing; older ones are dropped
   bytes: null, // the edited Word file, once there is one
   quiet: 0, // the timer that waits for typing to pause
@@ -115,7 +115,7 @@ function chooseForm(form) {
   state.report = null
   setHash()
   showCheck()
-  if (!form) { status('Pick a form: it opens on the left for editing, and the right shows it as the portal will.'); return }
+  if (!form) { status('Pick a form: it opens on the right for editing, and the left shows it as the portal will.'); return }
   tellFrame({ type: 'open', doc: form.doc })
   loadLive().catch(fail)
 }
@@ -217,7 +217,7 @@ async function superDoc() {
   return SuperDocClass
 }
 
-/* Open a Word file in the left pane. changed: it differs from the live
+/* Open a Word file in the right pane. changed: it differs from the live
    form (a file from the computer), so the preview takes it at once. */
 async function openInEditor(buf, name, { changed = false } = {}) {
   if (!isDocx(buf)) throw new Error(`${name} is not a Word (.docx) file`)
@@ -253,7 +253,7 @@ async function openInEditor(buf, name, { changed = false } = {}) {
     useFile(buf, name)
     status(`Editing ${name}. The preview shows your file.`)
   } else {
-    status(`Editing ${name}. Type on the left; the preview on the right follows.`)
+    status(`Editing ${name}. Type on the right; the preview on the left follows.`)
   }
 }
 
@@ -266,7 +266,7 @@ async function loadLive() {
   await openInEditor(buf, templateName())
 }
 
-/* An edit on the left: once typing pauses, save the document to a Word
+/* An edit in the editor: once typing pauses, save the document to a Word
    file in memory and hand it to the preview. Only one save runs at a
    time; edits made during it are caught by one more save after it. */
 function edited() {

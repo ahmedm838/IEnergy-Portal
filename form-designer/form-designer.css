@@ -57,7 +57,7 @@ body { margin: 0; }
 .fd-bar .btn { padding: 7px 12px; font-size: 13px; }
 #themeSlot .theme-toggle { position: static; }
 
-/* Two panes side by side: the editor on the left, the preview on the
+/* Two panes side by side: the preview on the left, the editor on the
    right, the bar between them dragged to share the width. Stacked, one
    above the other, on a narrow screen. */
 .fd-split {
