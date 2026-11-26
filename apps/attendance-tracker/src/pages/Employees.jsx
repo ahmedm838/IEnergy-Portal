@@ -117,7 +117,7 @@ function balanceMessage(employee, l, other, year) {
     [`*${label}*`, `الرصيد: ${start} | المستهلك: ${used} | المتبقي: ${left}`]
   const others = OTHER_LEAVES.filter(([code]) => other?.[code])
   return [
-    `السيد/ة ${name}،`,
+    `السيد ${name}،`,
     `بيان رصيد إجازاتك لعام ${year} (بالأيام):`,
     '',
     ...line('اعتيادي', l.annual, l.annualUsed, l.annualRemaining),
