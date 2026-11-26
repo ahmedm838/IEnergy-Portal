@@ -33,9 +33,7 @@
 
   const elResult = document.getElementById('result');
   const elRName = document.getElementById('rName');
-  const elRTitle = document.getElementById('rTitle');
-  const elRCode = document.getElementById('rCode');
-  const elRLevel = document.getElementById('rLevel');
+  const elRMeta = document.getElementById('rMeta');
   const elRMobile = document.getElementById('rMobile');
   const elREmail = document.getElementById('rEmail');
   const elROffice = document.getElementById('rOffice');
@@ -195,16 +193,18 @@
     const office = safeIntString(pickField(row, ['Office Number', 'Office', 'Office No.']));
 
     if (elRName) elRName.textContent = name || '—';
-    if (elRTitle) elRTitle.textContent = title || '—';
-    if (elRCode) elRCode.textContent = `Code: ${code || '—'}`;
-
-    /* The grade, when the record has one. Hidden rather than dashed:
-       levels are being filled in record by record, and an empty badge
-       on everyone who has not been done yet is noise. */
+    const department = normStr(pickField(row, ['Department']));
+    const sector = normStr(pickField(row, ['Sector']));
     const level = normStr(pickField(row, ['Level', 'Grade']));
-    if (elRLevel) {
-      elRLevel.textContent = level ? `Level: ${level}` : '';
-      elRLevel.hidden = !level;
+    if (elRMeta) {
+      const bits = [
+        code ? `Code: ${code}` : '',
+        title,
+        department,
+        sector,
+        level ? `Level: ${level}` : '',
+      ].filter(Boolean);
+      elRMeta.textContent = bits.join('  •  ') || '—';
     }
 
     if (elRMobile) elRMobile.textContent = mobile || '—';
@@ -308,7 +308,7 @@
 
     const pattern = `"*${safe}*"`;
     const params = new URLSearchParams({
-      select: 'code,name,title,department,site,email,company_mobile,office_number,level',
+      select: 'code,name,title,department,sector,site,email,company_mobile,office_number,level',
       or: `(name.ilike.${pattern},title.ilike.${pattern},code_text.ilike.${pattern})`,
       order: 'code.asc',
       limit: String(SEARCH_LIMIT),
@@ -330,6 +330,7 @@
         'Name': r.name,
         'Title': r.title,
         'Department': r.department,
+        'Sector': r.sector,
         'Site': r.site,
         'Email': r.email,
         'Mobile Number': r.company_mobile,
