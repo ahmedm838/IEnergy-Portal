@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import EmployeeSearch from '../components/EmployeeSearch'
 import PeriodLabel from '../components/PeriodLabel'
 import ColumnFilterTh from '../components/ColumnFilterTh'
+import WhatsAppButton, { whatsAppNumber, leaveBalanceMessage } from '../components/WhatsAppButton'
 import { supabase, run } from '../lib/supabase'
 import { useLookups, useEmployees } from '../lib/useLookups'
 import { exportEmployeeReport, prefetchExcel } from '../lib/exportXlsx'
@@ -350,6 +351,26 @@ export default function EmployeeReport() {
 
   const employee = employees.find((e) => e.id === employeeId) || null
 
+  /* The same leave balance message the Employees page sends, from this
+     report's figures: the three balances, then the other leaves taken,
+     named in Arabic as Settings has them. */
+  const whatsAppMessage = useMemo(() => {
+    if (!summary || !employee) return null
+    const arabic = ['اعتيادي', 'عارضة', 'بدل راحة']
+    const n = (v) => num(v, 0)
+    const byName = new Map([...(lookups.typeById?.values() ?? [])].map((t) => [t.name_en, t.name_ar]))
+    return leaveBalanceMessage({
+      name: employee.arabic_name || employee.name,
+      year: String(summary.leave_year?.from ?? '').slice(0, 4),
+      rows: (summary.balances ?? []).map((b, i) =>
+        [arabic[i] ?? b.label, n(b.balance), n(b.consumed), n(b.remaining)]),
+      others: (summary.other_leave_types ?? [])
+        .filter((t) => Number(t.days) > 0)
+        .map((t) => [t.name_ar || byName.get(t.name_en) || t.name_en, n(t.days)]),
+    })
+  }, [summary, employee, lookups.typeById])
+
+
   /**
    * Hours owed mean nothing for someone paid overtime.
    *
@@ -667,8 +688,13 @@ export default function EmployeeReport() {
 
             <Card>
               <CardHeader
-                title="Leave balances"
+                title="Leaves balance"
                 subtitle={`Calendar year ${dateLabel(summary.leave_year.from)} to ${dateLabel(summary.leave_year.to)}`}
+                actions={
+                  <span className="no-print">
+                    <WhatsAppButton phone={whatsAppNumber(employee)} message={whatsAppMessage} />
+                  </span>
+                }
               />
               <table className="w-full">
                 <thead>
