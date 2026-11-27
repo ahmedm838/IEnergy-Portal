@@ -163,24 +163,43 @@ export function custodyValues(emp, d, inputs = {}) {
 
 /* A memo to the legal affairs manager referring the loss of an
    employee's custody for investigation. The date and the employee's
-   details are filled; the custody's description, serial number, the
-   dates it was received and found lost, and the signature are written
-   by hand on the dotted lines. */
+   details come from the record; the custody's description (6) and serial
+   number (7) are typed, the dates it was received (8) and found lost (9)
+   set here, and the department manager (10) chosen from the employees.
+   Only the signature is written by hand. */
 export function custodyLossDates(emp, set = {}, today = todayUTC()) {
   return {
     today: has(set, 'today') ? set.today : today,
     hired: emp ? parseISO(emp.hired_on) : null,
+    received: has(set, 'received') ? set.received : null,
+    lost: has(set, 'lost') ? set.lost : null,
   }
 }
 
-export function custodyLossValues(emp, d) {
+export function custodyLossValues(emp, d, inputs = {}) {
+  const serial = String(inputs.serial || '').trim()
   return {
     1: arDate(d.today),
     2: emp?.arabic_name || '',
     3: jobTitle(emp),
     4: department(emp),
     5: arDate(d.hired),
+    6: String(inputs.item || '').trim(),
+    // "إن وجد": left empty, the memo says there is none.
+    7: serial || 'لا يوجد',
+    8: arDate(d.received),
+    9: arDate(d.lost),
+    10: inputs.manager || '',
   }
+}
+
+/* The loss is found after the custody was received, and neither after
+   the memo's date. */
+export function custodyLossCheck(emp, d) {
+  if (d.received && d.lost && d.lost < d.received) return 'تاريخ اكتشاف الفقد قبل تاريخ استلام العهدة.'
+  if (d.today && d.lost && d.lost > d.today) return 'تاريخ اكتشاف الفقد بعد تاريخ المذكرة.'
+  if (d.today && d.received && d.received > d.today) return 'تاريخ استلام العهدة بعد تاريخ المذكرة.'
+  return ''
 }
 
 /* --- Hiring request (طلب تعيين) --------------------------------------- */
@@ -391,22 +410,35 @@ const DOCUMENTS = [
     id: 'custody-loss',
     title: 'مذكرة إدارية (فقد عهدة)',
     subtitle: 'Lost custody memo',
-    template: 'templates/custody-loss.docx?v=8',
+    template: 'templates/custody-loss.docx?v=9',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
     fields: {
       1: 'تاريخ المذكرة', 2: 'الاسم بالعربية', 3: 'الوظيفة', 4: 'الإدارة', 5: 'تاريخ التعيين',
+      6: 'بيان العهدة المفقودة', 7: 'الرقم المسلسل', 8: 'تاريخ استلام العهدة', 9: 'تاريخ اكتشاف الفقد',
+      10: 'مدير الإدارة',
     },
+    // The description may run onto a second line.
+    wrap: [6],
     dates: custodyLossDates,
     values: custodyLossValues,
+    check: custodyLossCheck,
     info: [
       [3, 'الوظيفة'],
       [4, 'الإدارة'],
       [5, 'تاريخ التعيين'],
     ],
-    dateFields: [['today', 'تاريخ المذكرة', [1]]],
-    inputs: [],
+    dateFields: [
+      ['today', 'تاريخ المذكرة', [1]],
+      ['received', 'تاريخ استلام العهدة', [8]],
+      ['lost', 'تاريخ اكتشاف الفقد', [9]],
+    ],
+    inputs: [
+      ['item', 'بيان العهدة المفقودة (الاسم والمواصفات)', 'text', [6], 'مثال: لابتوب Dell Latitude 5420، معالج i5، رام 16 جيجا'],
+      ['serial', 'الرقم المسلسل (إن وجد)', 'text', [7], 'اتركه فارغًا إن لم يوجد، ويُكتب «لا يوجد».'],
+      ['manager', 'مدير الإدارة', 'person', [10]],
+    ],
   },
   {
     id: 'hiring-request',
