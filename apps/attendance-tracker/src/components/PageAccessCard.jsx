@@ -153,7 +153,6 @@ export default function PageAccessCard({ readOnly }) {
                 <tr className="border-b border-line">
                   <Th className="w-24" title="Place on the main page">Order</Th>
                   <Th>Page</Th>
-                  <Th>What it shows</Th>
                   {ROLES.map(([role, label]) => (
                     <Th key={role} className="text-center">{label}</Th>
                   ))}
@@ -176,7 +175,6 @@ export default function PageAccessCard({ readOnly }) {
                         </div>
                       </Td>
                       <PageName label={p.label} page={page} fixed={p.fixed} />
-                      <About text={p.about} />
                       {ROLES.map(([role, roleLabel]) => {
                         if (p.fixed) {
                           return <Td key={role} className="text-center">{tick(false, { disabled: true, 'aria-label': 'Not available' })}</Td>
@@ -232,11 +230,5 @@ function PageName({ label, page, fixed = false }) {
       </div>
       <div className="font-mono text-xs text-ink-4">{page}</div>
     </Td>
-  )
-}
-
-function About({ text }) {
-  return (
-    <Td className="min-w-[16rem] whitespace-normal text-xs leading-relaxed text-ink-3">{text}</Td>
   )
 }
