@@ -97,33 +97,65 @@ export function penaltyValues(emp, d) {
 
 /* --- Custody receipt (إقرار استلام عهدة) ------------------------------- */
 
-/* Dated today unless the user sets it; the hiring date and the ID issue
-   month are the ones on the record. */
+/* Dated today unless the user sets it. The hiring date is the record's;
+   the ID card's issue date starts as the record's and can be set here
+   (month and year, as the card has it), for a record that lacks it. */
 export function custodyDates(emp, set = {}, today = todayUTC()) {
   return {
     today: has(set, 'today') ? set.today : today,
     hired: emp ? parseISO(emp.hired_on) : null,
-    idIssued: emp ? parseISO(emp.id_issue_date) : null,
+    idIssued: has(set, 'idIssued') ? set.idIssued : (emp ? parseISO(emp.id_issue_date) : null),
   }
 }
 
-/* The employee's details at the top and their name above the signature;
-   (9) is the manager of the department responsible, chosen from the
-   employees. The equipment table and both signatures are filled in by
-   hand. */
+/* The equipment handed over: five rows of description, specifications,
+   model and serial number, and notes, blanks (11) to (30) row by row,
+   typed on the form. Rows left empty print empty; at least one row is
+   needed, and a row used needs its description (custodyCheck). */
+const CUSTODY_TABLE = {
+  title: 'الأجهزة والمعدات المسلّمة (صف واحد على الأقل)',
+  first: 11,
+  rows: 5,
+  cols: [['item', 'وصف المعدة / الجهاز', 'text'], ['specs', 'المواصفات', 'text'], ['model', 'الموديل والرقم المسلسل', 'text'], ['notes', 'ملاحظات', 'text']],
+}
+const CUSTODY_CELLS = Array.from({ length: CUSTODY_TABLE.rows * CUSTODY_TABLE.cols.length }, (_, i) => CUSTODY_TABLE.first + i)
+const custodyCell = (inputs, r, col) => String(inputs[`ref${r}_${col}`] || '').trim()
+
+export function custodyCheck(emp, d, inputs = {}) {
+  const rows = Array.from({ length: CUSTODY_TABLE.rows }, (_, r) => CUSTODY_TABLE.cols.map(([col]) => custodyCell(inputs, r, col)))
+  const used = rows.map((cells, r) => [r, cells]).filter(([, cells]) => cells.some(Boolean))
+  if (!used.length) return 'أدخل صفًا واحدًا على الأقل في جدول الأجهزة والمعدات.'
+  const noItem = used.filter(([, cells]) => !cells[0]).map(([r]) => toArabicDigits(r + 1))
+  if (noItem.length) return `أدخل وصف المعدة / الجهاز في الصف ${noItem.join('، ')} من الجدول.`
+  return ''
+}
+
+/* The employee's details at the top, with only the last four digits of
+   the national ID ("بطاقة رقم قومي منتهية بـ"), and their name above the
+   signature. The direct manager (10) and whoever hands the custody over
+   (9) are chosen from the employees; the equipment table is typed. */
 export function custodyValues(emp, d, inputs = {}) {
   const name = emp?.arabic_name || ''
+  const id = String(emp?.national_id || '').replace(/\D/g, '')
+  const table = {}
+  for (let r = 0; r < CUSTODY_TABLE.rows; r++) {
+    CUSTODY_TABLE.cols.forEach(([col], c) => {
+      table[CUSTODY_TABLE.first + r * CUSTODY_TABLE.cols.length + c] = custodyCell(inputs, r, col)
+    })
+  }
   return {
     1: arDate(d.today),
     2: name,
-    3: toArabicDigits(emp?.national_id || ''),
-    // "صادرة بتاريخ": the card's issue month, as the hiring contract prints it.
+    3: id.length >= 4 ? toArabicDigits(id.slice(-4)) : '',
+    // "صادرة بتاريخ": the card's issue month, as the card has it.
     4: arMonth(d.idIssued),
     5: jobTitle(emp),
     6: department(emp),
     7: arDate(d.hired),
     8: name,
-    9: inputs.manager || '',
+    9: inputs.handover || '',
+    10: inputs.manager || '',
+    ...table,
   }
 }
 
@@ -320,25 +352,40 @@ const DOCUMENTS = [
     id: 'custody',
     title: 'إقرار استلام عهدة',
     subtitle: 'Custody receipt',
-    template: 'templates/custody.docx?v=6',
+    template: 'templates/custody.docx?v=7',
     // The company letterhead: logo and title in the header, address in the
     // footer printed as it is, as on the performance evaluation.
     keepFooter: true,
     fields: {
-      1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'شهر وسنة إصدار البطاقة',
-      5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية', 9: 'مدير الإدارة المسئولة',
+      1: 'تاريخ الإقرار', 2: 'الاسم بالعربية', 3: 'الرقم القومي', 4: 'تاريخ إصدار البطاقة',
+      5: 'الوظيفة', 6: 'الإدارة', 7: 'تاريخ التعيين', 8: 'الاسم بالعربية',
+      9: 'المسئول عن تسليم العهدة', 10: 'المدير المباشر',
+      // One name for the whole table, so a missing box reads as one line.
+      ...Object.fromEntries(CUSTODY_CELLS.map((n) => [n, 'جدول الأجهزة والمعدات'])),
     },
+    refTable: CUSTODY_TABLE,
+    // Rows may be left empty (they print empty); custodyCheck asks for
+    // at least one, with its description.
+    optional: CUSTODY_CELLS,
+    // What is typed in the table may run onto a second line in its cell.
+    wrap: CUSTODY_CELLS,
     dates: custodyDates,
     values: custodyValues,
+    check: custodyCheck,
     info: [
-      [3, 'الرقم القومي'],
-      [4, 'تاريخ إصدار البطاقة'],
+      [3, 'الرقم القومي (آخر ٤ أرقام)'],
       [5, 'الوظيفة'],
       [6, 'الإدارة'],
       [7, 'تاريخ التعيين'],
     ],
-    dateFields: [['today', 'تاريخ الإقرار', [1]]],
-    inputs: [['manager', 'مدير الإدارة المسئولة', 'person', [9]]],
+    dateFields: [
+      ['today', 'تاريخ الإقرار', [1]],
+      ['idIssued', 'تاريخ إصدار البطاقة', [4], { month: true }],
+    ],
+    inputs: [
+      ['manager', 'المدير المباشر', 'person', [10]],
+      ['handover', 'المسئول عن تسليم العهدة', 'person', [9]],
+    ],
   },
   {
     id: 'custody-loss',
