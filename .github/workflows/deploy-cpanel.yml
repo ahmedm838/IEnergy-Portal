@@ -167,6 +167,25 @@ jobs:
           rsync -av apps/attendance-tracker/dist/ _site/attendance-tracker/
           rsync -av apps/leave-manager/frontend/dist/ _site/leave-manager/
 
+      # The Form Designer's Replace (api/form-template.php) writes the new
+      # template on the server and, when it has a GitHub token, commits it
+      # here too, so this repository keeps the live forms. The token comes
+      # from the repository secret FORM_DESIGNER_GITHUB_TOKEN: a
+      # fine-grained token for this repository alone with Contents: Read
+      # and write. Without the secret this step does nothing and Replace
+      # still works; GitHub is just not updated.
+      #
+      # It is a PHP file so that, fetched by URL, it runs and prints
+      # nothing; .htaccess refuses it outright as well.
+      - name: Give the server its GitHub token
+        shell: bash
+        env:
+          FD_TOKEN: ${{ secrets.FORM_DESIGNER_GITHUB_TOKEN }}
+        run: |
+          if [ -z "$FD_TOKEN" ]; then echo "No FORM_DESIGNER_GITHUB_TOKEN: skipped."; exit 0; fi
+          case "$FD_TOKEN" in *[!A-Za-z0-9_]*) echo "::error::FORM_DESIGNER_GITHUB_TOKEN has unexpected characters."; exit 1 ;; esac
+          printf "<?php\nreturn ['github_token' => '%s'];\n" "$FD_TOKEN" > _site/api/form-designer-config.php
+
       - name: Check the tracker points at the right Supabase project
         shell: bash
         run: |

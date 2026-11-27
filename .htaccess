@@ -100,6 +100,12 @@ Options -Indexes
   Require all denied
 </FilesMatch>
 
+# The Form Designer's server-side GitHub token (written by the deploy
+# workflow). A PHP file, so it prints nothing if run; refused anyway.
+<Files "form-designer-config.php">
+  Require all denied
+</Files>
+
 # The apps route on the hash, so no rewrite rules are needed for deep
 # links: the server only ever sees the directory's index.html.
 DirectoryIndex index.html

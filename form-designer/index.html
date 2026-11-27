@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="../responsive.css?v=2" />
   <link rel="stylesheet" href="../home.css?v=24" />
   <link rel="stylesheet" href="../vendor/superdoc-2.35.0/superdoc.css" />
-  <link rel="stylesheet" href="form-designer.css?v=2" />
+  <link rel="stylesheet" href="form-designer.css?v=3" />
   <script src="../theme.js?v=4"></script>
 </head>
 <body>
@@ -56,7 +56,6 @@
         </div>
         <select id="formSelect" class="fd-select" dir="rtl" aria-label="Form"><option>Loading forms…</option></select>
         <span class="fd-spacer"></span>
-        <button type="button" class="btn" id="tokenBtn" title="GitHub access used by Replace">GitHub access</button>
         <span id="themeSlot"></span>
         <a class="btn" href="../">Main page</a>
         <button id="logoutBtn" class="btn" type="button">Sign out</button>
@@ -87,38 +86,13 @@
     </div>
   </main>
 
-  <!-- GitHub access: a token kept in this browser only. -->
-  <dialog id="tokenDialog" class="fd-dialog">
-    <form method="dialog">
-      <h3>GitHub access</h3>
-      <p>Replace writes the Word file to the portal's GitHub repository. It needs a
-        fine-grained personal access token, kept in this browser only.</p>
-      <ol>
-        <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → Settings → Fine-grained tokens → Generate new token</a>.</li>
-        <li>Repository access: <b>Only select repositories</b> → <b>ienergy-portal</b>.</li>
-        <li>Permissions: <b>Contents: Read and write</b>. Add <b>Actions: Read and write</b> to deploy to the live site from here.</li>
-        <li>Generate, copy the token and paste it below.</li>
-      </ol>
-      <input id="tokenInput" class="auth-input" type="password" placeholder="github_pat_…" autocomplete="off" />
-      <label class="fd-check-label"><input type="checkbox" id="tokenRemember" checked /> Remember on this computer</label>
-      <p id="tokenMsg" class="fd-msg"></p>
-      <div class="fd-dialog-actions">
-        <button type="button" class="btn" id="tokenForget">Forget token</button>
-        <span class="fd-spacer"></span>
-        <button value="cancel" class="btn">Close</button>
-        <button type="button" class="btn primary" id="tokenSave">Save</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- Replace: what will happen, and whether to deploy. -->
+  <!-- Replace: what will happen. -->
   <dialog id="replaceDialog" class="fd-dialog">
     <form method="dialog">
       <h3>Replace on portal</h3>
       <p id="replaceWhat"></p>
       <div id="replaceWarn" class="fd-warn" hidden></div>
-      <label class="fd-check-label"><input type="checkbox" id="deployNow" checked /> Deploy to the live site now (runs “Deploy to cPanel”)</label>
-      <p class="fd-msg">The old file stays in GitHub's history, so a replace can always be undone.</p>
+      <p class="fd-msg">The portal uses your file as soon as you press Replace. The old file is kept in a backup on the server, so a replace can always be undone.</p>
       <p id="replaceMsg" class="fd-msg"></p>
       <div class="fd-dialog-actions">
         <span class="fd-spacer"></span>
@@ -129,6 +103,6 @@
   </dialog>
 
   <script src="../auth.js?v=17"></script>
-  <script type="module" src="form-designer.js?v=3"></script>
+  <script type="module" src="form-designer.js?v=4"></script>
 </body>
 </html>

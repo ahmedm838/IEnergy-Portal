@@ -2121,6 +2121,24 @@ const templateCache = new Map()
    is being edited is drawn exactly as the live form would be. */
 const templateOverrides = new Map()
 const templatePath = (url) => String(url || '').split('?')[0]
+/* A template replaced from the Form Designer is written straight to the
+   server (api/form-template.php), which records a stamp for it in
+   templates/versions.json. The stamp goes on the template's address, so
+   a cache in front of the site cannot keep serving the old file. The
+   list itself is read at a new address every time for the same reason.
+   No list, or an unreadable one, just means no stamps. */
+let templateVersions = null
+function loadTemplateVersions() {
+  templateVersions ??= fetch(`templates/versions.json?t=${Date.now()}`, { cache: 'no-store' })
+    .then((res) => (res.ok ? res.json() : {}))
+    .catch(() => ({}))
+  return templateVersions
+}
+async function templateUrl(url) {
+  const stamp = (await loadTemplateVersions())?.[templatePath(url)]
+  if (!stamp) return url
+  return `${url}${String(url).includes('?') ? '&' : '?'}r=${encodeURIComponent(stamp)}`
+}
 async function loadTemplate(def, off = 0) {
   const url = def.template
   const over = templateOverrides.get(templatePath(url))
@@ -2130,7 +2148,7 @@ async function loadTemplate(def, off = 0) {
       let data
       if (over) data = over.data
       else {
-        const res = await fetch(url, { cache: 'no-cache' })
+        const res = await fetch(await templateUrl(url), { cache: 'no-cache' })
         if (!res.ok) throw new Error(`Template not found (${res.status})`)
         data = await res.arrayBuffer()
       }
@@ -3266,7 +3284,7 @@ export function fillWordXml(xml, values) {
 
 async function saveWord() {
   const def = state.def
-  const res = await fetch(def.template, { cache: 'no-cache' })
+  const res = await fetch(await templateUrl(def.template), { cache: 'no-cache' })
   if (!res.ok) throw new Error(`Template not found (${res.status})`)
   const zip = await JSZip.loadAsync(await res.arrayBuffer())
   const values = state.values || {}

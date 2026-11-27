@@ -76,3 +76,16 @@ body { margin: 0; }
   .fd-split { grid-template-columns: 1fr; grid-template-rows: 1fr 6px 1fr; }
   .fd-resizer { cursor: default; }
 }
+
+/* Right-to-left lines in the editor. SuperDoc 2.35 sets dir="rtl" and
+   flex-direction: row-reverse on them, which cancel out and lay an Arabic
+   line's runs left to right. Here the row runs right to left, and the
+   left margins SuperDoc spaces the runs with (worked out for its
+   left-to-right order) are dropped: the line's own alignment places
+   them instead. The list number and its gap are moved to the right in
+   form-designer.js (watchRtl). !important because SuperDoc adds its own
+   stylesheet after this one. */
+.fd-editor .ts-line.ts-line-box[dir=rtl] { flex-direction: row !important; justify-content: flex-start !important; }
+.fd-editor .ts-line.ts-line-box[dir=rtl][style*="text-align: center"] { justify-content: center !important; }
+.fd-editor .ts-line.ts-line-box[dir=rtl][style*="text-align: left"] { justify-content: flex-end !important; }
+.fd-editor .ts-line.ts-line-box[dir=rtl] > * { margin-left: 0 !important; }

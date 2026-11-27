@@ -6,16 +6,15 @@
      engine the portal uses -- same layout, pages and blanks. Each edit
      on the right is saved to a Word file in memory and handed to the
      frame, which redraws the form a moment after typing stops.
-   - "Replace on portal" writes that Word file over the template in the
-     GitHub repository (one commit, so GitHub's history can undo it) and
-     can start the "Deploy to cPanel" workflow. It uses a fine-grained
-     token the super admin pastes in once, kept in this browser only.
+   - "Replace on portal" sends that Word file to the server
+     (api/form-template.php), which checks the user is a super admin,
+     backs up the live template and writes the new one over it: live at
+     once, no deploy, and no GitHub token in the browser. When the server
+     has a GitHub token of its own it commits the file to the repository
+     too.
 */
 
-const REPO = 'ahmedm838/ienergy-portal'
-const BRANCH = 'main'
-const DEPLOY_WORKFLOW = 'deploy-cpanel.yml'
-const TOKEN_KEY = 'ienergy.formDesigner.githubToken'
+const REPLACE_API = '../api/form-template.php'
 const PAGES = {
   hr: { dir: 'hr-documents', label: 'HR Documents' },
   employee: { dir: 'employee-documents', label: 'Employee Documents' },
@@ -198,6 +197,8 @@ function closeEditor() {
   clearTimeout(state.quiet)
   try { state.editor?.destroy() } catch (_) {}
   state.editor = null
+  state.unwatchRtl?.()
+  state.unwatchRtl = null
   $('downloadBtn').disabled = true
   $('toolbar').innerHTML = ''
   $('editorHost').innerHTML = '<p class="fd-empty">Choose a form above to start editing.</p>'
@@ -228,6 +229,7 @@ async function openInEditor(buf, name, { changed = false } = {}) {
   const host = document.createElement('div')
   host.id = `doc${id}`
   $('editorHost').appendChild(host)
+  state.unwatchRtl = watchRtl(host)
   status(`Opening ${name}…`, true)
   const file = new File([buf], name, { type: DOCX_TYPE })
   await new Promise((resolve, reject) => {
@@ -259,7 +261,10 @@ async function openInEditor(buf, name, { changed = false } = {}) {
 
 async function loadLive() {
   const f = state.form
-  const res = await fetch(`../${PAGES[state.page].dir}/${f.template}`, { cache: 'no-cache' })
+  // A new address each time: a template just replaced must not come
+  // back from a cache in front of the site.
+  const sep = f.template.includes('?') ? '&' : '?'
+  const res = await fetch(`../${PAGES[state.page].dir}/${f.template}${sep}t=${Date.now()}`, { cache: 'no-store' })
   if (!res.ok) throw new Error(`Could not get the live file (${res.status})`)
   const buf = await res.arrayBuffer()
   if (state.form !== f) return
@@ -382,75 +387,69 @@ function wireResizer() {
 }
 
 /* ------------------------------------------------------------------ */
-/* GitHub                                                               */
+/* Right-to-left lines in the editor                                    */
 /* ------------------------------------------------------------------ */
 
-function getToken() {
-  try { return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || '' } catch (_) { return '' }
-}
-function setToken(token, remember) {
-  try {
-    localStorage.removeItem(TOKEN_KEY)
-    sessionStorage.removeItem(TOKEN_KEY)
-    if (token) (remember ? localStorage : sessionStorage).setItem(TOKEN_KEY, token)
-  } catch (_) {}
+/* SuperDoc 2.35 draws a right-to-left line as a flex row with
+   dir="rtl" AND flex-direction: row-reverse. The two cancel out, so the
+   runs of an Arabic line -- each bold word, each colon, each "(3)" is
+   its own run -- come out left to right: the words of a sentence in the
+   wrong order, and nothing like the preview or Word. form-designer.css
+   puts the row the right way round (.fd-editor rules) and drops the
+   left-to-right spacing SuperDoc gives the runs; the rest is here:
+
+   - A right-to-left paragraph's indent is on its right in Word (w:ind
+     left is the start side), but SuperDoc puts it on the left, so a
+     numbered item has its number on the left of the text. The line is
+     mirrored inside its paragraph.
+   - The list number hangs out past the indent and the text keeps a gap
+     after it; SuperDoc gives both as left margins, which belong on the
+     right.
+
+   Lines are fixed as SuperDoc draws them (it redraws while typing), and
+   each line is fixed once per drawing: its style is remembered, and a
+   line drawn again has a new one. Only the drawing changes; the Word
+   file the editor saves is untouched. */
+const RTL_DONE = 'fdRtl'
+
+function fixRtlLine(line) {
+  if (line.dataset[RTL_DONE] === (line.getAttribute('style') || '')) return
+  const left = parseFloat(line.style.left) || 0
+  const width = parseFloat(line.style.width) || 0
+  const box = line.parentElement?.offsetWidth || 0
+  if (box && width && left > 0.5) line.style.left = `${Math.max(0, box - left - width)}px`
+  const marker = line.querySelector(':scope > .superdoc-list-marker')
+  if (marker) {
+    marker.style.setProperty('margin-right', marker.style.marginLeft || '0px', 'important')
+    let next = marker.nextElementSibling
+    while (next?.classList.contains('superdoc-marker-suffix-tab')) next = next.nextElementSibling
+    if (next?.style.marginLeft) next.style.setProperty('margin-right', next.style.marginLeft, 'important')
+  }
+  line.dataset[RTL_DONE] = line.getAttribute('style') || ''
 }
 
-async function gh(path, { method = 'GET', body, token = getToken() } = {}) {
-  const res = await fetch(`https://api.github.com${path}`, {
-    method,
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
+function watchRtl(host) {
+  let queued = false
+  const run = () => {
+    queued = false
+    for (const line of host.querySelectorAll('.ts-line.ts-line-box[dir=rtl]')) fixRtlLine(line)
+  }
+  const watcher = new MutationObserver(() => {
+    if (!queued) { queued = true; requestAnimationFrame(run) }
   })
-  if (res.status === 204) return null
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const why = res.status === 401 ? 'the token is not valid or has expired'
-      : res.status === 403 || res.status === 404 ? 'the token has no access to this (check its repository and permissions)'
-      : data.message || `GitHub answered ${res.status}`
-    const err = new Error(why)
-    err.status = res.status
-    throw err
-  }
-  return data
+  watcher.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'dir'] })
+  return () => watcher.disconnect()
 }
 
-function toBase64(buf) {
-  const bytes = new Uint8Array(buf)
-  let s = ''
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
-  return btoa(s)
-}
+/* ------------------------------------------------------------------ */
+/* Replace on the portal                                                */
+/* ------------------------------------------------------------------ */
 
-function openTokenDialog(msg = '') {
-  $('tokenInput').value = ''
-  $('tokenInput').placeholder = getToken() ? 'A token is saved — paste a new one to change it' : 'github_pat_…'
-  $('tokenMsg').textContent = msg
-  $('tokenMsg').classList.remove('is-error')
-  $('tokenDialog').showModal()
-}
-
-async function saveToken() {
-  const token = $('tokenInput').value.trim()
-  const msg = $('tokenMsg')
-  if (!token) { msg.textContent = 'Paste a token first.'; msg.classList.add('is-error'); return }
-  msg.textContent = 'Checking…'
-  msg.classList.remove('is-error')
-  try {
-    const repo = await gh(`/repos/${REPO}`, { token })
-    if (repo.permissions && !repo.permissions.push) throw new Error('the token can read the repository but not write to it')
-    setToken(token, $('tokenRemember').checked)
-    msg.textContent = 'Saved.'
-    setTimeout(() => $('tokenDialog').close(), 600)
-  } catch (err) {
-    msg.textContent = `Not saved: ${err.message}.`
-    msg.classList.add('is-error')
-  }
+async function sessionToken() {
+  const supabase = await window.IEnergyAuth.getClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('your sign-in has expired. Sign in again on iEnergy Home')
+  return session.access_token
 }
 
 async function openReplaceDialog() {
@@ -458,7 +457,6 @@ async function openReplaceDialog() {
   if (!f) return
   await flushEdits()
   if (!state.bytes) return
-  if (!getToken()) { openTokenDialog('Add GitHub access first, then press Replace again.'); return }
   const path = `${PAGES[state.page].dir}/${f.template}`
   $('replaceWhat').textContent = `Your edited ${state.fileName} will replace ${path} — ${f.inPack ? `${f.docTitle} ← ${f.title}` : f.docTitle}.`
   const warn = []
@@ -483,39 +481,28 @@ async function replaceOnPortal() {
   if (!f || !state.bytes) return
   go.disabled = true
   msg.classList.remove('is-error')
-  const path = `${PAGES[state.page].dir}/${f.template}`
-  const url = `/repos/${REPO}/contents/${path.split('/').map(encodeURIComponent).join('/')}`
+  msg.textContent = 'Replacing…'
   try {
-    msg.textContent = 'Reading the current file…'
-    let sha
-    try { sha = (await gh(`${url}?ref=${BRANCH}`)).sha } catch (err) { if (err.status !== 404) throw err }
-    msg.textContent = 'Replacing…'
-    const me = window.IEnergyAuth?.getProfile?.()
-    const done = await gh(url, {
-      method: 'PUT',
-      body: {
-        message: `Replace ${f.subtitle || f.title} form template (${f.template.split('/').pop()})${me?.name ? ` — by ${me.name}` : ''}\n\nReplaced from the Form Designer.`,
-        content: toBase64(state.bytes),
-        branch: BRANCH,
-        ...(sha ? { sha } : {}),
-      },
+    const token = await sessionToken()
+    const q = new URLSearchParams({ page: state.page, template: f.template.split('?')[0] })
+    const res = await fetch(`${REPLACE_API}?${q}`, {
+      method: 'POST',
+      // Both: some Apache setups drop Authorization before PHP sees it.
+      headers: { Authorization: `Bearer ${token}`, 'X-Supabase-Token': token, 'Content-Type': DOCX_TYPE },
+      body: state.bytes,
     })
+    let data = null
+    try { data = await res.json() } catch (_) { /* not JSON: the PHP never ran */ }
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || (res.status === 404 ? 'the replace service is not on this server yet (it runs on the cPanel site)' : `the server answered ${res.status}`))
+    }
     state.replaced = true
     state.livePages[f.template] = checkResult()?.part.pages ?? state.livePages[f.template]
-    let text = `Replaced. Commit ${done.commit.sha.slice(0, 7)} is on GitHub.`
-    if ($('deployNow').checked) {
-      msg.textContent = `${text} Starting the deploy…`
-      try {
-        await gh(`/repos/${REPO}/actions/workflows/${DEPLOY_WORKFLOW}/dispatches`, {
-          method: 'POST', body: { ref: BRANCH, inputs: { dry_run: 'false' } },
-        })
-        text += ' Deploy to cPanel started — the live site has it in about a minute.'
-      } catch (err) {
-        text += ` The deploy did not start (${err.message}); run “Deploy to cPanel” in GitHub Actions.`
-      }
-    } else {
-      text += ' It reaches the live site with the next “Deploy to cPanel”.'
-    }
+    const gh = data.github || {}
+    let text = 'Replaced. The live portal uses your file from now on; the old one is kept in a backup on the server.'
+    if (gh.updated) text += gh.commit ? ` Saved to GitHub too (commit ${gh.commit}).` : ' GitHub already had this file.'
+    else if (gh.reason === 'no-token') text += ' GitHub was not updated: the server has no GitHub token yet.'
+    else if (gh.reason) text += ` GitHub was not updated (${gh.reason}).`
     msg.textContent = text
     status(`Replaced on the portal at ${clock()}. Keep editing to make more changes.`)
   } catch (err) {
@@ -540,6 +527,12 @@ function onAuthed() {
     denied.style.display = 'grid'
     return
   }
+  // Replace once used a GitHub token kept in the browser. The server does
+  // that work now, so a token left behind is removed.
+  try {
+    localStorage.removeItem('ienergy.formDesigner.githubToken')
+    sessionStorage.removeItem('ienergy.formDesigner.githubToken')
+  } catch (_) {}
   const toggle = document.querySelector('.theme-toggle')
   if (toggle && $('themeSlot')) $('themeSlot').appendChild(toggle)
   for (const t of document.querySelectorAll('.fd-tab')) {
@@ -566,9 +559,6 @@ function onAuthed() {
   $('revertBtn').addEventListener('click', () => startOver().catch(fail))
   $('replaceBtn').addEventListener('click', () => openReplaceDialog().catch(fail))
   $('replaceGo').addEventListener('click', replaceOnPortal)
-  $('tokenBtn').addEventListener('click', () => openTokenDialog())
-  $('tokenSave').addEventListener('click', saveToken)
-  $('tokenForget').addEventListener('click', () => { setToken(''); $('tokenMsg').textContent = 'Token removed from this browser.' })
   wireResizer()
 
   window.addEventListener('beforeunload', (e) => {
