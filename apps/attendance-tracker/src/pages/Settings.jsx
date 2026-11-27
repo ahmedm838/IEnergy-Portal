@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase, run } from '../lib/supabase'
 import { useLookups } from '../lib/useLookups'
 import { useAuth } from '../lib/auth'
@@ -60,6 +61,11 @@ export default function Settings() {
   // disabled control rather than a confusing failure after they click.
   const { isSuperAdmin } = useAuth()
   const readOnly = !isSuperAdmin
+  // The open tab rides in the address (?tab=), so a reload or a link
+  // lands on it.
+  const [params, setParams] = useSearchParams()
+  const tab = TABS.some((t) => t.id === params.get('tab')) ? params.get('tab') : TABS[0].id
+  const setTab = (id) => setParams((p) => { p.set('tab', id); return p }, { replace: true })
   const [mealRate, setMealRate] = useState('')
   const [hoursPerDay, setHoursPerDay] = useState('')
   const [lateGrace, setLateGrace] = useState('')
@@ -364,21 +370,6 @@ export default function Settings() {
         <p className="text-sm text-ink-3">
           Reference data from the workbook. Changes take effect on the next report run.
         </p>
-        {/* The Form Designer replaces the Word templates every HR and
-            employee document is printed from: super admins only. */}
-        {isSuperAdmin && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="ms-auto"
-            href="../form-designer/"
-            target="_blank"
-            rel="noopener"
-            title="Edit the HR and Employee Documents forms in Word, preview them live, then replace them on the portal"
-          >
-            Form Designer ↗
-          </Button>
-        )}
       </div>
 
       {readOnly && (
@@ -391,61 +382,56 @@ export default function Settings() {
       {error && <Alert tone="error" onDismiss={() => setError(null)}>{error}</Alert>}
       {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
 
-      {/* Payroll constants and the change log side by side at the top.
-          The log is not gated on readOnly: reading it is exactly what an
-          admin who is not a super admin should be able to do, and the
-          policy on audit_log says so too. Nothing on that card writes. */}
-      <div className="grid items-start gap-5 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Payroll constants" />
-          <form className="grid gap-4 p-5 sm:grid-cols-2" onSubmit={saveSettings}>
-            <Field
-              label={`Meal allowance (${lookups.currency} per meal unit)`}
-              hint="Default for the monthly report; can be overridden per run."
-            >
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={mealRate}
-                disabled={readOnly}
-                onChange={(e) => setMealRate(e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Required hours per working day"
-              hint="The workbook's literal 8. Drives required hours and every deduction formula."
-            >
-              <Input
-                type="number"
-                step="0.5"
-                min="1"
-                value={hoursPerDay}
-                disabled={readOnly}
-                onChange={(e) => setHoursPerDay(e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Late hours forgiven per period"
-              hint="Lateness beyond this is added to Deducted Hours on the monthly report."
-            >
-              <Input
-                type="number"
-                step="0.25"
-                min="0"
-                value={lateGrace}
-                disabled={readOnly}
-                onChange={(e) => setLateGrace(e.target.value)}
-              />
-            </Field>
-            <div className="flex items-end">
-              <Button type="submit" disabled={readOnly}>Save</Button>
-            </div>
-          </form>
-        </Card>
+      <Tabs tab={tab} setTab={setTab} />
 
-        <ChangeLogCard />
-      </div>
+      <TabPanel id="attendance" tab={tab}>
+      <Card>
+        <CardHeader title="Payroll constants" />
+        <form className="grid gap-4 p-5 sm:grid-cols-2" onSubmit={saveSettings}>
+          <Field
+            label={`Meal allowance (${lookups.currency} per meal unit)`}
+            hint="Default for the monthly report; can be overridden per run."
+          >
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={mealRate}
+              disabled={readOnly}
+              onChange={(e) => setMealRate(e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Required hours per working day"
+            hint="The workbook's literal 8. Drives required hours and every deduction formula."
+          >
+            <Input
+              type="number"
+              step="0.5"
+              min="1"
+              value={hoursPerDay}
+              disabled={readOnly}
+              onChange={(e) => setHoursPerDay(e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Late hours forgiven per period"
+            hint="Lateness beyond this is added to Deducted Hours on the monthly report."
+          >
+            <Input
+              type="number"
+              step="0.25"
+              min="0"
+              value={lateGrace}
+              disabled={readOnly}
+              onChange={(e) => setLateGrace(e.target.value)}
+            />
+          </Field>
+          <div className="flex items-end">
+            <Button type="submit" disabled={readOnly}>Save</Button>
+          </div>
+        </form>
+      </Card>
 
       <LockedPeriods readOnly={readOnly} />
 
@@ -654,119 +640,157 @@ export default function Settings() {
         )}
       </Card>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Sites" subtitle="Unavailable sites cannot be assigned to new employees." />
-          <table className="w-full">
-            <tbody className="divide-y divide-line">
-              {lookups.sites?.map((s) => (
-                <tr key={s.id}>
-                  <Td className="font-medium text-ink">
-                    {editingSite?.id === s.id && !readOnly ? (
-                      <form className="flex flex-wrap gap-2" onSubmit={(event) => saveSite(event, editingSite)}>
-                        <Input
-                          aria-label="Site name"
-                          value={editingSite.name}
-                          disabled={siteBusy}
-                          autoFocus
-                          onChange={(event) => setEditingSite({ ...editingSite, name: event.target.value })}
-                        />
-                        <Button type="submit" size="sm" disabled={siteBusy || !editingSite.name.trim()}>Save</Button>
-                        <Button type="button" variant="ghost" size="sm" disabled={siteBusy} onClick={() => setEditingSite(null)}>Cancel</Button>
-                      </form>
-                    ) : (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span>{s.name}</span>
-                        {!readOnly && (
-                          <Button variant="ghost" size="sm" disabled={siteBusy} onClick={() => setEditingSite({ id: s.id, name: s.name })}>
-                            Rename
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </Td>
-                  <Td className="text-right">
-                    <Checkbox
-                      label={s.available ? 'Available' : 'Unavailable'}
-                      checked={s.available}
-                      disabled={readOnly || siteBusy}
-                      onChange={() => toggleSiteAvailable(s)}
-                    />
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!readOnly && (
-            <form className="flex flex-wrap items-end gap-2 p-5" onSubmit={saveSite}>
-              <Field label="New site name" className="min-w-0 flex-1">
-                <Input value={newSiteName} disabled={siteBusy} onChange={(event) => setNewSiteName(event.target.value)} />
-              </Field>
-              <Button type="submit" size="sm" disabled={siteBusy || !newSiteName.trim()}>Add site</Button>
-            </form>
-          )}
-        </Card>
+      <Card>
+        <CardHeader
+          title="Employee statuses"
+          subtitle="Payable statuses appear in the monthly report, recordable ones can have attendance saved, and active ones mean the employee is still with the company."
+        />
+        <table className="w-full">
+          <tbody className="divide-y divide-line">
+            {lookups.statuses?.map((s) => (
+              <tr key={s.id}>
+                <Td className="font-medium text-ink">{s.name}</Td>
+                <Td className="text-right">
+                  <Checkbox
+                    label={s.in_payroll ? 'In payroll' : 'Excluded'}
+                    checked={s.in_payroll}
+                    disabled={readOnly}
+                    onChange={() => togglePayroll(s)}
+                  />
+                </Td>
+                <Td className="text-right">
+                  <Checkbox
+                    label="Can be recorded"
+                    checked={s.allows_records}
+                    disabled={readOnly}
+                    onChange={() => toggleRecordable(s)}
+                  />
+                </Td>
+                <Td className="text-right">
+                  <Checkbox
+                    label="Counts as active"
+                    checked={s.counts_as_active}
+                    disabled={readOnly}
+                    onChange={() => toggleActiveStatus(s)}
+                  />
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="px-5 pb-5 pt-1 text-xs text-ink-4">
+          An employee can only have attendance or adjustments saved when they are active
+          <em> and</em> hold a status ticked here. Note that leave days are themselves attendance
+          records, so if you move people to a status such as “On Leave” while they are away, that
+          status needs ticking or their leave cannot be entered.
+        </p>
+      </Card>
+      </TabPanel>
 
-        <Card>
-          <CardHeader
-            title="Employee statuses"
-            subtitle="Payable statuses appear in the monthly report, recordable ones can have attendance saved, and active ones mean the employee is still with the company."
-          />
-          <table className="w-full">
-            <tbody className="divide-y divide-line">
-              {lookups.statuses?.map((s) => (
-                <tr key={s.id}>
-                  <Td className="font-medium text-ink">{s.name}</Td>
-                  <Td className="text-right">
-                    <Checkbox
-                      label={s.in_payroll ? 'In payroll' : 'Excluded'}
-                      checked={s.in_payroll}
-                      disabled={readOnly}
-                      onChange={() => togglePayroll(s)}
-                    />
-                  </Td>
-                  <Td className="text-right">
-                    <Checkbox
-                      label="Can be recorded"
-                      checked={s.allows_records}
-                      disabled={readOnly}
-                      onChange={() => toggleRecordable(s)}
-                    />
-                  </Td>
-                  <Td className="text-right">
-                    <Checkbox
-                      label="Counts as active"
-                      checked={s.counts_as_active}
-                      disabled={readOnly}
-                      onChange={() => toggleActiveStatus(s)}
-                    />
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="px-5 pb-5 pt-1 text-xs text-ink-4">
-            An employee can only have attendance or adjustments saved when they are active
-            <em> and</em> hold a status ticked here. Note that leave days are themselves attendance
-            records, so if you move people to a status such as “On Leave” while they are away, that
-            status needs ticking or their leave cannot be entered.
-          </p>
-        </Card>
-      </div>
-
+      <TabPanel id="employees" tab={tab}>
       <DepartmentsCard lookups={lookups} readOnly={readOnly} />
 
+      <Card>
+        <CardHeader title="Sites" subtitle="Unavailable sites cannot be assigned to new employees." />
+        <table className="w-full">
+          <tbody className="divide-y divide-line">
+            {lookups.sites?.map((s) => (
+              <tr key={s.id}>
+                <Td className="font-medium text-ink">
+                  {editingSite?.id === s.id && !readOnly ? (
+                    <form className="flex flex-wrap gap-2" onSubmit={(event) => saveSite(event, editingSite)}>
+                      <Input
+                        aria-label="Site name"
+                        value={editingSite.name}
+                        disabled={siteBusy}
+                        autoFocus
+                        onChange={(event) => setEditingSite({ ...editingSite, name: event.target.value })}
+                      />
+                      <Button type="submit" size="sm" disabled={siteBusy || !editingSite.name.trim()}>Save</Button>
+                      <Button type="button" variant="ghost" size="sm" disabled={siteBusy} onClick={() => setEditingSite(null)}>Cancel</Button>
+                    </form>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>{s.name}</span>
+                      {!readOnly && (
+                        <Button variant="ghost" size="sm" disabled={siteBusy} onClick={() => setEditingSite({ id: s.id, name: s.name })}>
+                          Rename
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </Td>
+                <Td className="text-right">
+                  <Checkbox
+                    label={s.available ? 'Available' : 'Unavailable'}
+                    checked={s.available}
+                    disabled={readOnly || siteBusy}
+                    onChange={() => toggleSiteAvailable(s)}
+                  />
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!readOnly && (
+          <form className="flex flex-wrap items-end gap-2 p-5" onSubmit={saveSite}>
+            <Field label="New site name" className="min-w-0 flex-1">
+              <Input value={newSiteName} disabled={siteBusy} onChange={(event) => setNewSiteName(event.target.value)} />
+            </Field>
+            <Button type="submit" size="sm" disabled={siteBusy || !newSiteName.trim()}>Add site</Button>
+          </form>
+        )}
+      </Card>
+
       <BusRoutesCard lookups={lookups} readOnly={readOnly} />
+      </TabPanel>
 
-      <FinancialGrantsCard lookups={lookups} readOnly={readOnly} />
-
+      <TabPanel id="salary" tab={tab}>
       <SalaryTaxCard readOnly={readOnly} />
+      </TabPanel>
+
+      <TabPanel id="documents" tab={tab}>
+      <Card>
+        <CardHeader
+          title="Form Designer"
+          subtitle="Edit the HR and Employee Documents forms in Word beside a live preview, then replace them on the portal."
+        />
+        <div className="p-5">
+          {/* The Form Designer replaces the Word templates every HR and
+              employee document is printed from: super admins only. */}
+          {isSuperAdmin && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="self-start"
+              href="../form-designer/"
+              target="_blank"
+              rel="noopener"
+              title="Edit the HR and Employee Documents forms in Word, preview them live, then replace them on the portal"
+            >
+              Open Form Designer ↗
+            </Button>
+          )}
+        </div>
+      </Card>
 
       <CompanyDetailsCard readOnly={readOnly} />
 
+      <FinancialGrantsCard lookups={lookups} readOnly={readOnly} />
+      </TabPanel>
+
+      <TabPanel id="access" tab={tab}>
       <PageAccessCard readOnly={readOnly} />
 
       <AccessCard readOnly={readOnly} />
+      </TabPanel>
+
+      {/* Not gated on readOnly: reading it is exactly what an admin who
+          is not a super admin should be able to do, and the policy on
+          audit_log says so too. Nothing on that card writes. */}
+      <TabPanel id="log" tab={tab}>
+      <ChangeLogCard />
+      </TabPanel>
 
     </div>
   )
@@ -840,5 +864,65 @@ function TypeEditRow({ value, onChange, onCancel, onSave }) {
         </div>
       </Td>
     </tr>
+  )
+}
+
+/* Settings in tabs, one for each part of the portal the settings shape.
+   Every tab stays mounted and only the open one shows, so an edit not
+   yet saved survives a look at another tab. */
+const TABS = [
+  { id: 'attendance', label: 'Attendance Tracker', hint: 'Payroll constants, locked periods, attendance types and employee statuses' },
+  { id: 'employees', label: 'Employees Database', hint: 'Departments and sectors, sites and bus routes' },
+  { id: 'salary', label: 'Salary Calculator', hint: 'Salary taxes, S.I. wage limits and shares' },
+  { id: 'documents', label: 'Documents', hint: 'Form Designer, company details and financial grants' },
+  { id: 'access', label: 'Access', hint: 'Page access, roles and passwords' },
+  { id: 'log', label: 'Change log', hint: 'Who changed what, and when' },
+]
+
+function Tabs({ tab, setTab }) {
+  return (
+    <div className="-mx-1 overflow-x-auto px-1" role="tablist" aria-label="Settings sections">
+      <div className="flex min-w-max gap-1 border-b border-line">
+        {TABS.map((t) => {
+          const on = t.id === tab
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={on}
+              aria-controls={`panel-${t.id}`}
+              title={t.hint}
+              onClick={() => setTab(t.id)}
+              className={
+                '-mb-px whitespace-nowrap rounded-t-lg border px-4 py-2 text-sm font-medium transition ' +
+                (on
+                  ? 'border-line border-b-transparent bg-panel text-ink'
+                  : 'border-transparent text-ink-3 hover:bg-hover hover:text-ink-2')
+              }
+            >
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function TabPanel({ id, tab, children }) {
+  return (
+    <div
+      role="tabpanel"
+      id={`panel-${id}`}
+      aria-labelledby={`tab-${id}`}
+      hidden={id !== tab}
+      // The hidden attribute alone loses to a display class, so the class
+      // goes too.
+      className={id === tab ? 'grid grid-cols-1 gap-5' : 'hidden'}
+    >
+      {children}
+    </div>
   )
 }
