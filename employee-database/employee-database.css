@@ -728,18 +728,21 @@ body:has(#app) .container { max-width: 1500px; }
   text-transform: uppercase; letter-spacing: .04em;
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-.employee-print-area .ep-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.employee-print-area .ep-table th,
+/* One table per row of the record, as on screen: cells side by side,
+   each a small grey label over its value; rows of a section join up
+   into one grid of lines. */
+.employee-print-area .ep-table {
+  width: 100%; border-collapse: collapse; table-layout: fixed;
+  margin-top: -1px;
+}
 .employee-print-area .ep-table td {
-  border: 1px solid #999; padding: 2px 4px; vertical-align: top;
+  border: 1px solid #999; padding: 2px 5px 3px; vertical-align: top;
   overflow-wrap: anywhere; text-align: start;
 }
-.employee-print-area .ep-table th {
-  width: 11%; font-weight: 600; color: #333; background: #f5f5f5;
-  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+.employee-print-area .ep-l {
+  font-size: 6.8pt; font-weight: 600; color: #555; line-height: 1.15;
 }
-.employee-print-area .ep-table td { width: 14%; }
-.employee-print-area .ep-table .ep-empty { background: #fff; }
+.employee-print-area .ep-v { font-size: 8.5pt; line-height: 1.25; min-height: 1.25em; }
 
 #app .btn {
   padding: 6px 10px;

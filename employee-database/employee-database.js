@@ -2215,8 +2215,12 @@ function exportRow(e) {
 
 /* The form is laid out for typing into, and on paper it ran to several
    pages. Print builds a separate sheet from what the form holds right
-   now -- saved or not -- as compact label/value tables, four pairs to a
-   row, and scales it down if it still would not fit one page. */
+   now -- saved or not -- laid out as the record is on screen: each
+   section's rows as they stand in the Employee Database, the same fields
+   side by side in the same order and at the same widths, small ones
+   sharing a line and long ones (the address) a line of their own. Each
+   row is a table of label-over-value cells, and the sheet is scaled down
+   if it still would not fit one page. */
 
 const PRINT_PAGE_MM = { width: 190, height: 272 } // A4 less the @page margins
 const MM = 96 / 25.4
@@ -2231,32 +2235,73 @@ function formValueText(input) {
   return String(input.value ?? '').trim() || '—'
 }
 
-/* Rows of [label, value] cells, `per` pairs to a row. */
-function printTable(pairs, per = 4) {
+// Shown on screen: a field the form hides (military service for women,
+// say) is left off the paper too.
+const isShown = (el) => el.getClientRects().length > 0
+
+/* The cells of a section in rows, as the screen lays them out. On a
+   screen wide enough for the record's desktop layout (1000px and up,
+   where every section has its fixed columns) the rows are read from
+   where the cells actually sit; narrower, the sheet falls back to the
+   section's column count, a full-width field alone on its row. */
+function intoRows(cells, perRow) {
+  if (window.innerWidth >= 1000) {
+    /* By their bottom edge: the boxes of a row line up along the bottom,
+       and a label that wraps onto two lines raises its cell's top. */
+    const rows = []
+    for (const cell of cells) {
+      const r = cell.el.getBoundingClientRect()
+      cell.width = r.width
+      const row = rows.find((x) => Math.abs(x.bottom - r.bottom) < 6)
+      if (row) row.cells.push(cell)
+      else rows.push({ bottom: r.bottom, cells: [cell] })
+    }
+    rows.sort((a, b) => a.bottom - b.bottom)
+    return rows.map((x) => x.cells.sort((a, b) => a.el.getBoundingClientRect().left - b.el.getBoundingClientRect().left))
+  }
+  const rows = []
+  let row = []
+  let used = 0
+  for (const cell of cells) {
+    const span = cell.full ? perRow : cell.half ? 2 : 1
+    if (used + span > perRow && row.length) { rows.push(row); row = []; used = 0 }
+    row.push(cell)
+    used += span
+    cell.width = span
+  }
+  if (row.length) rows.push(row)
+  return rows
+}
+
+/* One row: a table of cells, each a small label over its value, the
+   widths shared as on screen. */
+function printRow(cells) {
   const table = document.createElement('table')
   table.className = 'ep-table'
-  for (let i = 0; i < pairs.length; i += per) {
-    const tr = table.insertRow()
-    for (let j = i; j < i + per; j++) {
-      const [label, value] = pairs[j] ?? ['', '']
-      const th = document.createElement('th')
-      th.textContent = label
-      const td = document.createElement('td')
-      td.textContent = value
-      td.dir = 'auto'
-      if (!pairs[j]) { th.className = 'ep-empty'; td.className = 'ep-empty' }
-      tr.append(th, td)
-    }
+  const total = cells.reduce((n, c) => n + (c.width || 1), 0)
+  const tr = table.insertRow()
+  for (const c of cells) {
+    const td = tr.insertCell()
+    td.style.width = `${((c.width || 1) / total) * 100}%`
+    const l = document.createElement('div')
+    l.className = 'ep-l'
+    l.textContent = c.label
+    const v = document.createElement('div')
+    v.className = 'ep-v'
+    v.textContent = c.value
+    v.dir = 'auto'
+    td.append(l, v)
   }
   return table
 }
 
-function printSection(title, pairs, per) {
+function printSection(title, cells, perRow = 4) {
   const section = document.createElement('section')
   section.className = 'ep-section'
   const h = document.createElement('h2')
   h.textContent = title
-  section.append(h, printTable(pairs, per))
+  section.appendChild(h)
+  for (const row of intoRows(cells, perRow)) section.appendChild(printRow(row))
   return section
 }
 
@@ -2290,29 +2335,46 @@ function buildEmployeePrint() {
   head.append(logo, titles, ar)
   area.appendChild(head)
 
-  // The data groups, in the form's own order and with its labels.
+  // The sections, in the form's own order and with its labels.
   for (const group of form.querySelectorAll(':scope > fieldset.db-group')) {
+    if (!isShown(group)) continue
     const title = group.querySelector('legend')?.textContent ?? ''
-    const pairs = []
+    const cells = []
     for (const field of group.querySelectorAll('.db-field')) {
-      const label = (field.querySelector('.db-label')?.textContent ?? '').replace(/\s*\*$/, '')
-      pairs.push([label, formValueText(field.querySelector('[id^="f_"]'))])
+      if (!isShown(field)) continue
+      cells.push({
+        el: field,
+        label: (field.querySelector('.db-label')?.textContent ?? '').replace(/\s*\*$/, ''),
+        value: formValueText(field.querySelector('[id^="f_"]')),
+        full: field.classList.contains('db-field-full'),
+        half: field.classList.contains('db-field-half'),
+      })
     }
     // Payroll and the personnel file are ticks rather than fields.
     for (const doc of group.querySelectorAll('.db-switches > .db-doc, .db-docs > .db-doc')) {
+      if (!isShown(doc)) continue
       const box = doc.querySelector('input[type="checkbox"]')
-      const label = doc.querySelector('span')?.textContent ?? ''
-      pairs.push([label, doc.classList.contains('is-off') ? 'N/A' : formValueText(box)])
+      cells.push({
+        el: doc,
+        label: doc.querySelector('span')?.textContent ?? '',
+        value: doc.classList.contains('is-off') ? 'N/A' : formValueText(box),
+      })
     }
-    if (pairs.length) area.appendChild(printSection(title, pairs, 4))
+    const grid = group.querySelector('.db-grid')
+    const perRow = +(grid?.dataset.cols || 0) ||
+      ({ identity: 6, contact: 8 })[grid?.dataset.layout] || (cells.length && !grid ? 6 : 4)
+    if (cells.length) area.appendChild(printSection(title, cells, perRow))
   }
 
   // What the system works out: service, age, contract dates, file status.
-  const derived = [...document.querySelectorAll('#derivedPanel .derived-item')].map((item) => [
-    item.querySelector('.derived-key')?.textContent ?? '',
-    item.querySelector('.derived-val')?.textContent ?? '',
-  ])
-  if (derived.length && !$('derivedPanel').hidden) area.appendChild(printSection('Calculated', derived, 4))
+  if (!$('derivedPanel').hidden) {
+    const derived = [...document.querySelectorAll('#derivedPanel .derived-item')].filter(isShown).map((item) => ({
+      el: item,
+      label: item.querySelector('.derived-key')?.textContent ?? '',
+      value: item.querySelector('.derived-val')?.textContent ?? '',
+    }))
+    if (derived.length) area.appendChild(printSection('Calculated', derived, 6))
+  }
 
   fitEmployeePrint()
 }
