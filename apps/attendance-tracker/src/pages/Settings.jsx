@@ -387,7 +387,10 @@ export default function Settings() {
       <TabPanel id="attendance" tab={tab}>
       <Card>
         <CardHeader title="Payroll constants" />
-        <form className="grid gap-4 p-5 sm:grid-cols-2" onSubmit={saveSettings}>
+        {/* One row on a wide screen: the three constants, then Save. The
+            Save cell is padded down by a label's height so the button lines
+            up with the boxes, not with the labels or the hints under them. */}
+        <form className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-start" onSubmit={saveSettings}>
           <Field
             label={`Meal allowance (${lookups.currency} per meal unit)`}
             hint="Default for the monthly report; can be overridden per run."
@@ -427,7 +430,7 @@ export default function Settings() {
               onChange={(e) => setLateGrace(e.target.value)}
             />
           </Field>
-          <div className="flex items-end">
+          <div className="flex items-end lg:items-start lg:pt-5">
             <Button type="submit" disabled={readOnly}>Save</Button>
           </div>
         </form>
@@ -690,6 +693,9 @@ export default function Settings() {
       <TabPanel id="employees" tab={tab}>
       <DepartmentsCard lookups={lookups} readOnly={readOnly} />
 
+      {/* Sites and bus routes: two lists side by side on a wide screen,
+          one above the other on a narrow one. */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
       <Card>
         <CardHeader title="Sites" subtitle="Unavailable sites cannot be assigned to new employees." />
         <table className="w-full">
@@ -743,6 +749,7 @@ export default function Settings() {
       </Card>
 
       <BusRoutesCard lookups={lookups} readOnly={readOnly} />
+      </div>
       </TabPanel>
 
       <TabPanel id="salary" tab={tab}>

@@ -51,13 +51,12 @@ function personRow(p) {
   const lvl = levelOf(p.level_id)
   const badge = el('span', `cs-level cs-l${lvl?.rank ?? 0}`, lvl?.code || '—')
   badge.title = lvl?.name || 'No level'
+  // English name only, on one line. (Search still finds people by
+  // their Arabic name.)
   const names = el('div', 'cs-names')
-  names.append(el('span', 'cs-name', p.name || ''))
-  if (p.arabic_name) {
-    const ar = el('span', 'cs-name-ar', p.arabic_name)
-    ar.dir = 'rtl'
-    names.append(ar)
-  }
+  const name = el('span', 'cs-name', p.name || '')
+  name.title = p.name || ''
+  names.append(name)
   const title = el('div', 'cs-title', p.title || p.si_title || '')
   row.append(badge, names, title)
   return row
@@ -78,7 +77,6 @@ function draw() {
     const block = el('section', 'cs-sector')
     const head = el('header', 'cs-sector-head')
     head.append(el('h3', '', sector.name))
-    if (sector.name_ar) { const ar = el('span', 'cs-ar', sector.name_ar); ar.dir = 'rtl'; head.append(ar) }
     const count = el('span', 'cs-count')
     head.append(count)
     block.append(head)
@@ -94,7 +92,6 @@ function draw() {
       const card = el('div', 'cs-dept')
       const dh = el('div', 'cs-dept-head')
       dh.append(el('h4', '', dept.name))
-      if (dept.name_ar) { const ar = el('span', 'cs-ar', dept.name_ar); ar.dir = 'rtl'; dh.append(ar) }
       dh.append(el('span', 'cs-count', String(people.length)))
       card.append(dh)
       for (const p of people) card.append(personRow(p))
@@ -115,12 +112,16 @@ function draw() {
   $('status').textContent = q ? 'Nobody matches that search.' : 'No employees to show yet.'
 }
 
+/* The levels in their own panel beside the structure, one under the
+   other from the top level down (state.levels is loaded highest rank
+   first), each with how many people hold it. */
 function drawLevels() {
   const box = $('levels')
   box.innerHTML = ''
   for (const l of state.levels) {
-    const item = el('span', 'cs-legend')
-    item.append(el('span', `cs-level cs-l${l.rank}`, l.code), el('span', '', l.name))
+    const item = el('li', 'cs-legend')
+    const n = state.people.filter((p) => p.level_id === l.id).length
+    item.append(el('span', `cs-level cs-l${l.rank}`, l.code), el('span', 'cs-legend-name', l.name), el('span', 'cs-count', String(n)))
     box.append(item)
   }
 }

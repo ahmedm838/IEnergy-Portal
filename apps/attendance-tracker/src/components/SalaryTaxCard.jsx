@@ -235,7 +235,8 @@ export default function SalaryTaxCard({ readOnly }) {
         {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
       </div>
 
-      <div className="grid gap-4 px-5 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+      {/* The six numbers in one row on a wide screen. */}
+      <div className="grid items-start gap-4 px-5 pt-5 sm:grid-cols-3 lg:grid-cols-6">
         {[
           ['Minimum S.I. basic wage (EGP)', 'Salary Calculator and Employee Database refuse a basic wage below this.', siMin, setSiMin],
           ['Maximum S.I. basic wage (EGP)', 'Salary Calculator and Employee Database refuse a basic wage above this.', siMax, setSiMax],

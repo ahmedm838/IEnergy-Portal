@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="../favicon.png?v=2" />
   <link rel="stylesheet" href="../responsive.css?v=2" />
   <link rel="stylesheet" href="../home.css?v=24" />
-  <link rel="stylesheet" href="company-structure.css?v=1" />
+  <link rel="stylesheet" href="company-structure.css?v=2" />
   <script src="../theme.js?v=4"></script>
   <script src="../print-stamp.js?v=1"></script>
   <!-- Fetch a page when the pointer settles on its link, so the click
@@ -82,9 +82,17 @@
           <input id="search" class="cs-search" type="search" autocomplete="off"
                  placeholder="Find a person, title, department or sector…" aria-label="Search" />
         </div>
-        <div class="cs-levels" id="levels" aria-label="Levels"></div>
-        <div id="status" class="cs-status" hidden></div>
-        <div id="tree" class="cs-tree"></div>
+        <div class="cs-layout">
+          <div class="cs-main">
+            <div id="status" class="cs-status" hidden></div>
+            <div id="tree" class="cs-tree"></div>
+          </div>
+          <aside class="cs-side" aria-labelledby="levelsTitle">
+            <h3 id="levelsTitle">Levels</h3>
+            <p class="cs-side-sub">Highest to lowest</p>
+            <ol class="cs-levels" id="levels"></ol>
+          </aside>
+        </div>
       </section>
 
       <footer class="footer">
@@ -94,6 +102,6 @@
   </main>
 
   <script src="../auth.js?v=17"></script>
-  <script type="module" src="company-structure.js?v=1"></script>
+  <script type="module" src="company-structure.js?v=2"></script>
 </body>
 </html>

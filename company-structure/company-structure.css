@@ -8,17 +8,34 @@
   border: 1px solid var(--line-strong); background: var(--sunken); color: var(--text);
   font: inherit; font-size: 14px;
 }
-.cs-levels { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 14px 0 4px; font-size: 12.5px; color: var(--muted); }
-.cs-legend { display: inline-flex; align-items: center; gap: 6px; }
 .cs-status { margin-top: 16px; color: var(--muted); font-size: 14px; }
 
-.cs-tree { display: grid; gap: 22px; margin-top: 16px; }
+/* The structure, with the levels in their own panel on the side. Below
+   the side panel's width the panel goes on top. */
+.cs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 22px; align-items: start; margin-top: 16px; }
+.cs-main { min-width: 0; }
+.cs-side {
+  position: sticky; top: 76px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+  padding: 12px 14px;
+}
+.cs-side h3 { margin: 0; font-size: 15px; }
+.cs-side-sub { margin: 2px 0 10px; color: var(--muted); font-size: 12px; }
+.cs-levels { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+.cs-legend { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+.cs-legend-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-legend .cs-count { margin: 0; }
+@media (max-width: 860px) {
+  .cs-layout { grid-template-columns: 1fr; }
+  .cs-side { position: static; order: -1; }
+}
+
+.cs-tree { display: grid; gap: 22px; }
 .cs-sector-head {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;
   padding-bottom: 8px; margin-bottom: 12px; border-bottom: 2px solid var(--accent-line);
 }
 .cs-sector-head h3 { margin: 0; font-size: 18px; }
-.cs-ar { color: var(--muted); font-size: 14px; }
 .cs-count { margin-inline-start: auto; color: var(--muted); font-size: 12.5px; }
 
 .cs-depts { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); align-items: start; }
@@ -35,9 +52,10 @@
 }
 .cs-person:first-of-type { border-top: 0; }
 .cs-person.is-me { background: var(--accent-fill-strong); }
-.cs-names { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; min-width: 0; }
-.cs-name { font-weight: 600; font-size: 14px; }
-.cs-name-ar { color: var(--muted); font-size: 13px; }
+.cs-names { min-width: 0; }
+/* The name always on one line; a name too long for the card ends in "…"
+   and shows in full on hover. */
+.cs-name { display: block; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cs-title { grid-column: 2; color: var(--muted); font-size: 12.5px; }
 
 /* One colour per level, the top darkest. */

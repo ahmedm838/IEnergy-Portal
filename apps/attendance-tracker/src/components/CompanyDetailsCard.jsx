@@ -94,9 +94,10 @@ export default function CompanyDetailsCard({ readOnly }) {
         {error && <Alert tone="error" onDismiss={() => setError(null)}>{error}</Alert>}
         {notice && <Alert tone="success" onDismiss={() => setNotice(null)}>{notice}</Alert>}
       </div>
-      <div className="grid gap-4 p-5 sm:grid-cols-2">
+      {/* Two fields to a row, the address included. */}
+      <div className="grid grid-cols-1 items-start gap-4 p-5 md:grid-cols-2">
         {FIELDS.map(([key, label, hint]) => (
-          <Field key={key} label={label} hint={hint} className={key === 'address_ar' ? 'sm:col-span-2' : ''}>
+          <Field key={key} label={label} hint={hint}>
             <Input
               value={draft[key] ?? ''}
               dir={key === 'establishment_no' ? 'ltr' : 'rtl'}
