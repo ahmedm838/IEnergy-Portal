@@ -1458,7 +1458,7 @@ DOCUMENTS.push({
   id: 'job-application',
   title: 'طلب توظيف',
   subtitle: 'Job application · blank form',
-  template: 'templates/job-application.docx?v=3',
+  template: 'templates/job-application.docx?v=4',
   // Laid out as in Word: its pages are Word's (split where Word split
   // them when the template was saved), each printed on one sheet, and
   // its lines and tables measured as Word measures them.
