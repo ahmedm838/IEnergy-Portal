@@ -663,7 +663,7 @@
 
     const heading = document.createElement("h2");
     heading.id = "pwChangeTitle";
-    heading.textContent = "Change password";
+    heading.textContent = "Change Password";
     const lead = document.createElement("p");
     lead.textContent = "Enter your current password, then the new one, at least 8 characters.";
 

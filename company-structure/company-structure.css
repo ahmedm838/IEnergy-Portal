@@ -1,5 +1,8 @@
 /* Company structure: sectors as sections, departments as cards inside
    them, people in each card from the top level down. */
+/* The page 10% wider than the usual 980px column. */
+#app .container { max-width: 1078px; }
+
 .cs-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .cs-head h2 { margin: 0; }
 .cs-search {
@@ -12,7 +15,7 @@
 
 /* The structure, with the levels in their own panel on the side. Below
    the side panel's width the panel goes on top. */
-.cs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 22px; align-items: start; margin-top: 16px; }
+.cs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 22px; align-items: start; margin-top: 16px; }
 .cs-main { min-width: 0; }
 .cs-side {
   position: sticky; top: 76px;
@@ -22,8 +25,9 @@
 .cs-side h3 { margin: 0; font-size: 15px; }
 .cs-side-sub { margin: 2px 0 10px; color: var(--muted); font-size: 12px; }
 .cs-levels { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
-.cs-legend { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
-.cs-legend-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-legend { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 8px; }
+/* The full level name, wrapping onto a second line if it is long. */
+.cs-legend-name { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
 .cs-legend .cs-count { margin: 0; }
 @media (max-width: 860px) {
   .cs-layout { grid-template-columns: 1fr; }

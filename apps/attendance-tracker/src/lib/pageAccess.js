@@ -36,7 +36,7 @@ export const PAGES = [
     about: 'Requests: salary advance, financial grant, custody, penalty notice, hiring and purchase requests, performance evaluation. Any employee can be picked by name.',
   },
   {
-    page: 'company-structure', label: 'Company structure', defaults: ['user', 'admin'],
+    page: 'company-structure', label: 'Company Structure', defaults: ['user', 'admin'],
     about: 'Sectors and departments, with every employee\'s name, title and level.',
   },
   {
@@ -48,7 +48,7 @@ export const PAGES = [
     about: 'Gross, tax, social insurance and net salary calculations. Shows no employee data.',
   },
   {
-    page: 'company-policy', label: 'Company policy', defaults: ['user', 'admin'],
+    page: 'company-policy', label: 'Company Policy', defaults: ['user', 'admin'],
     about: 'Company policies to read and download.',
   },
 ]
