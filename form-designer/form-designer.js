@@ -21,6 +21,8 @@ const PAGES = {
 }
 const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const SUPERDOC = '../vendor/superdoc-2.35.0/superdoc.js'
+// The same Word-file reader the preview loads (JSZip), for the page border.
+const DOCX_LIBS = '../vendor/hr-docs-libs-1.js?v=2'
 // How long typing has to pause before the preview is redrawn.
 const QUIET_MS = 400
 
@@ -223,13 +225,14 @@ async function superDoc() {
 async function openInEditor(buf, name, { changed = false } = {}) {
   if (!isDocx(buf)) throw new Error(`${name} is not a Word (.docx) file`)
   const SuperDoc = await superDoc()
+  const border = await readPageBorder(buf)
   closeEditor()
   const id = state.loadId
   $('editorHost').innerHTML = ''
   const host = document.createElement('div')
   host.id = `doc${id}`
   $('editorHost').appendChild(host)
-  state.unwatchRtl = watchRtl(host)
+  state.unwatchRtl = watchRtl(host, border)
   status(`Opening ${name}…`, true)
   const file = new File([buf], name, { type: DOCX_TYPE })
   await new Promise((resolve, reject) => {
@@ -425,20 +428,150 @@ function fixRtlLine(line) {
     while (next?.classList.contains('superdoc-marker-suffix-tab')) next = next.nextElementSibling
     if (next?.style.marginLeft) next.style.setProperty('margin-right', next.style.marginLeft, 'important')
   }
+  keepLatinOrder(line)
   line.dataset[RTL_DONE] = line.getAttribute('style') || ''
 }
 
-function watchRtl(host) {
+/* English inside an Arabic line reads left to right, as Word shows it:
+   the line runs right to left, but "Job Application" made of runs
+   "Job", " ", "Application" must not come out "Application Job". Runs
+   of English, with only spaces or punctuation between them, are put
+   back in their own order with CSS order. A tab ends such a stretch, as
+   it does in Word. */
+const ARABIC_CHAR = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/
+const LATIN_CHAR = /[A-Za-z\u00C0-\u024F]/
+function keepLatinOrder(line) {
+  const kids = [...line.children]
+  const kind = (el) => {
+    if (!el.classList.contains('superdoc-text-run')) return 'X'
+    const t = el.textContent
+    return ARABIC_CHAR.test(t) ? 'R' : LATIN_CHAR.test(t) ? 'L' : 'N'
+  }
+  const kinds = kids.map(kind)
+  let set = false
+  for (let i = 0; i < kids.length; i++) {
+    if (kinds[i] !== 'L') continue
+    let end = i
+    for (let k = i + 1; k < kids.length && (kinds[k] === 'N' || kinds[k] === 'L'); k++) if (kinds[k] === 'L') end = k
+    if (end > i) {
+      if (!set) { kids.forEach((el, n) => { el.style.order = String(n) }); set = true }
+      for (let t = 0; t <= end - i; t++) kids[i + t].style.order = String(end - t)
+    }
+    i = end
+  }
+}
+
+/* The page border. SuperDoc reads a section's page border but does not
+   draw it; the preview does (frame() in hr-documents.js), so the editor
+   draws the same line: from the Word file's own settings, on every page,
+   behind the text and out of the way of the mouse. */
+async function readPageBorder(buf) {
+  try {
+    const { JSZip } = await import(DOCX_LIBS)
+    const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml').async('string')
+    const sect = xml.slice(xml.lastIndexOf('<w:sectPr'))
+    const b = /<w:pgBorders\b([^>]*)>([\s\S]*?)<\/w:pgBorders>/.exec(sect)
+    if (!b) return null
+    const twipsPx = (v) => (+v || 0) / 15
+    const pageW = twipsPx(/<w:pgSz\b[^>]*w:w="(\d+)"/.exec(sect)?.[1] || 11906)
+    const fromText = /w:offsetFrom="text"/.test(b[1])
+    const margin = (side) => twipsPx(new RegExp(`<w:pgMar\\b[^>]*w:${side}="(-?\\d+)"`).exec(sect)?.[1] || 1440)
+    const sides = {}
+    for (const side of ['top', 'left', 'bottom', 'right']) {
+      const tag = new RegExp(`<w:${side}\\b[^>]*>`).exec(b[2])?.[0]
+      if (!tag || /w:val="(none|nil)"/.test(tag)) continue
+      const num = (re, d) => { const m = re.exec(tag); return m ? +m[1] : d }
+      const space = (num(/w:space="(\d+)"/, 24) * 4) / 3
+      const color = /w:color="([0-9A-Fa-f]{6})"/.exec(tag)?.[1]
+      sides[side] = {
+        width: Math.max(1, ((num(/w:sz="(\d+)"/, 4) / 8) * 4) / 3),
+        inset: fromText ? Math.max(0, margin(side) - space) : space,
+        color: color ? `#${color}` : '#000',
+        style: /w:val="double"/.test(tag) ? 'double' : /w:val="dashed"/.test(tag) ? 'dashed' : /w:val="dotted"/.test(tag) ? 'dotted' : 'solid',
+      }
+    }
+    return Object.keys(sides).length ? { pageW, sides } : null
+  } catch (_) {
+    return null
+  }
+}
+
+function framePage(page, border) {
+  if (page.querySelector(':scope > .fd-page-frame')) return
+  const scale = page.offsetWidth / border.pageW || 1
+  const f = document.createElement('div')
+  f.className = 'fd-page-frame'
+  f.setAttribute('aria-hidden', 'true')
+  for (const side of ['top', 'left', 'bottom', 'right']) {
+    const s = border.sides[side]
+    const cap = side[0].toUpperCase() + side.slice(1)
+    f.style[side] = s ? `${s.inset * scale}px` : '0px'
+    f.style[`border${cap}`] = s ? `${Math.max(1, s.width * scale)}px ${s.style} ${s.color}` : 'none'
+  }
+  page.prepend(f)
+}
+
+function watchRtl(host, border = null) {
   let queued = false
   const run = () => {
     queued = false
     for (const line of host.querySelectorAll('.ts-line.ts-line-box[dir=rtl]')) fixRtlLine(line)
+    if (border) for (const page of host.querySelectorAll('.superdoc-page')) framePage(page, border)
   }
   const watcher = new MutationObserver(() => {
     if (!queued) { queued = true; requestAnimationFrame(run) }
   })
   watcher.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'dir'] })
-  return () => watcher.disconnect()
+  const stopArrows = watchArrows(host)
+  return () => { watcher.disconnect(); stopArrows() }
+}
+
+/* Left and Right on an Arabic line. SuperDoc moves the cursor by the
+   order of the text: Right goes to the next letter, which in Arabic is
+   the one on the LEFT. (It has a right-to-left mode, but only for Arabic
+   inside a left-to-right paragraph, never for a right-to-left paragraph,
+   which is every paragraph of these forms.) So on a right-to-left line
+   the two keys are swapped before SuperDoc sees them: Left moves left,
+   Right moves right, with Shift (selecting), Ctrl/Alt (a word) and Cmd
+   (the line) the same way. Whether the cursor is on such a line is read
+   from the line under the cursor; while a selection hides the cursor,
+   the last line it was on counts. */
+const SWAP_KEYS = { ArrowLeft: 'ArrowRight', ArrowRight: 'ArrowLeft' }
+
+function cursorDirection(host) {
+  const caret = host.querySelector('.ts-caret')
+  const c = caret?.getBoundingClientRect()
+  if (!c?.height) return null
+  const y = c.top + c.height / 2
+  let best = null
+  let bestGap = Infinity
+  for (const line of host.querySelectorAll('.ts-line[dir]')) {
+    const r = line.getBoundingClientRect()
+    if (y < r.top - 1 || y > r.bottom + 1) continue
+    const gap = c.left < r.left ? r.left - c.left : c.left > r.right ? c.left - r.right : 0
+    if (gap < bestGap) { bestGap = gap; best = line }
+  }
+  return best && bestGap < 40 ? best.getAttribute('dir') : null
+}
+
+function watchArrows(host) {
+  let lastDir = null
+  const onKey = (e) => {
+    const to = SWAP_KEYS[e.key]
+    if (!to || !e.isTrusted || !host.contains(e.target)) return
+    const dir = cursorDirection(host) ?? lastDir
+    lastDir = dir
+    if (dir !== 'rtl') return
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    e.target.dispatchEvent(new KeyboardEvent('keydown', {
+      key: to, code: to, bubbles: true, cancelable: true, composed: true,
+      shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey, repeat: e.repeat,
+    }))
+  }
+  // On the window, capturing: ahead of SuperDoc's own key handling.
+  window.addEventListener('keydown', onKey, true)
+  return () => window.removeEventListener('keydown', onKey, true)
 }
 
 /* ------------------------------------------------------------------ */

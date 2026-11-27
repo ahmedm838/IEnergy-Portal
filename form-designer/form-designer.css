@@ -89,3 +89,7 @@ body { margin: 0; }
 .fd-editor .ts-line.ts-line-box[dir=rtl][style*="text-align: center"] { justify-content: center !important; }
 .fd-editor .ts-line.ts-line-box[dir=rtl][style*="text-align: left"] { justify-content: flex-end !important; }
 .fd-editor .ts-line.ts-line-box[dir=rtl] > * { margin-left: 0 !important; }
+
+/* The page border, drawn by form-designer.js (framePage): behind the
+   text, never in the way of a click. */
+.fd-editor .fd-page-frame { position: absolute; pointer-events: none; z-index: 0; box-sizing: border-box; }
