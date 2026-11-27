@@ -1458,17 +1458,18 @@ DOCUMENTS.push({
   id: 'job-application',
   title: 'طلب توظيف',
   subtitle: 'Job application · blank form',
-  template: 'templates/job-application.docx?v=4',
-  // Laid out as in Word: its pages are Word's (split where Word split
-  // them when the template was saved), each printed on one sheet, and
-  // its lines and tables measured as Word measures them.
-  fitPages: true,
-  wordMetrics: true,
-  // The company letterhead: logo and title in the header, address in the
-  // footer printed as it is, as on Employee Documents.
-  keepFooter: true,
+  // The Word file is the source, kept for editing; the portal shows the
+  // PDF saved from it, page by page (pictures of its pages, drawn from the
+  // PDF), and Save PDF and Print give that PDF itself, as it is.
+  template: 'templates/job-application.docx?v=5',
+  pdfFile: 'templates/job-application.pdf?v=1',
+  scan: {
+    pages: ['templates/job-application-1.png?v=1', 'templates/job-application-2.png?v=1'],
+    size: [1240, 1754],
+    paper: 'a4',
+    spots: [],
+  },
   blankForm: true,
-  ownDirection: true,
   fields: {},
   dates: () => ({}),
   values: () => ({}),
@@ -3025,6 +3026,14 @@ const LONG_PAGE = 1.2
    several copies (copies, on the part) comes out that many times, one
    copy after another. Save PDF keeps one of each. */
 async function buildPdf({ print = false } = {}) {
+  /* pdfFile (on a document): the form's own PDF, given as it is -- no
+     picture of the preview, no print stamp -- so what is saved and
+     printed is exactly that file. */
+  if (state.def?.pdfFile) {
+    const res = await fetch(state.def.pdfFile, { cache: 'no-cache' })
+    if (!res.ok) throw new Error(`PDF not found (${res.status})`)
+    return new Blob([await res.arrayBuffer()], { type: 'application/pdf' })
+  }
   const preview = $('preview')
   // In a pack, only the parts ticked to print (state.skip lists the rest).
   const pages = Array.from(preview.querySelectorAll('section.docx'))
