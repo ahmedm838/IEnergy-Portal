@@ -82,8 +82,24 @@ function draw() {
     block.append(head)
     let inSector = 0
     const grid = el('div', 'cs-depts')
+    // Departments led by the most senior people first: compare each
+    // department's ranks from the top down (highest level, then the next,
+    // and so on), so a department with an L6 comes before one whose top
+    // is L5. Vacant departments go last, then by their usual order.
+    const ranksOf = (dept) => state.people
+      .filter((p) => (p.department_id ?? null) === dept.id)
+      .map(rankOf)
+      .sort((a, b) => b - a)
+    const keyed = depts.map((dept, i) => ({ dept, i, ranks: ranksOf(dept) }))
+    keyed.sort((a, b) => {
+      if (!a.ranks.length || !b.ranks.length) return (b.ranks.length ? 1 : 0) - (a.ranks.length ? 1 : 0) || a.i - b.i
+      for (let k = 0; k < Math.min(a.ranks.length, b.ranks.length); k++) {
+        if (a.ranks[k] !== b.ranks[k]) return b.ranks[k] - a.ranks[k]
+      }
+      return b.ranks.length - a.ranks.length || a.i - b.i
+    })
     let deptsShown = 0
-    for (const dept of depts) {
+    for (const { dept } of keyed) {
       const inDept = state.people.filter((p) => (p.department_id ?? null) === dept.id)
       const people = inDept
         .filter((p) => matches(p, dept, sector))
