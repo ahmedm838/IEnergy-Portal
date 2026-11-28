@@ -8,6 +8,7 @@ import DepartmentsCard from '../components/DepartmentsCard'
 import AccessCard from '../components/AccessCard'
 import PageAccessCard from '../components/PageAccessCard'
 import BusRoutesCard from '../components/BusRoutesCard'
+import LevelsCard from '../components/LevelsCard'
 import FinancialGrantsCard from '../components/FinancialGrantsCard'
 import CompanyDetailsCard from '../components/CompanyDetailsCard'
 import SalaryTaxCard from '../components/SalaryTaxCard'
@@ -693,9 +694,9 @@ export default function Settings() {
       <TabPanel id="employees" tab={tab}>
       <DepartmentsCard lookups={lookups} readOnly={readOnly} />
 
-      {/* Sites and bus routes: two lists side by side on a wide screen,
-          one above the other on a narrow one. */}
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+      {/* Sites, bus routes and levels: three lists side by side on a wide
+          screen, two then one on a medium one, stacked on a narrow one. */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
       <Card>
         <CardHeader title="Sites" subtitle="Unavailable sites cannot be assigned to new employees." />
         <table className="w-full">
@@ -749,6 +750,8 @@ export default function Settings() {
       </Card>
 
       <BusRoutesCard lookups={lookups} readOnly={readOnly} />
+
+      <LevelsCard lookups={lookups} readOnly={readOnly} />
       </div>
       </TabPanel>
 
@@ -879,7 +882,7 @@ function TypeEditRow({ value, onChange, onCancel, onSave }) {
    yet saved survives a look at another tab. */
 const TABS = [
   { id: 'attendance', label: 'Attendance Tracker', hint: 'Payroll constants, locked periods, attendance types and employee statuses' },
-  { id: 'employees', label: 'Employees Database', hint: 'Departments and sectors, sites and bus routes' },
+  { id: 'employees', label: 'Employees Database', hint: 'Departments and sectors, sites, bus routes and levels' },
   { id: 'salary', label: 'Salary Calculator', hint: 'Salary taxes, S.I. wage limits and shares' },
   { id: 'documents', label: 'Documents', hint: 'Form Designer, company details and financial grants' },
   { id: 'access', label: 'Access', hint: 'Page access, roles and passwords' },

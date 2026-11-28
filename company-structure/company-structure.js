@@ -82,22 +82,31 @@ function draw() {
     block.append(head)
     let inSector = 0
     const grid = el('div', 'cs-depts')
+    let deptsShown = 0
     for (const dept of depts) {
-      const people = state.people
-        .filter((p) => (p.department_id ?? null) === dept.id)
+      const inDept = state.people.filter((p) => (p.department_id ?? null) === dept.id)
+      const people = inDept
         .filter((p) => matches(p, dept, sector))
         .sort((a, b) => rankOf(b) - rankOf(a) || String(a.name).localeCompare(String(b.name)))
-      if (!people.length) continue
+      // Every real department is shown, vacant or not. The "No
+      // department" bucket only when somebody is in it. While searching,
+      // a department with no match shows only if its own name (or its
+      // sector's) matches.
+      const deptMatches = !q || [dept.name, dept.name_ar, sector.name, sector.name_ar].some((v) => fold(v).includes(q))
+      if (!people.length && (dept.id === null || inDept.length || !deptMatches)) continue
       inSector += people.length
-      const card = el('div', 'cs-dept')
+      deptsShown++
+      const vacant = !inDept.length
+      const card = el('div', vacant ? 'cs-dept is-vacant' : 'cs-dept')
       const dh = el('div', 'cs-dept-head')
       dh.append(el('h4', '', dept.name))
-      dh.append(el('span', 'cs-count', String(people.length)))
+      dh.append(el('span', 'cs-count', vacant ? 'Vacant' : String(people.length)))
       card.append(dh)
+      if (vacant) card.append(el('div', 'cs-vacant', 'No employees yet'))
       for (const p of people) card.append(personRow(p))
       grid.append(card)
     }
-    if (!inSector) continue
+    if (!deptsShown) continue
     count.textContent = `${inSector} ${inSector === 1 ? 'person' : 'people'}`
     block.append(grid)
     tree.append(block)
@@ -108,7 +117,7 @@ function draw() {
   $('summary').textContent = q
     ? `${shown} of ${total} people match.`
     : `${total} people in ${state.departments.length} departments across ${state.sectors.length} sectors.`
-  $('status').hidden = !!shown
+  $('status').hidden = !!shown || !!tree.children.length
   $('status').textContent = q ? 'Nobody matches that search.' : 'No employees to show yet.'
 }
 

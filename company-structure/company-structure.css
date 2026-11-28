@@ -1,7 +1,7 @@
 /* Company structure: sectors as sections, departments as cards inside
    them, people in each card from the top level down. */
-/* The page 10% wider than the usual 980px column. */
-#app .container { max-width: 1078px; }
+/* The page wider than the usual 980px column: 10%, then 10% more. */
+#app .container { max-width: 1186px; }
 
 .cs-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .cs-head h2 { margin: 0; }
@@ -76,3 +76,8 @@
 .cs-l3 { background: #0d9488; }
 .cs-l2 { background: #65a30d; }
 .cs-l1 { background: #a16207; }
+
+/* A department with nobody in it yet. */
+.cs-dept.is-vacant { border-style: dashed; }
+.cs-dept.is-vacant .cs-dept-head { background: transparent; }
+.cs-vacant { padding: 10px 12px; color: var(--muted); font-size: 13px; font-style: italic; }
